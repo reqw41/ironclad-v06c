@@ -738,15 +738,7 @@ render_full:
             ld   hl,sl_v2
             call sl_print
 rf_1:       call L1206
-            CPV  bBD,1
-            jp   nz,rf_2
-            call L3820
-            SETV bSH,1
-rf_sh:      call L3884
-            INCV bSH
-            LDV  bNK
-            cp   (hl)
-            jp   nc,rf_sh
+            call panel_bd
 rf_2:       SETV bMY,192
             call msg_draw_my
             SETV bMY,202
@@ -776,8 +768,7 @@ rf_c:       push bc
             or   a
             call nz,cur_draw
 rf_3:       call at_draw_vis
-            ld   a,15
-            ld   (gfx_fg),a
+            call fg15
             jp   disp_on
 
 

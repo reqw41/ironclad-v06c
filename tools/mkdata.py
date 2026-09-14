@@ -63,11 +63,8 @@ def cmap_of(slots, pal, avoid0=()):
     m[0] = 0
     return m
 def pal8(slots, pal):
-    out = []
-    for i in range(16):
-        k = i >> 1
-        out.append(vecbyte(pal[slots[k]]) if k < len(slots) else 0)
-    return out
+    """8 байт: цвет слота k (индексы Вектора 2k и 2k+1 — одного цвета, pal_set удваивает)."""
+    return [vecbyte(pal[slots[k]]) if k < len(slots) else 0 for k in range(8)]
 def mpal(p): return {i+1: c for i, c in enumerate(p)}
 ROT_PAIRS = [(4,7),(5,8),(6,9),(12,13),(14,15),(16,17),(18,19),(20,21)]
 GAME_SLOTS = [1, 2, 12, 10, 15, 8, 7, 9]    # фон, вода, серый, чёрный, белый, красный, жёлтый, зелёный
@@ -389,7 +386,8 @@ def build_images():
 def build_palettes(pals):
     gp, mp = mpal(PAL_GAME), mpal(PAL_MENU)
     txt = ['; сгенерировано tools/mkdata.py: палитры Вектора (BBGGGRRR) 8-цветного режима:',
-           '; индекс i -> слот i>>1; слот 0 = фон/бордюр. cmap_* — номер цвета MSX -> слот (для рисования)',
+           '; по байту на слот (индексы 2k, 2k+1 — слот k; pal_set удваивает); слот 0 = фон/бордюр.',
+           '; cmap_* — номер цвета MSX -> слот (для рисования)',
            'pal_game:', db_lines(pal8(GAME_SLOTS, gp)),
            'pal_menu:', db_lines(pal8(pals['menu'][0], mp)),
            'pal_victory:', db_lines(pal8(pals['victory'][0], mpal(PAL_END))),

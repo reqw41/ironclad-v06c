@@ -74,16 +74,7 @@ L270:       SETV bSD,1
             call L1152
             call L1206
             call L1473
-L271:       LDV  bBD
-            or   a
-            jp   z,L275
-            call L3820
-            SETV bSH,1
-L271a:      call L3884
-            INCV bSH
-            LDV  bNK
-            cp   (hl)
-            jp   nc,L271a
+L271:       call panel_bd
 L275:                                   ; COPY стр.1 -> стр.2: снимок держат записи клеток
 L280:       call L305
 L290:       ZEROV bHZ
@@ -94,6 +85,19 @@ L290:       ZEROV bHZ
 L291:       ZEROV bDP
             call page_show
             jp   L500
+
+; 271: сборки BD — панель противника (3820) и свои корабли (3884, SH=1..NK)
+panel_bd:   LDV  bBD
+            or   a
+            ret  z
+            call L3820
+            SETV bSH,1
+L271a:      call L3884
+            INCV bSH
+            LDV  bNK
+            cp   (hl)
+            jp   nc,L271a
+            ret
 
 ; RUN: все переменные BASIC обнулить (строки пусты); страницы — чистый лист
 run_clear:
