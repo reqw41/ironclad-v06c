@@ -29,6 +29,14 @@ smem_magic: ds 2        ; &HDDF3/&HDDF4 = 165,195: сессионные счёт
             ENDIF
 persist_end:
 
+; Массивы только сборки IRONCLAD.BAS (GA, GB, QX, QY) лежат в буфере кандидатов движка FA:
+; FA нужен только сборкам залпов, эти — только STD; game_run обнуляет их для STD.
+ARR_GA      equ ENG_FA              ; GA(7,4) int16
+ARR_GB      equ ENG_FA+80           ; GB(7,5) int16
+ARR_QX      equ ENG_FA+176          ; QX/QY (без DIM — неявно (10,10); используются SH<=6, I<=4)
+ARR_QY      equ ENG_FA+236
+STD_OVL_END equ ENG_FA+296
+
 ; ---------------------------------------------------------------- переменные BASIC (RUN обнуляет)
 game_vars:
 ; байтовые
@@ -209,15 +217,11 @@ ARR_PM: ds 100*2
 ARR_CM: ds 100*2
 ARR_PS: ds 100*2
 ARR_CS: ds 100*2
-ARR_GA: ds 8*5*2        ; GA(7,4)
-ARR_GB: ds 8*6*2        ; GB(7,5)
 ; байтовые массивы
 ARR_GT: ds 11
 ARR_RU: ds 10
 ARR_PX: ds 12*5         ; PX(SH,I) = SH + I*12
 ARR_PY: ds 12*5
-ARR_QX: ds 12*5         ; QX/QY (без DIM — неявно (10,10); используются SH<=6, I<=4)
-ARR_QY: ds 12*5
 ARR_QH: ds 12
 ARR_HS: ds 12*5         ; HS(SH,J) = SH + J*12
 ARR_SQ: ds 11

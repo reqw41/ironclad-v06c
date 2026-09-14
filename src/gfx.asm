@@ -91,6 +91,8 @@ gf_nl:      push bc
 
 ; A = маска, H = столбец; строки gf_row.. вниз gf_h штук, цвет gf_col
 fill_col:
+            cp   0FFh
+            jp   z,fill_full
             ld   e,a
             cpl
             ld   d,a
@@ -134,6 +136,37 @@ fc_next:    ld   a,h
             dec  a
             ld   (fc_pl),a
             jp   nz,fc_pl_lp
+            ret
+
+; целый столбец байтов: запись без чтения
+fill_full:
+            ld   a,h
+            add  a,80h
+            ld   h,a
+            ld   a,(gf_col)
+            rlca
+            rlca
+            rlca
+            rlca
+            ld   c,a
+            ld   e,4
+ff_pl:      ld   a,(gf_row)
+            ld   l,a
+            ld   a,(gf_h)
+            ld   b,a
+            ld   a,c
+            rlca
+            ld   c,a
+            sbc  a,a                    ; FF, если бит цвета 1
+ff_1:       ld   (hl),a
+            dec  l
+            dec  b
+            jp   nz,ff_1
+            ld   a,h
+            add  a,20h
+            ld   h,a
+            dec  e
+            jp   nz,ff_pl
             ret
 
 ; A = (HL + A)
@@ -286,7 +319,7 @@ gfx_puts:
             inc  hl
             jp   gfx_puts
 
-; знак A
+; знак A (быстрый путь: строки знака сдвигаются один раз, по плоскостям — 4 вида цикла)
 gfx_putc:
             sub  32
             ret  c
@@ -296,63 +329,229 @@ gfx_putc:
             add  hl,hl
             add  hl,hl
             ld   de,font_data
-            add  hl,de
-            ld   (gc_src),hl
+            add  hl,de                  ; HL -> 8 строк знака
             ld   a,(gfx_x)
-            ld   b,a
             and  7
-            ld   (gs_n),a
-            ld   a,b
+            ld   c,a                    ; сдвиг s
+            ld   de,gc_rows
+            ld   b,8
+pc_sh:      ld   a,(hl)                 ; строка -> (L,R) со сдвигом s вправо
+            push hl
+            ld   h,a
+            ld   l,0
+            ld   a,c
+            or   a
+            jp   z,pc_s0
+pc_s1:      ld   a,h                    ; HL >>= 1
+            or   a
+            rra
+            ld   h,a
+            ld   a,l
+            rra
+            ld   l,a
+            dec  c
+            jp   nz,pc_s1
+pc_s0:      ld   a,h
+            ld   (de),a
+            inc  de
+            ld   a,l
+            ld   (de),a
+            inc  de
+            ld   a,(gfx_x)
+            and  7
+            ld   c,a
+            pop  hl
+            inc  hl
+            dec  b
+            jp   nz,pc_sh
+            ld   hl,lmask_tab           ; маски знакоместа: ML = FF>>s, MR = ~ML
+            ld   a,c
+            call tab_a
+            ld   (gc_ml),a
+            cpl
+            ld   (gc_mr),a
+            ld   a,(gfx_x)              ; адрес: плоскость 0
             rrca
             rrca
             rrca
             and  1Fh
             ld   (gc_colx),a
+            add  a,80h
+            ld   h,a
             ld   a,(gfx_y)
-            ld   (gc_y),a
-            ld   a,8
-            ld   (gc_cnt),a
-gc_row:
-            ld   a,(gc_y)
-            cp   212
-            jp   nc,gc_skip
-            ld   a,0FFh                 ; фон знакоместа
-            call shift_bits
-            ld   c,a
-            ld   a,(gfx_bg)
-            call gc_put
-            ld   hl,(gc_src)
-            ld   a,(hl)
-            or   a
-            jp   z,gc_skip
-            call shift_bits
-            ld   a,(gfx_fg)
-            call gc_put
-gc_skip:    ld   hl,(gc_src)
-            inc  hl
-            ld   (gc_src),hl
-            ld   hl,gc_y
-            inc  (hl)
-            ld   hl,gc_cnt
-            dec  (hl)
-            jp   nz,gc_row
-            ld   a,(gfx_x)
-            add  a,8
-            ld   (gfx_x),a
-            ret
-; биты D,E строки gc_y в столбце gc_colx цветом A
-gc_put:     ld   c,a
-            ld   a,(gc_colx)
-            cp   31
-            jp   nz,gcp_1
-            ld   e,0
-gcp_1:      ld   h,a
-            ld   a,(gc_y)
             ld   b,a
             ld   a,MSX_TOP
             sub  b
             ld   l,a
-            jp   put_bits
+            ld   (gc_y),a
+            ld   a,(gfx_fg)             ; цвета: биты плоскостей в старшую тетраду
+            rlca
+            rlca
+            rlca
+            rlca
+            ld   (gc_f),a
+            ld   a,(gfx_bg)
+            rlca
+            rlca
+            rlca
+            rlca
+            ld   (gc_b),a
+            ld   a,4
+            ld   (gc_cnt),a
+pc_pl:      ld   a,(gc_f)               ; вид цикла по битам (знак, фон) плоскости
+            rlca
+            ld   (gc_f),a
+            ld   a,(gc_b)
+            jp   c,pc_f1
+            rlca
+            ld   (gc_b),a
+            jp   c,pc_01
+            ; (0,0): знакоместо цветом 0
+            ld   a,(gc_ml)
+            cpl
+            ld   c,a
+            call pc_clr
+            ld   a,(gc_mr)
+            cpl
+            ld   c,a
+            call pc_clr_r
+            jp   pc_nx
+pc_f1:      rlca
+            ld   (gc_b),a
+            jp   nc,pc_10
+            ; (1,1): знакоместо цветом 1
+            ld   a,(gc_ml)
+            ld   c,a
+            call pc_set
+            ld   a,(gc_mr)
+            ld   c,a
+            call pc_set_r
+            jp   pc_nx
+pc_10:      ; (1,0): (old & ~M) | g
+            ld   a,(gc_ml)
+            cpl
+            ld   c,a
+            ld   de,gc_rows
+            call pc_gly
+            ld   a,(gc_mr)
+            cpl
+            ld   c,a
+            ld   de,gc_rows+1
+            call pc_gly_r
+            jp   pc_nx
+pc_01:      ; (0,1): (old & ~M) | (g ^ M)
+            ld   a,(gc_ml)
+            ld   b,a
+            ld   de,gc_rows
+            call pc_inv
+            ld   a,(gc_mr)
+            ld   b,a
+            ld   de,gc_rows+1
+            call pc_inv_r
+pc_nx:      ld   a,h
+            add  a,20h
+            ld   h,a
+            ld   a,(gc_cnt)
+            dec  a
+            ld   (gc_cnt),a
+            jp   nz,pc_pl
+            ld   a,(gfx_x)
+            add  a,8
+            ld   (gfx_x),a
+            ret
+; правый байт знакоместа — в следующем столбце (если он есть на экране)
+pc_clr_r:   call pc_right
+            ret  z
+            call pc_clr
+            dec  h
+            ret
+pc_set_r:   call pc_right
+            ret  z
+            call pc_set
+            dec  h
+            ret
+pc_gly_r:   call pc_right
+            ret  z
+            call pc_gly
+            dec  h
+            ret
+pc_inv_r:   call pc_right
+            ret  z
+            call pc_inv
+            dec  h
+            ret
+; Z = правого байта нет (сдвиг 0 или столбец 31); иначе H+1
+pc_right:   ld   a,(gfx_x)
+            and  7
+            ret  z
+            ld   a,(gc_colx)
+            cp   31
+            jp   z,pr_z
+            inc  h
+            or   1                      ; NZ
+            ret
+pr_z:       xor  a
+            ret
+; 8 строк вниз от gc_y: AND C
+pc_clr:     ld   a,(gc_y)
+            ld   l,a
+            ld   b,8
+pcc_1:      ld   a,(hl)
+            and  c
+            ld   (hl),a
+            dec  l
+            dec  b
+            jp   nz,pcc_1
+            ret
+; OR C
+pc_set:     ld   a,(gc_y)
+            ld   l,a
+            ld   b,8
+pcs_1:      ld   a,(hl)
+            or   c
+            ld   (hl),a
+            dec  l
+            dec  b
+            jp   nz,pcs_1
+            ret
+; (old & C) | (DE), DE += 2
+pc_gly:     ld   a,(gc_y)
+            ld   l,a
+            ld   b,8
+pcg_1:      ld   a,(de)
+            push de
+            ld   e,a
+            ld   a,(hl)
+            and  c
+            or   e
+            ld   (hl),a
+            pop  de
+            inc  de
+            inc  de
+            dec  l
+            dec  b
+            jp   nz,pcg_1
+            ret
+; (old & ~B) | ((DE) ^ B), DE += 2
+pc_inv:     ld   a,(gc_y)
+            ld   l,a
+            ld   c,8
+pci_1:      ld   a,(de)
+            xor  b
+            push de
+            ld   e,a
+            ld   a,b
+            cpl
+            and  (hl)
+            or   e
+            ld   (hl),a
+            pop  de
+            inc  de
+            inc  de
+            dec  l
+            dec  c
+            jp   nz,pci_1
+            ret
 
 ; ---------------------------------------------------------------- глиф 8x10
 ; A = номер глифа (0..31), B = x, C = y, E = цвет заливки (обводка — цвет 10), TPSET.

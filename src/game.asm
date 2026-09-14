@@ -28,7 +28,12 @@ gr_2:       ld   a,b
             ; 138 (сборки BD): сессионные счётчики движка заводятся один раз за включение
             ld   a,(cfg_fam)
             or   a
-            jp   z,L154
+            jp   nz,L138
+            ld   hl,ARR_GA              ; STD: RUN обнуляет GA, GB, QX, QY (они в FA движка)
+            ld   de,STD_OVL_END-ARR_GA
+            call memzero
+            jp   L154
+L138:
             ld   a,(smem_magic)
             cp   165
             jp   nz,L138a

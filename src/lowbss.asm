@@ -35,6 +35,11 @@ gc_src:     ds 2
 gc_colx:    ds 1
 gc_y:       ds 1
 gc_cnt:     ds 1
+gc_rows:    ds 16
+gc_ml:      ds 1
+gc_mr:      ds 1
+gc_f:       ds 1
+gc_b:       ds 1
 gl_fill:    ds 1
 gt_row:     ds 1
 gt_pln:     ds 1
