@@ -83,6 +83,7 @@ let total = 0;
 const games = {};      // v -> статистика партий модели
 let turnV = 0, turnZ = 0, callsInTurn = [];
 let minSP = 0xF000;    // глубина стека перевода
+const real = {};       // 'v/entry' -> такты Вектора в вызовах из модели партии
 
 function st(v, e) {
   stats[v] = stats[v] || {};
@@ -162,6 +163,7 @@ function variantRun(v) {
     } else if (!ri.timeout) {
       s.cyc.push(ri.cycles); s.vcyc.push(ri.vcycles); s.zcyc.push(rz.cycles);
       turnV += ri.vcycles; turnZ += rz.cycles;
+      if (why !== 'random') { const k = v + '/' + entry; (real[k] = real[k] || []).push(ri.vcycles); }
     }
     scenarios(v, entry, S, Sz, arg);
     return Sz;
@@ -284,6 +286,8 @@ console.log(`перевод: код ${mine.codeSize} Б, данные ${mine.bss
 console.log('(* — эталон с TX/TY на 11: залп 6..11 выстрелов)');
 console.log('вариант  вход       случаев  расх.   такты Вектора (медиана / p90 / макс)      8080 T (мед/макс)     Z80 T (мед/макс)');
 for (const r of rows) console.log(`${r.v.padEnd(8)} ${r.e.padEnd(10)} ${String(r.n).padStart(7)} ${String(r.bad).padStart(6)}   ${String(r.med).padStart(9)} ${String(r.p90).padStart(9)} ${String(r.max).padStart(10)}   ${String(r.cmed).padStart(9)} ${String(r.cmax).padStart(10)}   ${String(r.zmed).padStart(9)} ${String(r.zmax).padStart(10)}`);
+console.log('\nвызовы из модели партии (реальная игра), секунды Вектора 3 МГц: медиана / p90 / макс');
+for (const v of VARIANTS) console.log(`  ${v}: ` + ENTRIES[v].map(e => { const a = real[v + '/' + e]; if (!a) return null; const f = q => (pct(a, q) / 3e6).toFixed(3); return `${e} ${f(0.5)}/${f(0.9)}/${f(1)}`; }).filter(Boolean).join('; '));
 console.log('\nход противника целиком (свёртка + распространение + выбор залпа; ходы с SN>=3):');
 for (const v of VARIANTS) {
   const G = games[v]; if (!G) continue;
@@ -319,7 +323,7 @@ if (fails.length) {
   console.log('\nпервые расхождения:');
   for (const f of fails) console.log(`  ${f.v}/${f.entry} (${f.why || ''}) arg=${f.arg}: ${f.d.join(' | ')}`);
 }
-const summary = { total, invalid, stack: 0xF000 - minSP, rows, scen, codeSize: mine.codeSize, bssSize: mine.bssSize,
+const summary = { total, invalid, stack: 0xF000 - minSP, real: Object.fromEntries(Object.entries(real).map(([k, a]) => [k, { n: a.length, med: pct(a, 0.5), p90: pct(a, 0.9), max: pct(a, 1) }])), rows, scen, codeSize: mine.codeSize, bssSize: mine.bssSize,
   labels: labelHits, deadInsn: deadInsn.map(([a, x]) => x), branchHalf: branchHalf.map(([a, x]) => ({ ...x, taken: taken[a], notTaken: notTaken[a] })), gateOk, why };
 if (opt('json', null)) fs.writeFileSync(opt('json'), JSON.stringify(summary, null, 1));
 console.log(gateOk ? '\nГЕЙТ ПРОЙДЕН' : '\nГЕЙТ НЕ ПРОЙДЕН: ' + why.join('; '));
