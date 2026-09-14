@@ -19,8 +19,9 @@ const SRC = path.join(ROOT, 'src/engine');
 // [имя, что заменить (точный фрагмент, обязан встречаться 1 раз), на что]
 const MUT = [
   // pickn
-  ['pickn: сравнение наоборот', 'call    sgt             ; MG(P9) > BS ?\n                jp      nc,pnnext', 'call    sgt             ; MG(P9) > BS ?\n                jp      c,pnnext'],
-  ['pickn: новый лучший без BXW', 'ld      hl,(vP9)\n                ld      (vBXW),hl\npnnext:', 'ld      hl,(vP9)\n                nop\n                nop\n                nop\npnnext:'],
+  ['pickn: сравнение наоборот', 'call    sgt\n                ex      de,hl\n                ret', 'call    sgt\n                ccf\n                ex      de,hl\n                ret'],
+  ['p9best: новый лучший без BXW', 'ld      hl,(vP9)\n                ld      (vBXW),hl\np9next:', 'ld      hl,(vP9)\n                nop\n                nop\n                nop\np9next:'],
+  ['probesel: клетка вне игры не отсеяна (без ccf)', 'rla\n                ccf\n                ret     nc              ; клетка вне игры', 'rla\n                nop\n                ret     nc              ; клетка вне игры'],
   ['pickn: X без dec (со знаком)', 'dec     a\n                ld      b,a             ; X', 'nop\n                ld      b,a             ; X'],
   ['pickn: MG(BX) = -8 вместо -9', 'ld      (hl),-9', 'ld      (hl),-8'],
   ['pickn: 255 -> все корабли, но первый 2', 'ld      b,1             ; 255: все', 'ld      b,2             ; 255: все'],

@@ -296,29 +296,8 @@ pknorm:
                 ld      (vT),a
 ; клетки P9 = 13..130: наибольший MG (со знаком; из равных — более ранняя)
 pnshot:
-                ld      hl,-1           ; BS = -1
-                ld      (vBS),hl
-                ld      hl,13
-pncell:
-                ld      (vP9),hl
-                call    mgat
-                ld      e,(hl)
-                inc     hl
-                ld      d,(hl)          ; DE = MG(P9)
-                ld      hl,(vBS)
-                call    sgt             ; MG(P9) > BS ?
-                jp      nc,pnnext
-                ex      de,hl
-                ld      (vBS),hl
-                ld      hl,(vP9)
-                ld      (vBXW),hl
-pnnext:
-                ld      hl,(vP9)
-                inc     hl
-                ld      a,l
-                cp      131
-                jp      nz,pncell
-                ld      (vP9),hl
+                ld      de,pnh
+                call    p9best
                 ld      hl,(vBXW)       ; MG(BX) = -9
                 call    mgat
                 ld      (hl),-9
@@ -334,6 +313,45 @@ pnnext:
                 ld      c,e             ; Y
                 call    stnext
                 jp      c,pnshot
+                ret
+
+; pickn: HL -> MG(P9) -> CY = MG(P9) > BS (со знаком), HL = MG(P9)
+pnh:
+                ld      e,(hl)
+                inc     hl
+                ld      d,(hl)
+                ld      hl,(vBS)
+                call    sgt
+                ex      de,hl
+                ret
+
+; Лучшая клетка P9 = 13..130, как в циклах pickn/probesel оригинала: BS = -1,
+; для каждой P9 зовётся обработчик (DE) с HL -> MG(P9); он возвращает CY =
+; «лучше», HL = счёт — тогда BS = счёт, BXW = P9.  В конце vP9 = 131.
+p9best:
+                ld      hl,-1
+                ld      (vBS),hl
+                ld      hl,13
+p9cell:
+                ld      (vP9),hl
+                push    de
+                call    mgat
+                call    jpde
+                pop     de
+                jp      nc,p9next
+                ld      (vBS),hl
+                ld      hl,(vP9)
+                ld      (vBXW),hl
+p9next:
+                ld      hl,(vP9)
+                inc     hl
+                ld      a,l
+                cp      131
+                jp      nz,p9cell
+                ld      (vP9),hl
+                ret
+jpde:
+                push    de
                 ret
 
 ; TX(T) = B, TY(T) = C (слова со знаком); T += 1; CY = T < NF
@@ -803,22 +821,41 @@ psp2:
                 call    clrmo
                 ld      a,2
                 call    scanm
-                ld      hl,-1
-                ld      (vBS),hl
-                ld      hl,13
-pscell:
-                ld      (vP9),hl
+                ld      de,psh
+                call    p9best
+                ld      hl,(vBS)
+                ld      a,h
+                and     l
+                inc     a
+                jp      z,psnext        ; ни одной клетки
+                ld      hl,(vBXW)       ; MG(BX) += 12000
                 call    mgat
+                ld      a,(hl)
+                add     a,low 12000
+                ld      (hl),a
+                inc     hl
+                ld      a,(hl)
+                adc     a,high 12000
+                ld      (hl),a
+psnext:
+                call    nextk
+                jp      nc,psship
+                ret
+
+; probesel: HL -> MG(P9) -> CY = клетка в игре, покрыта (n = MO(P9) > 0) и
+; |2n - CC| < BS (без знака); HL = |2n - CC|
+psh:
                 inc     hl
                 ld      a,(hl)
                 rla
-                jp      c,pscnext       ; клетка вне игры
+                ccf
+                ret     nc              ; клетка вне игры
                 ld      hl,(vP9)
                 ld      de,MOBUF
                 add     hl,de
                 ld      a,(hl)
                 or      a
-                jp      z,pscnext
+                ret     z               ; NC
                 add     a,a             ; 2n (в байте, как в оригинале)
                 ld      e,a
                 ld      d,0
@@ -843,36 +880,8 @@ psabs:
                 sub     l
                 ld      a,b
                 sbc     a,h             ; CY <=> |d| < BS
-                jp      nc,pscnext
                 ld      h,b
                 ld      l,c
-                ld      (vBS),hl
-                ld      hl,(vP9)
-                ld      (vBXW),hl
-pscnext:
-                ld      hl,(vP9)
-                inc     hl
-                ld      a,l
-                cp      131
-                jp      nz,pscell
-                ld      (vP9),hl
-                ld      hl,(vBS)
-                ld      a,h
-                and     l
-                inc     a
-                jp      z,psnext        ; ни одной клетки
-                ld      hl,(vBXW)       ; MG(BX) += 12000
-                call    mgat
-                ld      a,(hl)
-                add     a,low 12000
-                ld      (hl),a
-                inc     hl
-                ld      a,(hl)
-                adc     a,high 12000
-                ld      (hl),a
-psnext:
-                call    nextk
-                jp      nc,psship
                 ret
 
 ; HL = ARR_MG + 2*HL (-> слово MG).  Портит BC.
