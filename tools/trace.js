@@ -55,11 +55,12 @@ function key(k, down) {
   if (down) keyboard.matrix[kb[0]] |= kb[1]; else keyboard.matrix[kb[0]] &= ~kb[1];
 }
 // ---- прогон
-let frames = 0, frc = 0, tacc = 0, steps = 0, hit = null;
+let frames = 0, frc = 0, tacc = 0, steps = 0, hit = null, seedPC = -1, seedHook = null;
 function frame(n, stopAt) {
   for (let f = 0; f < n; f++) {
     while (frc < 59904) {
       if (stopAt !== undefined && cpu.pc === stopAt) { hit = stopAt; return; }
+      if (cpu.pc === seedPC && seedHook) seedHook();
       const c = (cpu.instruction(), cpu.vcycles); steps++; frc += c; tacc += c;
       if (tacc > 1) { const tn = tacc >> 1; tacc -= tn * 2; timer.Count(tn); }
       if (cpu.last_opcode === 0xd3) io.commit();
@@ -114,7 +115,11 @@ function snapVars() { const o = {}; names.forEach((n, i) => {
   if (n === "bRT") { o[n] = cstr(rw(rw(L.bRT))); return; }                 // запись таблицы правил -> имя набора
   if (PTR1[n]) { o[n] = cstr(rw(L[n])); return; }
   if (PTRARR[n]) { const t = []; for (let k = 0; k < PTRARR[n]; k++) t.push(cstr(rw(L[n] + 2 * k))); o[n] = t.join("|"); return; }
-  let b = []; for (let a = L[n]; a < ends[i] && a - L[n] < 400; a++) b.push(rd(a)); o[n] = Buffer.from(b).toString("hex"); }); return o; }
+  let b = []; for (let a = L[n]; a < ends[i] && a - L[n] < 400; a++) b.push(rd(a)); o[n] = Buffer.from(b).toString("hex"); });
+  // отладка: TRACE_EXTRA="метка:байт,..." — добавить в запись произвольные метки (в сверку не идут, если не заданы в обеих)
+  if (process.env.TRACE_EXTRA) for (const e of process.env.TRACE_EXTRA.split(",")) { const [lb, nn] = e.split(":"); const b = [];
+    for (let k = 0; k < (+nn || 1); k++) b.push(rd(L[lb] + k)); o["@" + lb] = Buffer.from(b).toString("hex"); }
+  return o; }
 function vramHash() { const h = crypto.createHash("md5"); const b = Buffer.alloc(0x6000); for (let i = 0; i < 0x6000; i++) b[i] = rd(0x8000 + i); h.update(b); return h.digest("hex").slice(0, 12); }
 function ipc() { return cpu.pc === 0x38 ? rw(cpu.sp) : cpu.pc; }
 function retaddr() { return cpu.pc === 0x38 ? rw(cpu.sp + 2) : rw(cpu.sp); }
@@ -126,17 +131,20 @@ function inPoll() { const p = ipc(); return p >= L.L1415a && p < L.L1415a + 40; 
 const trace = []; let seeded = false, shots = 0, step = 0, endScreens = 0, script = [];
 if (R === 3) script = ["r", "right", "down", "space", "u", "slash", "space", "tab", "tab", "z"];   // расстановка вручную, отмена, помощь, TAB
 let menuDone = false, finished = false, guard = 0;
+// семена: ровно при первом исполнении L195 после меню (после L172 — зерно от таймера, до первого
+// RND партии) — подменить на постоянные: ГСЧ игры и движка (vSEED; иначе движок берёт семя из
+// счётчика кадров). Ловушка в цикле команд: переход меню->игра проходит внутри нажатия пробела,
+// а граница кадра приходится на середину расстановки — число RND до неё зависело бы от тактов.
+seedPC = L.L195;
+seedHook = () => { if (seeded || !menuDone) return;
+  wr(L.rnd_seed, 0x34); wr(L.rnd_seed + 1, 0x12); if (L.ENG_SEED !== undefined) { wr(L.ENG_SEED, 0x78); wr(L.ENG_SEED + 1, 0x56); } seeded = true; };
 while (!finished && frames < 400000 && guard++ < 2000000) {
   frame(1);
-  if (!seeded && cpu.pc !== 0x38 && ipc() >= L.L187 && ipc() < L.L195 + 3) { }
-  // семена: как только игра прошла L172 (зерно от таймера) — подменить на постоянные
-  if (!seeded && rd(L.bGN) === 1 && rd(L.bNK) > 0 && L.rnd_seed !== undefined && menuDone) {
-    wr(L.rnd_seed, 0x34); wr(L.rnd_seed + 1, 0x12); if (L.ENG_SEED !== undefined) { wr(L.ENG_SEED, 0x78); wr(L.ENG_SEED + 1, 0x56); } seeded = true; }
   if (!qEmpty() || !(inGetkey() || inPoll())) continue;
   const where = inGetkey() ? "getkey<" + nm(retaddr()) : "poll";
   const rec = { i: step++, where, vram: vramHash(), vars: snapVars() };
   if (!menuDone) {
-    if (inGetkey() && nm(retaddr()).startsWith("S354")) { for (let i = 0; i < R; i++) tap("right"); tap("space"); menuDone = true; rec.key = "menu"; trace.push(rec); }
+    if (inGetkey() && nm(retaddr()).startsWith("S354")) { for (let i = 0; i < R; i++) tap("right"); menuDone = true; tap("space"); rec.key = "menu"; trace.push(rec); }
     continue;
   }
   if (inGetkey() && nm(retaddr()).startsWith("S354")) { rec.key = "END(меню)"; trace.push(rec); finished = true; break; }
@@ -145,7 +153,7 @@ while (!finished && frames < 400000 && guard++ < 2000000) {
   else if (inPoll() && rd(L.bFB) === 1) {
     let tc = -1, tr2 = -1;
     for (let r = 0; r < 10 && tc < 0; r++) for (let q = 0; q < 10; q++) { const c = r % 2 ? 9 - q : q;
-      const v = rw(L.ARR_CM + (c + 10 * r) * 2); if (v === 0) { tc = c; tr2 = r; break; } }
+      const v = rw(L.ARR_CM + (c + 10 * r) * 2); if (v === 0 || v >= 0x8000) { tc = c; tr2 = r; break; } }   // буй (CM<0) — не стрелял (650: >0)
     const cx = rd(L.bCX), cy = rd(L.bCY);
     if (tc < 0) k = "space";
     else if (cx < tc) k = "right"; else if (cx > tc) k = "left"; else if (cy < tr2) k = "down"; else if (cy > tr2) k = "up";
@@ -154,5 +162,6 @@ while (!finished && frames < 400000 && guard++ < 2000000) {
   else { const ra = nm(retaddr()); if (ra.startsWith("L226")) { endScreens++; k = endScreens % 4 === 0 ? "space" : "tab"; } else k = "space"; }
   rec.key = k; trace.push(rec); tap(k);
 }
+if (process.env.TRACE_DBG) { const t = trace.slice(-12).map(r => r.i + " " + r.where + " " + r.key); console.log(t.join("\n")); }
 fs.writeFileSync(OUTJSON || "build/trace.json", JSON.stringify({ rules: R, steps: trace.length, shots, frames, trace }));
-console.log(`правило ${R}: шагов ${trace.length}, выстрелов ${shots}, кадров ${frames}, конец: ${finished}`);
+console.log(`правило ${R}: шагов ${trace.length}, выстрелов ${shots}, кадров ${frames}, конец: ${finished}, семена: ${seeded}`);
