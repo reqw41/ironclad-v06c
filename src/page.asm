@@ -55,7 +55,7 @@ cell_xy:
 
 ; COPY тайла непрозрачно в клетку: A = страница, B = C, C = R, D = тайл
 cell_op:
-            ld   (co_pg),a
+            STV  co_pg
             push bc
             call cell_rec
             ld   (hl),d
@@ -66,9 +66,9 @@ cell_op:
             inc  hl
             ld   (hl),0FFh
             pop  bc
-            ld   a,(pg_vis)
+            LDV  pg_vis
             ld   e,a
-            ld   a,(co_pg)
+            LDV  co_pg
             cp   e
             ret  nz
             push bc
@@ -80,7 +80,7 @@ cell_op:
 
 ; COPY ...,TPSET в клетку: A = страница, B = C, C = R, D = код слоя (тайл или 32+цифра)
 cell_tp:
-            ld   (co_pg),a
+            STV  co_pg
             push bc
             call cell_rec
             ld   e,4
@@ -93,9 +93,9 @@ ct_1:       ld   a,(hl)
             dec  hl                     ; слоёв больше 4 не бывает; на всякий случай — последний
 ct_2:       ld   (hl),d
             pop  bc
-            ld   a,(pg_vis)
+            LDV  pg_vis
             ld   e,a
-            ld   a,(co_pg)
+            LDV  co_pg
             cp   e
             ret  nz
             push bc
@@ -133,7 +133,7 @@ glyph_fill: db 15,7,8
 
 ; перерисовать клетку B=C, C=R страницы pg_vis из записи
 cell_redraw:
-            ld   a,(pg_vis)
+            LDV  pg_vis
             cp   2
             ret  nc
             push bc
@@ -161,7 +161,7 @@ cd_t:       push bc
             call gfx_tile
             pop  bc
             ld   a,3
-            ld   (cd_n),a
+            STV  cd_n
 cd_l:       ld   hl,(cd_p)
             inc  hl
             ld   (cd_p),hl
@@ -171,26 +171,26 @@ cd_l:       ld   hl,(cd_p)
             push bc
             call draw_layer_tp
             pop  bc
-            ld   a,(cd_n)
+            LDV  cd_n
             dec  a
-            ld   (cd_n),a
+            STV  cd_n
             jp   nz,cd_l
 cd_done:    pop  bc
             ; fallthrough — курсор поверх
 ; если на странице 0 курсор стоит на клетке B=C, C=R — нарисовать его поверх
 cell_cursor:
-            ld   a,(pg_vis)
+            LDV  pg_vis
             or   a
             ret  nz
-            ld   a,(cur_on)
+            LDV  cur_on
             or   a
             ret  z
             push bc
             call cell_xy
-            ld   a,(cur_x)
+            LDV  cur_x
             cp   b
             jp   nz,cc_no
-            ld   a,(cur_y)
+            LDV  cur_y
             cp   c
             jp   nz,cc_no
             pop  bc
@@ -200,11 +200,11 @@ cc_no:      pop  bc
 
 ; рамка 16x16 спрайта-курсора цветом 11 в (cur_x, cur_y)
 cur_draw:
-            ld   a,(cur_x)
+            LDV  cur_x
             ld   b,a
             add  a,15
             ld   d,a
-            ld   a,(cur_y)
+            LDV  cur_y
             ld   c,a
             add  a,15
             ld   e,a
@@ -213,40 +213,40 @@ cur_draw:
 
 ; PUT SPRITE 0,(B,C-1),11 на странице 0
 cur_show:
-            ld   a,(cur_on)
+            LDV  cur_on
             or   a
             jp   z,cs_new
-            ld   a,(cur_x)
+            LDV  cur_x
             cp   b
             jp   nz,cs_mv
-            ld   a,(cur_y)
+            LDV  cur_y
             cp   c
             ret  z                      ; уже там
 cs_mv:      push bc                     ; стереть на старом месте
             call cur_hide
             pop  bc
 cs_new:     ld   a,b
-            ld   (cur_x),a
+            STV  cur_x
             ld   a,c
-            ld   (cur_y),a
+            STV  cur_y
             ld   a,1
-            ld   (cur_on),a
-            ld   a,(pg_vis)
+            STV  cur_on
+            LDV  pg_vis
             or   a
             ret  nz
             jp   cur_draw
 
 ; PUT SPRITE 0,(0,200),0 — спрятать
 cur_hide:
-            ld   a,(cur_on)
+            LDV  cur_on
             or   a
             ret  z
             xor  a
-            ld   (cur_on),a
-            ld   a,(pg_vis)
+            STV  cur_on
+            LDV  pg_vis
             or   a
             ret  nz
-            ld   a,(cur_x)              ; клетка под курсором
+            LDV  cur_x              ; клетка под курсором
             sub  GX
             rrca
             rrca
@@ -254,7 +254,7 @@ cur_hide:
             rrca
             and  0Fh
             ld   b,a
-            ld   a,(cur_y)
+            LDV  cur_y
             sub  GY
             rrca
             rrca
@@ -267,30 +267,30 @@ cur_hide:
 ; ---------------------------------------------------------------- призрак 1664-1668
 ; нарисовать по gh_* (страница 1)
 gh_draw:
-            ld   a,(pg_vis)
+            LDV  pg_vis
             cp   1
             ret  nz
-            ld   a,(gh_on)
+            LDV  gh_on
             or   a
             ret  z
             xor  a
-            ld   (gh_i),a
-            ld   a,(gh_rx)
+            STV  gh_i
+            LDV  gh_rx
             ld   b,a
-            ld   a,(gh_ry)
+            LDV  gh_ry
             ld   c,a
 gd_1:       push bc
             xor  a
             call gfx_tile
             pop  bc
             push bc
-            ld   a,(gh_i)
+            LDV  gh_i
             ld   hl,gh_gt
             rst  00h
             ld   a,(hl)
             call gfx_tile_tp
             pop  bc
-            ld   a,(gh_od)
+            LDV  gh_od
             or   a
             jp   nz,gd_v
             ld   a,b
@@ -300,29 +300,29 @@ gd_1:       push bc
 gd_v:       ld   a,c
             add  a,16
             ld   c,a
-gd_2:       ld   a,(gh_i)
+gd_2:       LDV  gh_i
             inc  a
-            ld   (gh_i),a
+            STV  gh_i
             ld   hl,gh_s
             cp   (hl)
             jp   nz,gd_1
             ; рамка композита: зелёная (9) у копии (0,32)/(0,48), красная (8) у (0,128)/(16,48)
-            ld   a,(gh_rx)
+            LDV  gh_rx
             ld   b,a
-            ld   a,(gh_rw)
+            LDV  gh_rw
             add  a,b
             dec  a
             ld   d,a
-            ld   a,(gh_ry)
+            LDV  gh_ry
             ld   c,a
-            ld   a,(gh_rh)
+            LDV  gh_rh
             add  a,c
             dec  a
             ld   e,a
-            ld   a,(gh_sy)
+            LDV  gh_sy
             cp   128
             jp   z,gd_red
-            ld   a,(gh_sx)
+            LDV  gh_sx
             cp   16
             jp   z,gd_red
             ld   a,9
@@ -332,12 +332,12 @@ gd_red:     ld   a,8
 
 ; убрать призрак: клетки под ним — из записей страницы 1 (1662: COPY со страницы 2)
 gh_erase:
-            ld   a,(gh_on)
+            LDV  gh_on
             or   a
             ret  z
             xor  a
-            ld   (gh_on),a
-            ld   a,(pg_vis)
+            STV  gh_on
+            LDV  pg_vis
             cp   1
             ret  nz
             jp   gh_cells
@@ -345,9 +345,9 @@ gh_erase:
 ; ---------------------------------------------------------------- поле AT: (1473)
 ; нарисовать at_rec[bDP] (если эта страница на экране)
 at_draw:
-            ld   a,(bDP)
+            LDV  bDP
             ld   e,a
-            ld   a,(pg_vis)
+            LDV  pg_vis
             cp   e
             ret  nz
 at_draw_vis:
@@ -369,7 +369,7 @@ at_draw_vis:
             jp   gfx_puts
 ; HL = &at_rec[pg_vis]
 at_ptr:
-            ld   a,(pg_vis)
+            LDV  pg_vis
             add  a,a
             add  a,a
             add  a,a
@@ -388,7 +388,7 @@ hdr_draw:
             ld   a,15
             ld   (gfx_fg),a
             ld   hl,s_enemy_waters
-            ld   a,(pg_vis)
+            LDV  pg_vis
             or   a
             jp   z,gfx_puts
             ld   hl,s_your_fleet
@@ -401,12 +401,12 @@ s_your_fleet:   db "YOUR FLEET",0
 ; если на экране иной экран (помощь, победа) — полная перерисовка (render_full в игре).
 page_show:
             ld   e,a
-            ld   a,(pg_vis)
+            LDV  pg_vis
             cp   e
             ret  z
             cp   2
             ld   a,e
-            ld   (pg_vis),a
+            STV  pg_vis
             jp   nc,render_full
             call hdr_draw
             ; клетки: только те, чьи слои на двух страницах различаются
@@ -457,13 +457,13 @@ ps_next:    ld   a,4
             cp   100
             jp   c,ps_c
             ; оверлеи прежней страницы: клетки под ними перерисовать новой страницей
-            ld   a,(pg_vis)
+            LDV  pg_vis
             or   a
             jp   z,ps_0
-            ld   a,(cur_on)             ; ушли со страницы 0: клетка под курсором
+            LDV  cur_on             ; ушли со страницы 0: клетка под курсором
             or   a
             jp   z,ps_n
-            ld   a,(cur_x)
+            LDV  cur_x
             sub  GX
             rrca
             rrca
@@ -471,7 +471,7 @@ ps_next:    ld   a,4
             rrca
             and  0Fh
             ld   b,a
-            ld   a,(cur_y)
+            LDV  cur_y
             sub  GY
             rrca
             rrca
@@ -482,11 +482,11 @@ ps_next:    ld   a,4
             call cell_redraw
             call gh_draw
             jp   ps_n
-ps_0:       ld   a,(gh_on)              ; ушли со страницы 1: клетки под призраком
+ps_0:       LDV  gh_on              ; ушли со страницы 1: клетки под призраком
             or   a
             jp   z,ps_0c
             call gh_cells
-ps_0c:      ld   a,(cur_on)
+ps_0c:      LDV  cur_on
             or   a
             call nz,cur_draw
 ps_n:       jp   at_draw_vis
@@ -494,16 +494,16 @@ ps_n:       jp   at_draw_vis
 ; перерисовать клетки под призраком из записей страницы pg_vis — по прямоугольнику
 ; RX,RY,RW,RH (как COPY со страницы 2 в 1662), а не по композиту: при повороте композит
 ; уже пересобран под новую ориентацию, а стирать надо старый прямоугольник
-gh_cells:   ld   a,(gh_rx)
+gh_cells:   LDV  gh_rx
             sub  GX
             rrca
             rrca
             rrca
             rrca
             and  0Fh
-            ld   (gh_c0),a
+            STV  gh_c0
             ld   b,a
-            ld   a,(gh_ry)
+            LDV  gh_ry
             sub  GY
             rrca
             rrca
@@ -511,43 +511,43 @@ gh_cells:   ld   a,(gh_rx)
             rrca
             and  0Fh
             ld   c,a
-            ld   a,(gh_rh)
+            LDV  gh_rh
             rrca
             rrca
             rrca
             rrca
             and  0Fh
-            ld   (gh_i),a               ; строк
-ghc_r:      ld   a,(gh_rw)
+            STV  gh_i               ; строк
+ghc_r:      LDV  gh_rw
             rrca
             rrca
             rrca
             rrca
             and  0Fh
-            ld   (gh_n),a               ; столбцов
+            STV  gh_n               ; столбцов
 ghc_c:      push bc
             call cell_redraw
             pop  bc
             inc  b
-            ld   a,(gh_n)
+            LDV  gh_n
             dec  a
-            ld   (gh_n),a
+            STV  gh_n
             jp   nz,ghc_c
-            ld   a,(gh_c0)
+            LDV  gh_c0
             ld   b,a
             inc  c
-            ld   a,(gh_i)
+            LDV  gh_i
             dec  a
-            ld   (gh_i),a
+            STV  gh_i
             jp   nz,ghc_r
             ret
 
 ; все 100 клеток страницы A = тайл воды (1154: COPY(96,32)-(255,191) — фон сетки = 100 тайлов 0)
 cells_water:
-            ld   (cw_pg),a
+            STV  cw_pg
             ld   bc,0
 cw_1:       push bc
-            ld   a,(cw_pg)
+            LDV  cw_pg
             ld   d,0
             call cell_op
             pop  bc

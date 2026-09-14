@@ -12,39 +12,39 @@ S110:       ld   a,15                   ; SCREEN 5: COLOR 15,1,1
             ld   a,5                    ; 3406: COLOR 1,5,5 — фон текста 5
             ld   (gfx_bg),a
 S120:       ld   a,3                    ; RP=0: DL=3: ...
-            ld   (bDL),a
+            STV  bDL
 S140:       call S3406
 S150:       call S3500
 S155:                                   ; панель загрузки (3800, 155) убрана по решению владельца
-S162:       ld   a,(bTU)                ; POKE настроек в «&HDDF5..&HE00»
-            ld   (cfg_TU),a
-            ld   a,(bAM)
-            ld   (cfg_AM),a
-            ld   a,(bXS)
-            ld   (cfg_XS),a
-            ld   a,(bSV)
-            ld   (cfg_SV),a
-            ld   a,(bFL)
-            ld   (cfg_FL),a
-            ld   a,(bQS)
-            ld   (cfg_QS),a
-            ld   a,(bBD)                ; -(BD>0)
+S162:       LDV  bTU                ; POKE настроек в «&HDDF5..&HE00»
+            STV  cfg_TU
+            LDV  bAM
+            STV  cfg_AM
+            LDV  bXS
+            STV  cfg_XS
+            LDV  bSV
+            STV  cfg_SV
+            LDV  bFL
+            STV  cfg_FL
+            LDV  bQS
+            STV  cfg_QS
+            LDV  bBD                ; -(BD>0)
             or   a
             jp   z,S164
             ld   a,1
-S164:       ld   (cfg_BD),a
-            ld   a,(bDL)
-            ld   (cfg_DL),a
-            ld   a,(bBO)
-            ld   (cfg_BO),a
-            ld   a,(bSB)
-            ld   (cfg_SB),a
+S164:       STV  cfg_BD
+            LDV  bDL
+            STV  cfg_DL
+            LDV  bBO
+            STV  cfg_BO
+            LDV  bSB
+            STV  cfg_SB
             ld   a,165
-            ld   (cfg_magic),a
+            STV  cfg_magic
             ld   a,195
-            ld   (cfg_magic+1),a
-S166:       ld   a,(bBD)                ; RUN BARRAGE/SALVOP/SALVO/IRONCLAD
-            ld   (cfg_fam),a
+            STV  cfg_magic+1
+S166:       LDV  bBD                ; RUN BARRAGE/SALVOP/SALVO/IRONCLAD
+            STV  cfg_fam
             jp   game_run
 
 
@@ -103,14 +103,14 @@ S3406:      call disp_blank
             rst  20h
             ENDIF
             ld   a,2
-            ld   (pg_vis),a
+            STV  pg_vis
             jp   disp_on
 
 ; 3500: меню
 S3500:      ld   a,1                    ; COLOR 1: PF=5: PE=3: PK=1: PC=3
             ld   (gfx_fg),a
             xor  a
-            ld   (bMI),a
+            STV  bMI
             call S3600
             ld   hl,s_loading_ver       ; PSET(128-4*LEN(A$),200),1: PRINT A$
             call str_len
@@ -128,7 +128,7 @@ S3500:      ld   a,1                    ; COLOR 1: PF=5: PE=3: PK=1: PC=3
             call S3520
 S3503:      call L3330
 S3504:      call S3540
-            ld   a,(bMG)
+            LDV  bMG
             cp   1
             ret  z
             call S3526
@@ -194,29 +194,29 @@ S3526:      ld   bc,38*256+156
             ld   a,PF
             rst  20h
             xor  a
-            ld   (bI),a
+            STV  bI
 S3527:      ld   a,PC                   ; CL=PC: IF I=MI THEN CL=PK
-            ld   (bCL),a
-            ld   a,(bMI)
+            STV  bCL
+            LDV  bMI
             ld   b,a
-            ld   a,(bI)
+            LDV  bI
             cp   b
             jp   nz,S3528
             ld   a,PK
-            ld   (bCL),a
+            STV  bCL
 S3528:      ld   a,160                  ; YR=160: IF I=1 THEN YR=182
-            ld   (bYP),a
-            ld   a,(bI)
+            STV  bYP
+            LDV  bI
             or   a
             jp   z,S3530
             ld   a,182
-            ld   (bYP),a
-S3530:      ld   a,(bMI)                ; IF I=MI THEN LINE(40,YR-3)-(212,YR+10),PE,B
+            STV  bYP
+S3530:      LDV  bMI                ; IF I=MI THEN LINE(40,YR-3)-(212,YR+10),PE,B
             ld   b,a
-            ld   a,(bI)
+            LDV  bI
             cp   b
             jp   nz,S3531
-            ld   a,(bYP)
+            LDV  bYP
             sub  3
             ld   c,a
             add  a,13
@@ -225,13 +225,13 @@ S3530:      ld   a,(bMI)                ; IF I=MI THEN LINE(40,YR-3)-(212,YR+10)
             ld   d,212
             ld   a,PE
             call gfx_box
-S3531:      ld   a,(bYP)                ; PSET(44,YR),CL: PRINT MID$("RULESETMATCH",I*7+1,7)
+S3531:      LDV  bYP                ; PSET(44,YR),CL: PRINT MID$("RULESETMATCH",I*7+1,7)
             ld   c,a
             ld   b,44
-            ld   a,(bCL)
+            LDV  bCL
             rst  10h
             ld   hl,s_ruleset
-            ld   a,(bI)
+            LDV  bI
             or   a
             jp   z,S3531a
             ld   hl,s_match
@@ -267,16 +267,16 @@ S3533p:     push bc
             pop  bc                     ; X=105: X2=205: GOSUB 3590
 ; 3590: треугольники-стрелки: FOR I=0 TO 3: LINE(X+I,Y+3-I)-(X+I,Y+3+I),2: LINE(X2+3-I,...)
 S3590:      ld   a,c
-            ld   (bY0),a
+            STV  bY0
             xor  a
-            ld   (bJ),a
-S3590a:     ld   a,(bJ)
+            STV  bJ
+S3590a:     LDV  bJ
             ld   b,a
-            ld   a,(bY0)
+            LDV  bY0
             add  a,3
             sub  b
             ld   c,a
-            ld   a,(bY0)
+            LDV  bY0
             add  a,3
             add  a,b
             ld   e,a
@@ -290,7 +290,7 @@ S3590a:     ld   a,(bJ)
             rst  20h
             pop  de
             pop  bc
-            ld   a,(bJ)
+            LDV  bJ
             ld   b,a
             ld   a,208
             sub  b
@@ -307,25 +307,25 @@ S3590a:     ld   a,(bJ)
 
 ; 3540: клавиши меню
 S3540:      xor  a
-            ld   (bMG),a
+            STV  bMG
             call getkey
-            ld   (bK_),a
+            STV  bK_
 S3544:      cp   30
             jp   nz,S3546
-            ld   a,(bMI)
+            LDV  bMI
             dec  a
             jp   p,S3544a
             ld   a,1
-S3544a:     ld   (bMI),a
+S3544a:     STV  bMI
             ret
 S3546:      cp   31
             jp   nz,S3548
-            ld   a,(bMI)
+            LDV  bMI
             inc  a
             cp   2
             jp   c,S3546a
             xor  a
-S3546a:     ld   (bMI),a
+S3546a:     STV  bMI
             ret
 S3548:      cp   28
             jp   z,S3560
@@ -336,7 +336,7 @@ S3549:      call upcase
             call upcase
             cp   'Q'
             jp   z,S2300
-S3550:      ld   a,(bK_)
+S3550:      LDV  bK_
             cp   29
             jp   z,S3580
 S3551:      cp   '?'
@@ -348,39 +348,39 @@ S3552:      cp   ' '
             cp   13
             ret  nz
 S3552a:     ld   a,1
-            ld   (bMG),a
+            STV  bMG
             ret
-S3560:      ld   a,(bMI)                ; вправо: RP+1 / BI+1 с переносом
+S3560:      LDV  bMI                ; вправо: RP+1 / BI+1 с переносом
             or   a
             jp   nz,S3562
-            ld   a,(bRP)
+            LDV  bRP
             inc  a
             cp   7
             jp   c,S3560a
             xor  a
-S3560a:     ld   (bRP),a
+S3560a:     STV  bRP
             jp   S3600
-S3562:      ld   a,(bBI)
+S3562:      LDV  bBI
             inc  a
             cp   4
             jp   c,S3562a
             xor  a
-S3562a:     ld   (bBI),a
+S3562a:     STV  bBI
             jp   S3600
-S3580:      ld   a,(bMI)                ; влево
+S3580:      LDV  bMI                ; влево
             or   a
             jp   nz,S3582
-            ld   a,(bRP)
+            LDV  bRP
             dec  a
             jp   p,S3580a
             ld   a,6
-S3580a:     ld   (bRP),a
+S3580a:     STV  bRP
             jp   S3600
-S3582:      ld   a,(bBI)
+S3582:      LDV  bBI
             dec  a
             jp   p,S3582a
             ld   a,3
-S3582a:     ld   (bBI),a
+S3582a:     STV  bBI
             jp   S3600
 
 ; 3595: подтверждение выхода; A = следующая клавиша
@@ -394,13 +394,13 @@ S3595:      ld   bc,38*256+192
             ld   hl,s_exit_basic
             rst  18h
             call getkey
-            ld   (bK_),a
+            STV  bK_
             call S3520
-            ld   a,(bK_)
+            LDV  bK_
             ret
 
 ; 3600: данные набора правил RP, матч BI
-S3600:      ld   a,(bRP)
+S3600:      LDV  bRP
             ld   hl,rules_tab
             ld   b,a
             or   a
@@ -433,22 +433,22 @@ S3600c:     push bc
             dec  b
             jp   nz,S3600c
 S3602:      ld   a,3                    ; DL=3: IF RP=6 THEN DL=1
-            ld   (bDL),a
-            ld   a,(bRP)
+            STV  bDL
+            LDV  bRP
             cp   6
             jp   nz,S3606
             ld   a,1
-            ld   (bDL),a
-S3606:      ld   a,(bBI)                ; BO, SB, BM$
+            STV  bDL
+S3606:      LDV  bBI                ; BO, SB, BM$
             add  a,a
             add  a,a
             ld   hl,match_tab
             rst  00h
             ld   a,(hl)
-            ld   (bBO),a
+            STV  bBO
             inc  hl
             ld   a,(hl)
-            ld   (bSB),a
+            STV  bSB
             inc  hl
             ld   a,(hl)
             inc  hl
@@ -460,7 +460,7 @@ S3606:      ld   a,(bBI)                ; BO, SB, BM$
 ; 3700: таблица правил (страница 1)
 S3700:      call disp_blank
             ld   a,2
-            ld   (pg_vis),a
+            STV  pg_vis
             ld   bc,0
             ld   de,255*256+211
             ld   a,PF
@@ -485,7 +485,7 @@ S3702:      ld   a,(hl)                 ; x, y, текст (0 в x = конец)
             inc  hl
             jp   S3702
 S3704:      ld   a,44                   ; Y=44: 7 наборов
-            ld   (bY0),a
+            STV  bY0
             ld   hl,rules_tab
             ld   b,7
 S3706:      push bc
@@ -520,9 +520,9 @@ S3706:      push bc
             ld   d,(hl)
             ld   b,228
             call S3706p
-            ld   a,(bY0)
+            LDV  bY0
             add  a,11
-            ld   (bY0),a
+            STV  bY0
             pop  hl
             ld   de,RT_SIZE
             add  hl,de
@@ -530,22 +530,22 @@ S3706:      push bc
             dec  b
             jp   nz,S3706
 S3708:      ld   a,128                  ; легенда
-            ld   (bY0),a
+            STV  bY0
             ld   hl,rules_legend
             ld   b,6
 S3708a:     push bc
             push hl
             ld   b,8
-            ld   a,(bY0)
+            LDV  bY0
             ld   c,a
             ld   a,PC
             rst  10h
             pop  hl
             rst  18h
             inc  hl
-            ld   a,(bY0)
+            LDV  bY0
             add  a,11
-            ld   (bY0),a
+            STV  bY0
             pop  bc
             dec  b
             jp   nz,S3708a
@@ -560,7 +560,7 @@ S3724:      call S3406                  ; SET PAGE 0,0: титул с меню �
             call S3520
             jp   S3600
 ; PSET(B,Y0),PC: PRINT строка DE
-S3706p:     ld   a,(bY0)
+S3706p:     LDV  bY0
             ld   c,a
             push de
             ld   a,PC
