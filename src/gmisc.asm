@@ -165,25 +165,15 @@ L2215b:     ld   bc,ARR_CS
             cp   10
             jp   c,L2215a
             jp   L2235
-L2220:      ld   bc,ARR_CS              ; вскрыть корабль противника на странице 0
-            call w10cr
-            call ld_hl_de
-            call shr4_de
-            ld   a,e
-            STV  bQ
+L2220:      call q_cs                   ; вскрыть корабль противника на странице 0
             xor  a
             ld   d,0
             call cr_op
             LDV  bQ
             and  31
             ld   d,a
-            xor  a
-            call cr_tp
-            ld   bc,ARR_CM
-            call w10cr
-            call ld_hl_de
-            ex   de,hl
-            ld   (bM),hl
+            call cr_tp0
+            call m_cm
 L2222:      CPV  bBD,1
             jp   nz,L2225
             ld   a,h                    ; IF M>0 THEN GOSUB 1147
@@ -199,8 +189,7 @@ L2225:      ld   a,l                    ; IRONCLAD.BAS: M=2 -> попадани�
             cp   3
             ret  nz
 L2225a:     ld   d,a
-            xor  a
-            jp   cr_tp
+            jp   cr_tp0
 L2235:      ld   hl,s_enemy_wins
             SETV bMC,8
             CPV  bWN,1

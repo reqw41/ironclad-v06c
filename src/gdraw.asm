@@ -110,11 +110,7 @@ L1124:      CPV  bBD,1  ; IF BD=1 THEN NV=PM(C,R)\4: IF 0<NV<33 -> белая ц
 L1130:      xor  a                      ; вода, стр. 0
             ld   d,0
             call cr_op
-L1132:      ld   bc,ARR_CM              ; M=CM(C,R) (1132 и 1146 одинаково): 0 — RETURN, <0 — 3950
-            call w10cr
-            call ld_hl_de
-            ex   de,hl
-            ld   (bM),hl
+L1132:      call m_cm                   ; M=CM(C,R) (1132 и 1146 одинаково): 0 — RETURN, <0 — 3950
             ld   a,h
             or   l
             ret  z
@@ -166,6 +162,13 @@ L3950:      CPV  bM,-3
             ld   d,10
 L3950a:     jp   cr_tp0
 
+; HL = M = CM(C,R)
+m_cm:       ld   bc,ARR_CM
+            call w10cr
+            call ld_hl_de
+            ex   de,hl
+            ld   (bM),hl
+            ret
 ; Q = CS(C,R)\16 -> A
 q_cs:       ld   bc,ARR_CS
             call w10cr
