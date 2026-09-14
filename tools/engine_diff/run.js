@@ -34,6 +34,8 @@ const WRANDOM = +opt('wide-random', RANDOM ? Math.max(1, Math.round(RANDOM / 4))
 const SEED = +opt('seed', 1);
 const VARIANTS = opt('variants', 'salvo,sp,bar').split(',').filter(Boolean);
 const QUIET = flag('quiet');
+const PROFILE = flag('profile');     // такты по подпрограммам перевода
+const prof = {};                     // вход -> Float64Array(65536)
 const OUT = path.join(ROOT, 'build');
 
 // минимум случаев на точку входа (пустая или тощая выборка = провал)
@@ -86,7 +88,8 @@ function st(v, e) {
 function tag(v, t) { scen[v] = scen[v] || {}; scen[v][t] = (scen[v][t] || 0) + 1; }
 
 // 8080 с учётом покрытия команд и ветвлений
-function run8080(box, entry, hl) {
+function run8080(box, entry, hl, pname) {
+  const pr = PROFILE ? (prof[pname] = prof[pname] || new Float64Array(65536)) : null;
   const { I8080 } = require('./cpu.js');
   const cpu = new I8080(box.memory, box.io);
   box.mem[0] = 0x76;
@@ -100,6 +103,7 @@ function run8080(box, entry, hl) {
     hits[pc]++;
     cpu.instruction();
     cyc += cpu.cpu_cycles; vcyc += cpu.vcycles;
+    if (pr) pr[pc] += cpu.vcycles;
     const cl = condLen[pc];
     if (cl) { if (cpu.pc === ((pc + cl) & 0xffff)) notTaken[pc]++; else taken[pc]++; }
     if (++n > 60e6) return { timeout: true };
@@ -127,7 +131,7 @@ function variantRun(v) {
     zl.load(zb, S, arg, canary);
     il.load(ib, S, canary);
     const rz = zb.call(zl.entry[entry]);
-    const ri = run8080(ib, il.entry[entry], arg);
+    const ri = run8080(ib, il.entry[entry], arg, entry);
     const s = st(v, isWide ? entry + '*' : entry);
     s.n++;
     const Sz = zl.extract(zb, S);
@@ -295,6 +299,16 @@ if (!QUIET) {
   const nCond = [...insns].filter(([a]) => condLen[a]).length;
   console.log(`условные переходы с обеими сторонами: ${nCond - branchHalf.length - deadInsn.filter(([a]) => condLen[a]).length}/${nCond}`);
   for (const [a, x] of branchHalf) console.log(`  одна сторона ${a.toString(16)} стр.${x.line}: ${x.text}  (перешёл ${taken[a]}, мимо ${notTaken[a]})`);
+}
+if (PROFILE) {
+  const la = Object.keys(mine.labels).map(Number).sort((a, b) => a - b);
+  const owner = a => { let lo = 0, hi = la.length - 1, r = la[0]; while (lo <= hi) { const m = (lo + hi) >> 1; if (la[m] <= a) { r = la[m]; lo = m + 1; } else hi = m - 1; } return mine.labels[r]; };
+  console.log('\nпрофиль (такты Вектора по меткам, доля от входа):');
+  for (const [e, pr] of Object.entries(prof)) {
+    const by = {}; let tot = 0;
+    for (let a = 0; a < 65536; a++) if (pr[a]) { const o = owner(a); by[o] = (by[o] || 0) + pr[a]; tot += pr[a]; }
+    console.log(`  ${e}: ` + Object.entries(by).sort((x, y) => y[1] - x[1]).slice(0, 10).map(([k, x]) => `${k} ${(100 * x / tot).toFixed(1)}%`).join(', '));
+  }
 }
 if (fails.length) {
   console.log('\nпервые расхождения:');

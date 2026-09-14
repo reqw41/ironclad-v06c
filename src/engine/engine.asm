@@ -503,6 +503,10 @@ dvnx:
                 ret
 
 ; ---------------------------------------------------------------- scan: корабль K
+; Перебор всех 20W кандидатов корабля vK в порядке оригинала.  Мёртвые
+; (FA = 0) пропускаются прямо в цикле: указатель FA — в HL, индекс первой
+; клетки — в E (13..142, байт), обработчик candl зовётся только для живых.
+; На выходе, как у оригинала: vFAP = FA(OS+20W), vSTEP = 1, vLK, vW.
 scan:
                 ld      a,(vK)
                 ld      hl,ARR_SZ
@@ -516,68 +520,77 @@ scan:
                 ld      a,(vK)
                 ld      hl,ARR_OS
                 call    getel16
-                ld      hl,FABUF
-                add     hl,de
-                ld      (vFAP),hl
-
-; --- поперёк: Y внешний 0..9, X внутренний 0..W-1, индекс с 13, +12 на X
                 ld      hl,12
                 ld      (vSTEP),hl
-                ld      de,13
+                ld      hl,FABUF
+                add     hl,de           ; HL -> FA(OS(K))
+
+; --- поперёк: Y внешний 0..9, X внутренний 0..W-1, индекс с 13, +12 на X
+                ld      e,13
                 ld      c,10
 sacross:
                 ld      a,(vW)
                 ld      b,a
                 push    de
 sacell:
-                push    bc
-                push    de
-                call    cand
-                pop     de
-                ld      hl,12
-                add     hl,de
-                ex      de,hl
-                pop     bc
+                ld      a,(hl)
+                or      a
+                call    nz,candl
+                inc     hl
+                ld      a,e
+                add     a,12
+                ld      e,a
                 dec     b
                 jp      nz,sacell
                 pop     de
-                inc     de              ; тот же X=0, следующий Y
+                inc     e               ; тот же X=0, следующий Y
                 dec     c
                 jp      nz,sacross
 
 ; --- вниз: X внешний 0..9, Y внутренний 0..W-1, индекс с 13, +1 на Y
+                ex      de,hl
                 ld      hl,1
                 ld      (vSTEP),hl
-                ld      de,13
+                ex      de,hl
+                ld      e,13
                 ld      c,10
 sdown:
                 ld      a,(vW)
                 ld      b,a
                 push    de
 sdcell:
-                push    bc
-                push    de
-                call    cand
-                pop     de
-                inc     de
-                pop     bc
+                ld      a,(hl)
+                or      a
+                call    nz,candl
+                inc     hl
+                inc     e
                 dec     b
                 jp      nz,sdcell
                 pop     de
-                ld      hl,12
-                add     hl,de           ; следующий столбец X
-                ex      de,hl
+                ld      a,e
+                add     a,12            ; следующий столбец X
+                ld      e,a
                 dec     c
                 jp      nz,sdown
+                ld      (vFAP),hl
                 ret
 
 ; ---------------------------------------------------------------- кандидат
-; DE = индекс первой клетки; vFAP -> FA(I); vSTEP = шаг
+; Живой кандидат: HL -> FA(I), E = индекс первой клетки, vSTEP = шаг.
+; Сохраняет BC, DE, HL.
+candl:
+                push    hl
+                push    de
+                push    bc
+                ld      (vFAP),hl
+                ld      d,0
+                call    cand
+                pop     bc
+                pop     de
+                pop     hl
+                ret
+
 cand:
-                ld      hl,(vFAP)
-                ld      a,(hl)
-                or      a
-                jp      z,cdone
                 ld      a,(vMODE)
                 cp      2
                 jp      z,candn1
@@ -601,7 +614,7 @@ covsum:
                 jp      nz,covsum
                 ld      hl,vH
                 cp      (hl)
-                jp      z,cdone
+                ret     z
 
                 ld      hl,(vFAP)       ; убить кандидата
                 ld      (hl),0
@@ -627,7 +640,7 @@ mcloop:
                 add     hl,de
                 dec     b
                 jp      nz,mcloop
-                jp      cdone
+                ret
 
 ; режим 2 (probesel): число живых кандидатов на клетку — байтами в MO
 candn1:
@@ -643,7 +656,7 @@ n1cell:
                 add     hl,de
                 dec     b
                 jp      nz,n1cell
-                jp      cdone
+                ret
 
 ; режим 1: добавить вес vWT каждой покрытой клетке MG, ещё не запрещённой
 ; (отрицательные клетки вне игры).  Сумма НЕ насыщается — бюджет весов
@@ -652,39 +665,36 @@ candmg:
                 ld      hl,ARR_MG
                 add     hl,de
                 add     hl,de
-                ex      de,hl
-                ld      hl,(vSTEP)
-                add     hl,hl
-                ex      de,hl           ; HL -> MG, DE = 2*шаг
+                inc     hl              ; HL -> старший байт MG(первая клетка)
+                ld      a,(vSTEP)
+                add     a,a
+                ld      c,a             ; C = 2*шаг (24 или 2)
                 ld      a,(vLK)
                 ld      b,a
+                ex      de,hl
+                ld      hl,(vWT)
+                ex      de,hl           ; DE = вес
 mgcell:
+                ld      a,(hl)
+                or      a
+                jp      m,mgskip        ; знак: клетка вне игры
+                dec     hl
+                ld      a,(hl)
+                add     a,e
+                ld      (hl),a
                 inc     hl
                 ld      a,(hl)
-                dec     hl
-                rla                     ; знак: клетка вне игры
-                jp      c,mgskip
-                push    de
-                ld      e,(hl)
-                inc     hl
-                ld      d,(hl)
-                push    hl
-                ld      hl,(vWT)
-                add     hl,de
-                ex      de,hl
-                pop     hl
-                ld      (hl),d
-                dec     hl
-                ld      (hl),e
-                pop     de
+                adc     a,d
+                ld      (hl),a
 mgskip:
-                add     hl,de
+                ld      a,l
+                add     a,c
+                ld      l,a
+                jp      nc,mgnc
+                inc     h
+mgnc:
                 dec     b
                 jp      nz,mgcell
-cdone:
-                ld      hl,(vFAP)
-                inc     hl
-                ld      (vFAP),hl
                 ret
 
 ; ------------------------------------------------- USR7: сброс кандидатов
