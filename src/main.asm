@@ -60,7 +60,9 @@ rvs_1:       ld   a,(hl)
             add  a,6
             ld   e,a
             jp   rvs_1
-rvs_2:
+rvs_2:       ld   hl,font_zx0            ; шрифт -> BSS
+            ld   de,font_data
+            call dzx0
             IFDEF LIBTEST
             call tiles_load
             ENDIF
@@ -115,6 +117,7 @@ add_a_hl    equ 2
             include "../build/data/font.inc"
             include "../build/data/tiles.inc"
 tiles_zx0:  incbin "../build/data/tiles.zx0"
+font_zx0:   incbin "../build/data/font.zx0"
             IFNDEF NOIMG
             IFNDEF NOTITLE
 img_title:  incbin "../build/data/title.zx0"

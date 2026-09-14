@@ -329,18 +329,26 @@ gfx_puts:
 gfx_putc:
             sub  32
             ret  c
-            ld   l,a
+            cp   64                     ; коды 96..127 — ячейка из таблицы (строчные)
+            jp   c,pc_c
+            sub  64
+            ld   hl,lc_map
+            call tab_a
+pc_c:       ld   l,a
             ld   h,0
+            ld   d,h
+            ld   e,l
             add  hl,hl
+            add  hl,de
             add  hl,hl
-            add  hl,hl
+            add  hl,de                  ; *7
             ld   de,font_data
-            add  hl,de                  ; HL -> 8 строк знака
+            add  hl,de                  ; HL -> 7 строк знака (8-я — пустая)
             ld   a,(gfx_x)
             and  7
             ld   c,a                    ; сдвиг s
             ld   de,gc_rows
-            ld   b,8
+            ld   b,7
 pc_sh:      ld   a,(gfx_bold)           ; жирно: строка | строка>>1 (штрих 2 точки)
             or   a
             ld   a,(hl)
@@ -379,6 +387,10 @@ pc_s0:      ld   a,h
             inc  hl
             dec  b
             jp   nz,pc_sh
+            xor  a                      ; строка 7 — пустая
+            ld   (de),a
+            inc  de
+            ld   (de),a
             ld   hl,lmask_tab           ; маски знакоместа: ML = FF>>s, MR = ~ML
             ld   a,c
             call tab_a

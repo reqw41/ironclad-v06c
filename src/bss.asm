@@ -8,3 +8,4 @@ OVL_END     equ $               ; оверлей меню — поверх та�
             IFNDEF LIBTEST
             include "game_bss.asm"
             ENDIF
+font_data:  ds FONT_SIZE        ; шрифт: 64 знака по 7 строк (font.zx0, распаковка на старте; ячейки — font.inc)

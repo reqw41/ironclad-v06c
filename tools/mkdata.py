@@ -201,12 +201,44 @@ def build_tiles():
     return len(data), len(gl)
 
 # --------------------------------------------------------------------------- шрифт
+# Хранятся только знаки, которые печатает программа: из строк db "..." в src/*.asm и
+# знаки, что строятся счётом (цифры, A..V номера залпов, координаты, знак числа).
+# 64 ячейки на коды 32..95 (ячейка = код-32); строчные буквы занимают ячейки неиспользуемых
+# знаков 32..95, их номер берётся из таблицы lc_map (коды 96..127). Строка 7 у всех знаков
+# шрифта пустая — хранятся 7 строк (8-ю gfx_putc кладёт нулём). Данные сжаты ZX0 (font.zx0),
+# распаковываются на старте в font_data (BSS); таблица lc_map — в font.inc.
+FONT_DYN = set(' -/,[]:0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ')
+def used_chars():
+    import glob, re
+    used = set(FONT_DYN)
+    for f in glob.glob(os.path.join(ROOT, 'src', '*.asm')) + [os.path.join(OUT, 'version.inc')]:
+        if '/engine/' in f or f.endswith('libtest.asm') or not os.path.exists(f): continue
+        for l in open(f, encoding='utf8'):
+            m = re.match(r'^\s*(?:[A-Za-z_]\w*:)?\s*db\s+(.*)$', l)
+            if m:
+                for t in re.findall(r'"([^"]*)"', m.group(1)): used |= set(t)
+    return used
 def build_font():
+    used = used_chars()
+    assert all(32 <= ord(c) < 128 for c in used), sorted(used)
+    slot = [chr(32 + i) if chr(32 + i) in used else None for i in range(64)]
+    free = [i for i in range(64) if slot[i] is None]
+    hi = sorted(c for c in used if ord(c) >= 96)
+    assert len(hi) <= len(free), ('знаков 96..127 больше, чем свободных ячеек', hi)
+    lc = [0] * 32
+    for c, i in zip(hi, free):
+        slot[i] = c; lc[ord(c) - 96] = i
     data = []
-    for code in range(32, 128):
-        data += font5x7.rows(chr(code))
-    write('font.inc', '; сгенерировано tools/mkdata.py: шрифт 5x7 (tools/font5x7.py), коды 32..127, 8 байт на знак\nfont_data:\n' + db_lines(data) + '\n')
-    return len(data)
+    for i in range(64):
+        r = font5x7.rows(slot[i]) if slot[i] else [0] * 8
+        assert r[7] == 0, slot[i]
+        data += r[:7]
+    zx0('font', data)
+    write('font.inc', '; сгенерировано tools/mkdata.py: номер ячейки шрифта (font_data) для кодов 96..127\n'
+          '; знаки: ' + ''.join(sorted(used)).replace(';', '') + '\n'
+          'lc_map: db ' + ','.join('%d' % v for v in lc) + '\n'
+          'FONT_SIZE equ %d\n' % len(data))
+    return bytes(data)
 
 # --------------------------------------------------------------------------- картинки
 def vram_image(px, slotmap, planes):
@@ -297,12 +329,13 @@ def build_palettes(pals):
 
 if __name__ == '__main__':
     os.makedirs(OUT, exist_ok=True)
-    nt, ng = build_tiles()
-    nf = build_font()
-    im, pals = build_images()
-    build_palettes(pals)
     ver = open(os.path.join(REF, 'VERSION')).read().strip()
     write('version.inc', '        db "V%s"\n' % ver)
+    fb = build_font()
+    nf = len(fb)
+    nt, ng = build_tiles()
+    im, pals = build_images()
+    build_palettes(pals)
     print('тайлы %d Б, глифы %d Б, шрифт %d Б' % (nt, ng, nf))
     for k, v in im.items():
         print('%-8s %6d Б' % (k, v))
