@@ -83,7 +83,7 @@ vST             ds      1       ; PARM+36  метка хода в MO; сразу
 @SMEMR          ds      1       ; клеток края увидено
 @SMEMB          ds      1       ; привычка «край» выучена (читает eng_explore)
 
-                ASSERT  vR == vC+1      ; decode, explore, nextcr: C и R одним словом
+                ASSERT  vR == vC+1      ; decode, explore, forcr, pmtest, jadd: C и R словом
                 ASSERT  vBY == vBX+1    ; explore: BX и BY одним словом
                 ASSERT  vSA == vGG+1    ; sample: GG и SA одним словом
                 ASSERT  MCBUF == FABUF+1120 && MOBUF == MCBUF+144 && vST == MOBUF+144
