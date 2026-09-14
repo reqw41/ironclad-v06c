@@ -76,15 +76,13 @@ L1120:      ld   bc,ARR_BZ              ; IF BZ(C,R)=3 -> буй (Q,TR), TPSET
             ld   d,a
             ld   a,1
             jp   cr_tp
-L1121:      cp   1
+L1121:      ld   d,a                    ; 1 промах — непрозрачно; 2 попадание, 3 потоплен — TPSET
+            cp   1
+            ld   a,1
             jp   nz,L1121a
-            ld   a,1                    ; промах — непрозрачно
-            ld   d,1
             call cr_op
             jp   L1124
-L1121a:     ld   d,a                    ; 2 попадание, 3 потоплен — TPSET
-            ld   a,1
-            call cr_tp
+L1121a:     call cr_tp
 L1124:      CPV  bBD,1  ; IF BD=1 THEN NV=PM(C,R)\4: IF 0<NV<33 -> белая цифра NV
             ret  nz
             ld   bc,ARR_PM
@@ -140,18 +138,10 @@ L1133:      ld   a,l
             ld   d,a
             xor  a
             call cr_tp
-L1136:      CPV  bM,1
-            jp   nz,L1139
-            xor  a
-            ld   d,1
-            jp   cr_op
-L1139:      cp   2
-            jp   nz,L1142
-            xor  a
-            ld   d,2
-            jp   cr_tp
-L1142:      xor  a
-            ld   d,3
+L1136:      CPV  bM,1                   ; M=1 — промах (непрозрачно), 2/3 — тайл M (TPSET)
+            ld   d,a
+            ld   a,0
+            jp   z,cr_op
             jp   cr_tp
 L1147:      ld   a,l                    ; M <= 128
             cp   65
