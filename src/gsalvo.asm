@@ -673,14 +673,10 @@ L4007b:     LDV  bX
             inc  hl
             ld   (bT3),hl
             LDV  bU                 ; на краю -> T2=T2+1
-            or   a
-            jp   z,L4007c
-            cp   9
-            jp   z,L4007c
+            ld   d,a
             LDV  bV
-            or   a
-            jp   z,L4007c
-            cp   9
+            ld   e,a
+            call edge_de
             jp   nz,L4008
 L4007c:     ld   hl,(bT2)
             inc  hl
@@ -904,14 +900,10 @@ L4094b:     CPV  bR8,1  ; ELSE IF R8=1 AND T2<25 AND не на краю THEN 409
             CPV  bT2,25
             jp   nc,L4095
             LDV  bC
-            or   a
-            jp   z,L4095
-            cp   9
-            jp   z,L4095
+            ld   d,a
             LDV  bR
-            or   a
-            jp   z,L4095
-            cp   9
+            ld   e,a
+            call edge_de
             jp   nz,L4094
 L4095:      ZEROV bCF  ; CF=0: FOR J=0 TO T-1: IF |TX(J)-C|+|TY(J)-R|<3 THEN CF=1
             STV  bJ
@@ -919,21 +911,15 @@ L4095:      ZEROV bCF  ; CF=0: FOR J=0 TO T-1: IF |TX(J)-C|+|TY(J)-R|<3 THEN CF=
             or   a
             jp   z,L4096                ; FOR J=0 TO -1 — тело не выполняется
 L4095a:     LDV  bJ
-            add  a,a
-            ld   hl,ARR_TX
-            rst  00h
+            call tx_a                   ; B = TX(J), C = TY(J)
             LDV  bC
-            sub  (hl)
+            sub  b
             call absa
-            ld   b,a
-            LDV  bJ
-            add  a,a
-            ld   hl,ARR_TY
-            rst  00h
+            ld   d,a
             LDV  bR
-            sub  (hl)
+            sub  c
             call absa
-            add  a,b
+            add  a,d
             cp   3
             jp   nc,L4096a
             SETV bCF,1
@@ -962,6 +948,17 @@ absa:       or   a
             ret  p
             cpl
             inc  a
+            ret
+; Z, если клетка (D,E) на краю поля (0 или 9 по любой координате)
+edge_de:    ld   a,d
+            or   a
+            ret  z
+            cp   9
+            ret  z
+            ld   a,e
+            or   a
+            ret  z
+            cp   9
             ret
 
 ; 4097: начало партии для движка
@@ -1098,28 +1095,13 @@ L4104:      ZEROV bT3
             SETV bK,1
 L4104a:     ZEROV bT
 L4104b:     LDV  bT                 ; U=PX(K,T): V=PY(K,T)
-            add  a,a
-            add  a,a
-            ld   b,a
-            add  a,a
-            add  a,b
+            call x12
             ld   b,a
             LDV  bK
             add  a,b
-            ld   hl,ARR_PX
-            rst  00h
-            ld   a,(hl)
-            ld   de,60
-            add  hl,de
-            ld   e,(hl)
-            or   a
-            jp   z,L4104c
-            cp   9
-            jp   z,L4104c
-            ld   a,e
-            or   a
-            jp   z,L4104c
-            cp   9
+            call pxy_a
+            ld   d,a
+            call edge_de
             jp   nz,L4105
 L4104c:     INCV bT3
 L4105:      INCV bT
