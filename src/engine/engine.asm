@@ -50,15 +50,29 @@ NSH_SP          equ     7               ; кораблей в SALVO PLUS
 ; ---------------------------------------------------------------- пролог
 ; vNS1 = NSHIPS+1 по флагу eng_sp (заменяет константу NSHIPS оригинала)
 setup:
-                ld      a,(eng_sp)
-                or      a
-                ld      a,NSH_CL+1
-                jp      z,setup1
-                ld      a,NSH_SP+1
-setup1:
+                ld      a,(eng_sp)      ; 0 / 1
+                add     a,a
+                add     a,NSH_CL+1      ; 6 / 8
                 ld      (vNS1),a
                 ret
+                ASSERT  NSH_SP == NSH_CL+2
 
+; карта выстрелов живёт в первых 144 байтах MG; её чистят только fold и kill1
+; (заодно vMODE = 0).  Сохраняет HL; A = 0.
+clrmap:
+                push    hl
+                ld      hl,ARR_MG
+                call    clr144
+                ld      (vMODE),a
+                pop     hl
+                ret
+
+; плоскость меток MO
+clrmo:
+                ld      hl,MOBUF
+clr144:
+                ld      b,144/4
+                xor     a
 ; HL = адрес, B = число байт / 4 (0 = 1024), A = значение.  Сохраняет C, DE.
 fill4:
                 ld      (hl),a
@@ -73,40 +87,30 @@ fill4:
                 jp      nz,fill4
                 ret
 
-; карта выстрелов живёт в первых 144 байтах MG; её чистят только fold и kill1
-clrmap:
-                ld      hl,ARR_MG
-                ld      b,144/4
-                xor     a
-                jp      fill4
-
-; плоскость меток MO
-clrmo:
-                ld      hl,MOBUF
-                ld      b,144/4
-                xor     a
-                jp      fill4
-
 ; ST = ST + 1 с переносом: 0 значит «не помечено», при переполнении плоскость
 ; стирается и счёт начинается с 1
 bumpst:
-                ld      a,(vST)
-                inc     a
-                jp      nz,bst1
+                ld      hl,vST
+                inc     (hl)
+                ret     nz
                 call    clrmo
-                ld      a,1
-bst1:
-                ld      (vST),a
+                ld      hl,vST
+                inc     (hl)
+                ret
+
+; vK += 1; CY = vK < NSHIPS+1
+nextk:
+                ld      hl,vK
+                inc     (hl)
+                ld      a,(hl)
+                inc     hl              ; vNS1
+                cp      (hl)
                 ret
 
 ; ---------------------------------------------------------------- USR0: fold
 @eng_fold:
-                push    hl
                 call    setup
                 call    clrmap
-                xor     a
-                ld      (vMODE),a
-                pop     hl
                 ld      a,l             ; NS
                 and     0Fh
                 ret     z
@@ -134,16 +138,11 @@ fmark:
                 ld      a,1
                 ld      (vK),a
 fship:
-                ld      a,(vK)
                 ld      hl,ARR_HK
-                call    getel
+                call    kel
                 ld      (vH),a
                 call    scan
-                ld      hl,vK
-                inc     (hl)
-                ld      a,(hl)
-                inc     hl              ; vNS1
-                cp      (hl)
+                call    nextk
                 jp      c,fship
                 ret
 
@@ -157,12 +156,8 @@ fship:
 ; оригинал писал его для КАЖДОГО живого кандидата перед проверкой, так что
 ; это индекс последнего живого кандидата корабля в порядке scan (klast).
 @eng_kill1:
-                push    hl
                 call    clrmap
-                xor     a
-                ld      (vMODE),a
                 ld      (vH),a
-                pop     hl
                 push    hl
                 ld      a,h
                 ld      (vK),a
@@ -231,13 +226,10 @@ krow:
                 push    hl
                 call    jdec            ; HL = индекс, B = шаг
                 ld      e,l
-                ld      l,b
-                ld      h,0
-                ld      (vSTEP),hl
+                ld      a,b
                 pop     hl
-                ld      a,(vW)
-                ld      d,a
-                jp      srow
+                ld      c,1
+                jp      shrows
 
 ; A = m -> HL -> FA(OS(K) + m*W), A = m*W (байт); ставит vLK, vW.
 ; Сохраняет BC.
@@ -265,16 +257,14 @@ fm2:
 ; корабль vK: vLK = SZ(K), vW = 11 - LK; DE = OS(K), HL -> FA(OS(K)).
 ; Сохраняет BC.
 shipset:
-                ld      a,(vK)
                 ld      hl,ARR_SZ
-                call    getel
+                call    kel
                 ld      (vLK),a
                 cpl
                 add     a,12            ; 11 - LK
                 ld      (vW),a
-                ld      a,(vK)
                 ld      hl,ARR_OS
-                call    getel16
+                call    kel16
                 ld      hl,FABUF
                 add     hl,de
                 ret
@@ -569,15 +559,12 @@ extnext:
                 call    setup
 marg:
                 ld      a,1
-                ld      (vMODE),a
                 ld      (vK),a
 mgship:
-                ld      a,(vK)
                 ld      hl,ARR_CC
-                call    elptr
-                ld      c,(hl)
-                inc     hl
-                ld      b,(hl)
+                call    kel16
+                ld      b,d
+                ld      c,e
                 ld      a,b             ; кандидатов нет — нечего взвешивать
                 or      c
                 jp      z,mgnext
@@ -586,17 +573,24 @@ mgship:
                 ld      a,h
                 or      l
                 jp      nz,mgok
-                ld      hl,1
+                inc     hl              ; 0 -> 1
 mgok:
-                ld      (vWT),hl
-                call    scan
+                call    scanwt
 mgnext:
-                ld      hl,vK
-                inc     (hl)
-                ld      a,(hl)
-                inc     hl              ; vNS1
-                cp      (hl)
+                call    nextk
                 jp      c,mgship
+                xor     a               ; и без единого scan — как у оригинала
+                ld      (vMODE),a
+                ret
+
+; scan в режиме 1 с весом HL (vWT), затем vMODE = 0
+scanwt:
+                ld      (vWT),hl
+                ld      a,1
+; scan в режиме A, затем vMODE = 0
+scanm:
+                ld      (vMODE),a
+                call    scan
                 xor     a
                 ld      (vMODE),a
                 ret
@@ -642,7 +636,7 @@ dvnx:
 ; ---------------------------------------------------------------- scan: корабль K
 ; Перебор всех 20W кандидатов корабля vK в порядке оригинала.  Мёртвые
 ; (FA = 0) пропускаются прямо в цикле: указатель FA — в HL, индекс первой
-; клетки — в E (13..142, байт), обработчик candl зовётся только для живых.
+; клетки — в E (13..142, байт), cand зовётся только для живых.
 ; На выходе, как у оригинала: vFAP = FA(OS+20W), vSTEP = 1, vLK, vW.
 scan:
                 call    shipset         ; HL -> FA(OS(K))
@@ -657,46 +651,25 @@ scan:
 ; 10 строк по W кандидатов, индекс первой клетки с 13; следующая строка —
 ; +13-шаг (поперёк: следующий Y, вниз: следующий столбец X)
 shalf:
-                ld      e,a
-                ld      d,0
-                ex      de,hl
-                ld      (vSTEP),hl
-                ex      de,hl
-                ld      b,a
                 ld      e,13
                 ld      c,10
+; то же с E = индекс первой клетки, C = число строк.  Живые (FA <> 0) ->
+; cand (vFAP = HL, DE = индекс).
+shrows:
+                push    hl
+                ld      l,a
+                ld      h,0
+                ld      (vSTEP),hl
+                pop     hl
+                ld      b,a
 sh_o:
                 ld      a,(vW)
                 ld      d,a
                 push    de
-                call    srow
-                pop     de
-                ld      a,13
-                sub     b
-                add     a,e
-                ld      e,a
-                dec     c
-                jp      nz,sh_o
-                ret
-
-; строка кандидатов: HL -> FA, E = индекс первой клетки, B = шаг индекса,
-; D = сколько.  Живые (FA <> 0) -> cand.  Сохраняет BC.
 srow:
                 ld      a,(hl)
                 or      a
-                call    nz,candl
-                inc     hl
-                ld      a,e
-                add     a,b
-                ld      e,a
-                dec     d
-                jp      nz,srow
-                ret
-
-; ---------------------------------------------------------------- кандидат
-; Живой кандидат: HL -> FA(I), E = индекс первой клетки, vSTEP = шаг.
-; Сохраняет BC, DE, HL.
-candl:
+                jp      z,srnext
                 push    hl
                 push    de
                 push    bc
@@ -706,24 +679,36 @@ candl:
                 pop     bc
                 pop     de
                 pop     hl
+srnext:
+                inc     hl
+                ld      a,e
+                add     a,b
+                ld      e,a
+                dec     d
+                jp      nz,srow
+                pop     de
+                ld      a,13
+                sub     b
+                add     a,e
+                ld      e,a
+                dec     c
+                jp      nz,sh_o
                 ret
 
+; ---------------------------------------------------------------- кандидат
+; Живой кандидат: vFAP -> FA(I), DE = индекс первой клетки, vSTEP = шаг.
 cand:
                 ld      a,(vMODE)
-                cp      2
+                dec     a
+                jp      z,candmg
+                dec     a
                 jp      z,candn1
-                or      a
-                jp      nz,candmg
 
                 ex      de,hl           ; режим 0: сумма карты выстрелов
                 ld      (vIDX),hl
-                ld      de,ARR_MG
-                add     hl,de
                 ex      de,hl
-                ld      hl,(vSTEP)
-                ex      de,hl           ; HL -> карта, DE = шаг
-                ld      a,(vLK)
-                ld      b,a
+                ld      hl,ARR_MG
+                call    crun
                 xor     a
 covsum:
                 add     a,(hl)
@@ -736,9 +721,8 @@ covsum:
 
                 ld      hl,(vFAP)       ; убить кандидата
                 ld      (hl),0
-                ld      a,(vK)
                 ld      hl,ARR_CC
-                call    elptr
+                call    kelp
                 ld      a,(hl)
                 sub     1
                 ld      (hl),a
@@ -746,13 +730,10 @@ covsum:
                 ld      a,(hl)
                 sbc     a,0
                 ld      (hl),a
-                ld      hl,(vSTEP)
-                ex      de,hl
                 ld      hl,(vIDX)
-                ld      bc,MCBUF
-                add     hl,bc
-                ld      a,(vLK)
-                ld      b,a
+                ex      de,hl
+                ld      hl,MCBUF
+                call    crun
 mcloop:
                 dec     (hl)
                 add     hl,de
@@ -763,17 +744,22 @@ mcloop:
 ; режим 2 (probesel): число живых кандидатов на клетку — байтами в MO
 candn1:
                 ld      hl,MOBUF
+                call    crun
+n1cell:
+                inc     (hl)
+                add     hl,de
+                dec     b
+                jp      nz,n1cell
+                ret
+
+; HL += DE (-> первая клетка кандидата в плоскости), DE = vSTEP, B = vLK
+crun:
                 add     hl,de
                 ex      de,hl
                 ld      hl,(vSTEP)
                 ex      de,hl
                 ld      a,(vLK)
                 ld      b,a
-n1cell:
-                inc     (hl)
-                add     hl,de
-                dec     b
-                jp      nz,n1cell
                 ret
 
 ; режим 1: добавить вес vWT каждой покрытой клетке MG, ещё не запрещённой
@@ -819,17 +805,15 @@ mgnc:
 ; Начало партии: все кандидаты живы, MC и MO чисты, метка хода 0.
 ; FA заполняется на все 1120 байт (в SALVO/BARRAGE используются 760).
 @eng_fainit:
-                ld      hl,FABUF
-                ld      a,1
+                ld      hl,MOBUF        ; MO, MC — 288 нулей подряд, за ними FA
+                ld      b,288/4
+                xor     a
+                call    fill4
+                inc     a
                 ld      b,0             ; 1024
                 call    fill4
                 ld      b,96/4          ; + 96 = 1120
                 call    fill4
-                ld      hl,MCBUF
-                ld      b,144/4
-                xor     a
-                call    fill4
-                call    clrmo
                 xor     a
                 ld      (vST),a
                 ld      (vKL),a
@@ -848,15 +832,13 @@ mgnc:
                 ld      a,1
                 ld      (vK),a
 psship:
-                ld      a,(vK)
                 ld      hl,ARR_PH
-                call    getel
+                call    kel
                 or      a
                 jp      z,psnext
                 ld      b,a
-                ld      a,(vK)
                 ld      hl,ARR_SZ
-                call    getel
+                call    kel
                 cp      b
                 jp      z,psnext
                 ld      c,a
@@ -867,25 +849,17 @@ psship:
                 sub     b               ; SZ-PH: попаданий ещё нужно
                 ld      (vNEED),a
 ps1:
-                ld      a,(vK)
                 ld      hl,ARR_CC
-                call    getel16
+                call    kel16
                 ex      de,hl
                 ld      (vCCK),hl
                 ex      de,hl
-                ld      a,d
-                or      a
+                ld      a,e             ; CC = 1?
+                dec     a
+                or      d
                 jp      nz,psprobe
-                ld      a,e
-                cp      1
-                jp      nz,psprobe
-                ld      a,1             ; найден: добор
-                ld      (vMODE),a
-                ld      hl,25000
-                ld      (vWT),hl
-                call    scan
-                xor     a
-                ld      (vMODE),a
+                ld      hl,25000        ; найден: добор
+                call    scanwt
                 jp      psnext
 psprobe:
                 ld      a,(eng_bar)
@@ -899,28 +873,17 @@ psprobe:
                 ld      c,a
                 ld      b,0
                 call    div16
-                ld      (vWT),hl
-                ld      a,1
-                ld      (vMODE),a
-                call    scan
-                xor     a
-                ld      (vMODE),a
+                call    scanwt
 psp2:
                 call    clrmo
                 ld      a,2
-                ld      (vMODE),a
-                call    scan
-                xor     a
-                ld      (vMODE),a
+                call    scanm
                 ld      hl,-1
                 ld      (vBS),hl
                 ld      hl,13
-                ld      (vP9),hl
 pscell:
-                ld      hl,(vP9)
-                add     hl,hl
-                ld      de,ARR_MG
-                add     hl,de
+                ld      (vP9),hl
+                call    mgat
                 inc     hl
                 ld      a,(hl)
                 rla
@@ -964,19 +927,17 @@ psabs:
 pscnext:
                 ld      hl,(vP9)
                 inc     hl
-                ld      (vP9),hl
                 ld      a,l
                 cp      131
                 jp      nz,pscell
+                ld      (vP9),hl
                 ld      hl,(vBS)
                 ld      a,h
                 and     l
                 inc     a
                 jp      z,psnext        ; ни одной клетки
                 ld      hl,(vBXW)       ; MG(BX) += 12000
-                add     hl,hl
-                ld      de,ARR_MG
-                add     hl,de
+                call    mgat
                 ld      e,(hl)
                 inc     hl
                 ld      d,(hl)
@@ -989,12 +950,15 @@ pscnext:
                 dec     hl
                 ld      (hl),e
 psnext:
-                ld      hl,vK
-                inc     (hl)
-                ld      a,(hl)
-                inc     hl              ; vNS1
-                cp      (hl)
+                call    nextk
                 jp      c,psship
+                ret
+
+; HL = ARR_MG + 2*HL (-> слово MG).  Портит BC.
+mgat:
+                add     hl,hl
+                ld      bc,ARR_MG
+                add     hl,bc
                 ret
 
 ; ------------------------------------------------ MG = -1, затем счета клеток
@@ -1105,23 +1069,31 @@ pmtest:
 
 ; ---------------------------------------------------------------- помощники
 ; HL += 2*A.  Сохраняет BC; DE = A.
-elptr:
-                ld      e,a
-                ld      d,0
-                add     hl,de
-                add     hl,de
-                ret
-
-getel:
-                call    elptr
-                ld      a,(hl)
-                ret
-
+; элемент массива по номеру корабля: kel16 — DE = X(vK), kel — A = X(vK)
+; (младший байт), kelp — HL -> X(vK); HL = база массива.  Сохраняют BC.
+kel16:
+                ld      a,(vK)
 getel16:
                 call    elptr
                 ld      e,(hl)
                 inc     hl
                 ld      d,(hl)
+                ret
+
+kel:
+                ld      a,(vK)
+getel:
+                call    elptr
+                ld      a,(hl)
+                ret
+
+kelp:
+                ld      a,(vK)
+elptr:
+                ld      e,a
+                ld      d,0
+                add     hl,de
+                add     hl,de
                 ret
 
 ; A = (D+1)*12 + (E+1) = 12D + E + 13, HL = ARR_MG + A.  В байте: у

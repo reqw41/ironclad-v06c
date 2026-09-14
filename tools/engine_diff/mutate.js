@@ -28,11 +28,11 @@ const MUT = [
   ['sgt1: sbc -> sub (потерян заём)', 'sub     e\n                ld      a,h\n                sbc     a,d             ; CY <=> HL < DE', 'sub     e\n                ld      a,h\n                sub     d               ; CY <=> HL < DE'],
   ['explore: край 9 -> 8', 'ld      a,(vR)\n                or      a\n                jp      z,extrim\n                cp      9', 'ld      a,(vR)\n                or      a\n                jp      z,extrim\n                cp      8'],
   ['SALVO PLUS: буй cp 3 -> cp 2', 'ld      a,(hl)\n                cp      3\n                jp      z,extnext', 'ld      a,(hl)\n                cp      2\n                jp      z,extnext'],
-  ['bumpst: после переполнения 2', 'call    clrmo\n                ld      a,1\nbst1:', 'call    clrmo\n                ld      a,2\nbst1:'],
+  ['bumpst: после переполнения 2', 'call    clrmo\n                ld      hl,vST\n                inc     (hl)', 'call    clrmo\n                ld      hl,vST\n                inc     (hl)\n                inc     (hl)'],
   // fold / scan / cand
   ['fold: маска NS 0Fh -> 07h', 'ld      a,l             ; NS\n                and     0Fh', 'ld      a,l             ; NS\n                and     07h'],
   ['mapptr: оси перепутаны', 'mapptr:\n                ld      a,d\n                call    pidx', 'mapptr:\n                ld      a,e\n                call    pidx'],
-  ['scan: живой пропущен (cnz -> cz)', 'or      a\n                call    nz,candl\n                inc     hl\n                ld      a,e', 'or      a\n                call    z,candl\n                inc     hl\n                ld      a,e'],
+  ['scan: живой пропущен (jz -> jnz)', 'or      a\n                jp      z,srnext', 'or      a\n                jp      nz,srnext'],
   ['shalf: шаг строки 13-шаг -> 14-шаг', 'ld      a,13\n                sub     b', 'ld      a,14\n                sub     b'],
   ['jdec: шаг вниз 1 -> 2', 'ld      b,1\n                jp      jdfin', 'ld      b,2\n                jp      jdfin'],
   ['cand: отсев наоборот', 'ld      hl,vH\n                cp      (hl)\n                ret     z', 'ld      hl,vH\n                cp      (hl)\n                ret     nz'],
@@ -51,7 +51,7 @@ const MUT = [
   ['probesel: 12000 -> 12001', 'ld      hl,12000', 'ld      hl,12001'],
   ['probesel: sbc -> sub (потерян заём)', 'sub     l\n                ld      a,b\n                sbc     a,h             ; CY <=> |d| < BS', 'sub     l\n                ld      a,b\n                sub     h               ; CY <=> |d| < BS'],
   ['BARRAGE: 6000 -> 5000', 'ld      hl,6000', 'ld      hl,5000'],
-  ['SALVO PLUS: NSHIPS 7 -> 6', 'ld      a,NSH_SP+1', 'ld      a,NSH_SP'],
+  ['SALVO PLUS: NSHIPS 7 -> 6', 'ld      a,(eng_sp)      ; 0 / 1\n                add     a,a', 'ld      a,(eng_sp)      ; 0 / 1\n                nop'],
   // sampler
   ['rnd16: маска 7Fh -> 3Fh', 'and     7Fh', 'and     3Fh'],
   ['rnd16: rrca -> rra (CY течёт)', 'rrca                    ; бит 7 = L.0', 'rra                     ; бит 7 = L.0'],
