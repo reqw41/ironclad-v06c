@@ -32,46 +32,9 @@ S164:       STV  cfg_BD
             SETV cfg_magic+1,195
 S166:       LDV  bBD                ; RUN BARRAGE/SALVOP/SALVO/IRONCLAD
             STV  cfg_fam
+            call foot_clr               ; подвал меню — только в меню
             jp   game_run
 
-
-; 2300: выход «в BASIC» — у Вектора его нет: текст как на SCREEN 0 и ожидание клавиши
-S2300:      call disp_blank
-            ld   bc,0
-            ld   de,255*256+211
-            ld   a,5
-            call gfx_fill
-            ld   a,1
-            ld   (gfx_fg),a
-            ld   a,5
-            ld   (gfx_bg),a
-            xor  a
-            ld   (gfx_x),a
-            ld   (gfx_y),a
-            call putsi
-            TXT  "SIGNING OFF. THANKS FOR PLAYING."
-            xor  a
-            ld   (gfx_x),a
-            ld   a,8
-            ld   (gfx_y),a
-            ld   a,16                   ; подпись автора (была на панели загрузки 3814)
-            ld   (gfx_y),a
-            xor  a
-            ld   (gfx_x),a
-            call putsi
-            TXT  "A GAME BY MEHMET BELGIN  "
-            call putsi                  ; версия (была в «LOADING V1.4 ...» на титуле)
-            include "../build/data/version.inc"
-            xor  a
-            ld   (gfx_x),a
-            ld   a,24
-            ld   (gfx_y),a
-            call putsi
-            TXT  "Ok"
-            call disp_on
-            call L3330
-            call getkey
-            jp   setup_run
 
 ; 3406: палитра, титул с диска на страницу 0 (пока видна пустая страница 1 цветом 5)
 S3406:      call disp_blank
@@ -91,8 +54,35 @@ S3406:      call disp_blank
             ld   a,5
             call gfx_fill
             ENDIF
+            ld   a,(gfx_fg)             ; подвал под картинкой (строки MSX 212..233): автор и версия
+            push af
+            ld   a,PC
+            ld   (gfx_fg),a
+            ld   bc,12*256+216
+            call gfx_pset               ; (y >= 212 — точку не ставит, только курсор)
+            call putsi
+            TXT  "A GAME BY MEHMET BELGIN  "
+            call putsi
+            include "../build/data/version.inc"
+            pop  af
+            ld   (gfx_fg),a
             SETV pg_vis,2
             jp   disp_on
+
+; стереть подвал меню: строки памяти 10..17 (MSX y 216..223) всех плоскостей — цвет фона
+foot_clr:   ld   hl,8000h+17
+fcl_1:      ld   b,8
+            xor  a
+fcl_2:      ld   (hl),a
+            dec  l
+            dec  b
+            jp   nz,fcl_2
+            ld   l,17
+            inc  h
+            ld   a,h
+            cp   0E0h
+            jp   nz,fcl_1
+            ret
 
 ; 3500: меню
 S3500:      ld   a,1                    ; COLOR 1: PF=5: PE=3: PK=1: PC=3
@@ -153,13 +143,9 @@ S3520:      ld   bc,34*256+150
             ld   de,222*256+210
             ld   a,PE
             call gfx_box
-            ld   hl,s_q
+            ld   hl,s_q                 ; «?: RULES» по центру окна (выхода в BASIC у Вектора нет)
             ld   de,s_rules
-            ld   bc,64*256+198
-            call S3512
-            ld   hl,s_qq
-            ld   de,s_exit
-            ld   bc,152*256+198
+            ld   bc,104*256+198
             call S3512
             ; fallthrough
 ; 3526: строки RULESET / MATCH
@@ -294,13 +280,6 @@ S3546a:     STV  bMI
             ret
 S3548:      cp   28
             jp   z,S3560
-S3549:      call upcase
-            cp   'Q'
-            jp   nz,S3550
-            call S3595                  ; дальше разбирается уже новая клавиша
-            call upcase
-            cp   'Q'
-            jp   z,S2300
 S3550:      CPV  bK_,29
             jp   z,S3580
 S3551:      cp   '?'
@@ -344,22 +323,6 @@ S3582:      LDV  bBI
             ld   a,3
 S3582a:     STV  bBI
             jp   S3600
-
-; 3595: подтверждение выхода; A = следующая клавиша
-S3595:      ld   bc,38*256+192
-            ld   de,218*256+208
-            ld   a,PF
-            call gfx_fill
-            ld   bc,44*256+196
-            ld   a,PK
-            call gfx_pset
-            call putsi
-            TXT  "EXIT TO BASIC? Q AGAIN"
-            call getkey
-            STV  bK_
-            call S3520
-            LDV  bK_
-            ret
 
 ; 3600: данные набора правил RP, матч BI
 S3600:      LDV  bRP
@@ -418,6 +381,7 @@ S3606:      LDV  bBI                ; BO, SB, BM$
 
 ; 3700: таблица правил (страница 1)
 S3700:      call disp_blank
+            call foot_clr
             SETV pg_vis,2
             ld   bc,0
             ld   de,255*256+211
@@ -601,8 +565,6 @@ s_ruleset:  TXT  "RULESET"
 s_match:    TXT  "MATCH"
 s_q:        TXT  "?"
 s_rules:    TXT  "RULES"
-s_qq:       TXT  "Q"
-s_exit:     TXT  "EXIT"
 
 
 ; переменные настроек в порядке cfg_TU..cfg_SB (161/162)
