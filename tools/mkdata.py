@@ -295,12 +295,54 @@ def build_palettes(pals):
     write('palettes.inc', '\n'.join(txt) + '\n')
     print('слоты: игра', GAME_SLOTS, 'меню', pals['menu'][0], 'победа', pals['victory'][0], 'поражение', pals['defeat'][0])
 
+# --------------------------------------------------------------------------- загрузочная заставка
+def build_splash():
+    """Экран 256x256 в 16 цветах, 4 плоскости = 32 КБ, лежит в образе .rom по адресам $8000..$FFFF
+    и виден прямо во время загрузки. Источник — data/splash.png (256x256, индексированный, 16 цветов:
+    индекс PNG = номер цвета Вектора, палитра PNG переводится в BBGGGRRR). Пока его нет — заглушка:
+    титул MSX (256x212 по центру, поля — цвет 5, QR закрашен цветом 5), палитра 3430."""
+    src = os.path.join(ROOT, 'data', 'splash.png')
+    v = bytearray(0x8000)
+    if os.path.exists(src):
+        im = Image.open(src)
+        assert im.size == (256, 256) and im.mode == 'P', 'splash.png: нужен индексированный 256x256'
+        pal = im.getpalette()[:48]
+        vp = []
+        for i in range(16):
+            r, g, b = pal[i*3:i*3+3]
+            vp.append(((round(b*3/255)) << 6) | (round(g*7/255) << 3) | round(r*7/255))
+        px = [[im.getpixel((x, y)) for x in range(256)] for y in range(256)]
+        assert max(max(r) for r in px) < 16, 'в splash.png больше 16 цветов'
+        rows = lambda row: px[255-row]
+        what = 'data/splash.png'
+    else:
+        t = load_sc5('IRONCLAD.SC5')
+        line_bf(t, 36, 152, 93, 209, 5)           # QR убран
+        vp = pal16(PAL_MENU, 5)
+        def rows(row):
+            y = 255 - TOP - row
+            return t[y] if 0 <= y < 212 else [0]*256
+        what = 'заглушка из IRONCLAD.SC5'
+    for p in range(4):
+        for col in range(32):
+            for row in range(256):
+                line = rows(row)
+                b = 0
+                for i in range(8):
+                    if (line[col*8+i] >> (3-p)) & 1:
+                        b |= 0x80 >> i
+                v[p*0x2000 + col*256 + row] = b
+    open(os.path.join(OUT, 'splash.bin'), 'wb').write(v)
+    write('splash_pal.inc', '; палитра загрузочной заставки (%s)\nsplash_pal:\n' % what + db_lines(vp) + '\n')
+    print('заставка:', what)
+
 if __name__ == '__main__':
     os.makedirs(OUT, exist_ok=True)
     nt, ng = build_tiles()
     nf = build_font()
     im, pals = build_images()
     build_palettes(pals)
+    build_splash()
     ver = open(os.path.join(REF, 'VERSION')).read().strip()
     write('version.inc', '        db "V%s"\n' % ver)
     print('тайлы %d Б, глифы %d Б, шрифт %d Б' % (nt, ng, nf))
