@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Картинки дисковой версии в 16 цветах: образы видеопамяти для чтения с дискеты прямо в экран.
 
-    python3 tools/mkdisk.py        # -> build/disk/{title,victory,defeat}.vram, build/disk/pics.inc, *.png
+    python3 tools/mkdisk.py        # -> build/disk/{title,victory,defeat}.vram, pics.inc, *_src.png (для глаз)
 
 Формат файла: 4 плоскости подряд = 32 КБ, ровно как видеопамять $8000..$FFFF (байт = $8000 +
 плоскость*$2000 + столбец*256 + строка памяти). Индекс Вектора = номер цвета MSX как есть
@@ -61,7 +61,7 @@ def png(name, v, pal):
             for bit in range(8):
                 idx = sum(((b[p] >> (7 - bit)) & 1) << (3 - p) for p in range(4))
                 im.putpixel((col * 8 + bit, sy), rgb[idx])
-    im.resize((512, 512), Image.NEAREST).save(os.path.join(OUT, name + '.png'))
+    im.resize((512, 512), Image.NEAREST).save(os.path.join(OUT, name + '_src.png'))
 
 
 def build():
