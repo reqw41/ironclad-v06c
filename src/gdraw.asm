@@ -871,20 +871,9 @@ L1652a:     LDV  bI                 ; IF OD=0 THEN TX=AX+I: TY=AY ELSE TX=AX: TY
 L1652b:     ld   a,d
             add  a,c
             ld   d,a
-L1652c:     ld   a,c
-            add  a,a
-            ld   hl,ARR_TX
-            rst  00h
-            ld   (hl),b
-            inc  hl
-            ld   (hl),0
+L1652c:     ld   e,d
             ld   a,c
-            add  a,a
-            ld   hl,ARR_TY
-            rst  00h
-            ld   (hl),d
-            inc  hl
-            ld   (hl),0
+            call txy_set
             ld   a,c
             inc  a
             STV  bI

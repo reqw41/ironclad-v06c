@@ -391,17 +391,56 @@ L390:       call ms_clear
             ret
 
 ; B = TX(I), C = TY(I)
-tx_i:
-            LDV  bI
+tx_i:       LDV  bI
+; B = TX(A), C = TY(A)
+tx_a:       add  a,a
             ld   hl,ARR_TX
-            add  a,a
             rst  00h
             ld   b,(hl)
-            LDV  bI
-            ld   hl,ARR_TY
-            add  a,a
+            ld   a,ARR_TY-ARR_TX
             rst  00h
             ld   c,(hl)
+            ret
+; TX(A)=B: TY(A)=E (слова, старший байт 0); портит A, HL
+txy_set:    add  a,a
+            ld   hl,ARR_TX
+            rst  00h
+            ld   (hl),b
+            inc  hl
+            ld   (hl),0
+            ld   a,ARR_TY-ARR_TX-1
+            rst  00h
+            ld   (hl),e
+            inc  hl
+            ld   (hl),0
+            ret
+; BZ(C,R)=3: Q=A: SD=0: GOSUB 1105 — буй на странице игрока
+buoy_cr:    STV  bQ
+            ld   bc,ARR_BZ
+            call w10cr
+            ld   (hl),3
+            inc  hl
+            ld   (hl),0
+            ZEROV bSD
+            jp   L1105
+
+; A = A*12 (портит C)
+x12:        add  a,a
+            add  a,a
+            ld   c,a
+            add  a,a
+            add  a,c
+            ret
+; A = PX(k), E = PY(k), HL -> PY(k): k = A (= SH + I*12) / HL (pxy_hl)
+pxy_hl:     ld   de,ARR_PX
+            add  hl,de
+            jp   pxy_2
+pxy_a:      ld   hl,ARR_PX
+            rst  00h
+pxy_2:      ld   a,(hl)
+            ld   de,60
+            add  hl,de
+            ld   e,(hl)
             ret
 
 ; PX(SH,I)=B: PY(SH,I)=C
@@ -1070,14 +1109,7 @@ L990:       INCV bEK
             CPV  bBD,1
             jp   nz,L991
             ld   de,sES                 ; ES$=ES$+LEFT$(N$(SH),3)+","
-            call str_end
-            call n_sh
-            call cat3
-            ld   a,','
-            ld   (de),a
-            inc  de
-            xor  a
-            ld   (de),a
+            call cat_sh3
             jp   L992
 L991:       ld   hl,s_enemy_sank
             call ms_set

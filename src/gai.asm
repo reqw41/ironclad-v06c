@@ -618,21 +618,12 @@ L1915:      call ga_ab                  ; SC=SC+GA(A,B)
             ld   a,h
             or   l
             jp   nz,L1916
-            LDV  bJ                 ; SC=0: здесь корабля быть не может — буй
-            ld   e,a
-            LDV  bI
-            ld   bc,ARR_BZ
-            call w10
-            ld   (hl),3
-            inc  hl
-            ld   (hl),0
-            ZEROV bSD
-            LDV  bI
+            LDV  bI                 ; SC=0: здесь корабля быть не может — буй
             STV  bC
             LDV  bJ
             STV  bR
-            SETV bQ,160
-            call L1105
+            ld   a,160
+            call buoy_cr
             jp   L1919
 L1916:      ld   a,10
             call sc_mul_rnd
@@ -742,21 +733,12 @@ buoy_xy:    CPV  bX,10
             LDV  bX
             call open_xy
             ret  nz
-            LDV  bY
-            ld   e,a
-            LDV  bX
-            ld   bc,ARR_BZ
-            call w10
-            ld   (hl),3
-            inc  hl
-            ld   (hl),0
-            ZEROV bSD
             LDV  bX
             STV  bC
             LDV  bY
             STV  bR
-            SETV bQ,176
-            jp   L1105
+            ld   a,176
+            jp   buoy_cr
 
 ; ---------------------------------------------------------------- 1930: буи вокруг потопленного
 L1930:      ZEROV bI

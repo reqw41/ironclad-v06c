@@ -136,34 +136,14 @@ L2116a:     LDV  bN
             STV  bTN
             ZEROV bI
 L2118:      LDV  bI                 ; TX(I)=PX(N,I): TY(I)=PY(N,I)
-            add  a,a
-            add  a,a
-            ld   b,a
-            add  a,a
-            add  a,b
+            call x12
             ld   b,a
             LDV  bN
             add  a,b
-            ld   hl,ARR_PX
-            rst  00h
-            ld   b,(hl)
-            ld   de,60
-            add  hl,de
-            ld   c,(hl)
+            call pxy_a
+            ld   b,a
             LDV  bI
-            add  a,a
-            ld   hl,ARR_TX
-            rst  00h
-            ld   (hl),b
-            inc  hl
-            ld   (hl),0
-            LDV  bI
-            add  a,a
-            ld   hl,ARR_TY
-            rst  00h
-            ld   (hl),c
-            inc  hl
-            ld   (hl),0
+            call txy_set
             INCV bI
             LDV  bTN
             cp   (hl)
