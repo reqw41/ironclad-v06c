@@ -8,20 +8,16 @@ DLY_400     equ 15          ; FOR I=1 TO 400 — ~0.3 с
 DLY_1500    equ 56          ; FOR I=1 TO 1500 — ~1.1 с
 
 ; A = страница, D = код: клетка (bC, bR)
-cr_op:      push af
+cr_op:      ld   hl,cell_op
+            jp   cr_x
+cr_tp:      ld   hl,cell_tp
+cr_x:       push af
             LDV  bC
             ld   b,a
             LDV  bR
             ld   c,a
             pop  af
-            jp   cell_op
-cr_tp:      push af
-            LDV  bC
-            ld   b,a
-            LDV  bR
-            ld   c,a
-            pop  af
-            jp   cell_tp
+            jp   (hl)
 ; HL = &массив(C,R): BC = база
 w10cr:      LDV  bR
             ld   e,a
@@ -125,9 +121,7 @@ L1124:      CPV  bBD,1  ; IF BD=1 THEN NV=PM(C,R)\4: IF 0<NV<33 -> белая ц
 L1130:      xor  a                      ; вода, стр. 0
             ld   d,0
             call cr_op
-L1131:      CPV  bBD,1
-            jp   z,L1146
-L1132:      ld   bc,ARR_CM
+L1132:      ld   bc,ARR_CM              ; M=CM(C,R) (1132 и 1146 одинаково): 0 — RETURN, <0 — 3950
             call w10cr
             call ld_hl_de
             ex   de,hl
@@ -138,6 +132,8 @@ L1132:      ld   bc,ARR_CM
             ld   a,h
             or   a
             jp   m,L3950
+L1131:      CPV  bBD,1
+            jp   z,L1147
 L1133:      ld   a,l
             cp   3
             jp   nz,L1136
@@ -166,17 +162,6 @@ L1139:      cp   2
 L1142:      xor  a
             ld   d,3
             jp   cr_tp
-L1146:      ld   bc,ARR_CM
-            call w10cr
-            call ld_hl_de
-            ex   de,hl
-            ld   (bM),hl
-            ld   a,h
-            or   l
-            ret  z
-            ld   a,h
-            or   a
-            jp   m,L3950
 L1147:      ld   a,l                    ; M <= 128
             cp   65
             jp   c,L1148
@@ -398,32 +383,19 @@ sz_a:       ld   hl,ARR_SZ
 bars:       call sz_i
             ld   a,c
 bars_n:     STV  br_n
-            SETV br_j,1
-br_1:       LDV  bNH
+            SETV hr_x0,216
+            SETV hr_j,1
+br_1:       call hr_xj                  ; A = J-1
             ld   b,a
-            LDV  br_j
+            LDV  bNH
             cp   b
-            ld   a,8
+            ld   a,9
             jp   z,br_2
             jp   c,br_2
-            ld   a,9
+            ld   a,8                    ; J<=NH
 br_2:       STV  bCL
-            LDV  br_j
-            dec  a
-            add  a,a
-            add  a,a
-            add  a,a
-            add  a,216
-            ld   b,a
-            add  a,4
-            ld   d,a
-            LDV  bYP
-            ld   c,a
-            add  a,6
-            ld   e,a
-            LDV  bCL
-            call gfx_fill
-            INCV br_j
+            call sq_draw
+            INCV hr_j
             LDV  br_n
             cp   (hl)
             jp   nc,br_1
@@ -486,16 +458,15 @@ msg_draw_my:                            ; LINE(0,MY)-(255,MY+8),1,BF: COLOR MC: 
             push hl
             ld   a,c
             ld   (gfx_fg),a
+            ld   e,a
             LDV  bMY
             ld   c,a
             ld   b,4
-            ld   a,(gfx_fg)
+            ld   a,e
             call gfx_pset
             pop  hl
             call gfx_puts
-L1302:      ld   a,15
-            ld   (gfx_fg),a
-            ret
+L1302:      jp   fg15
 L1305:      SETV bMY,192
             SETV bMC,11
             jp   L1300
@@ -529,11 +500,12 @@ L1355s:     ld   bc,232*256+4           ; PSET(232,4),12: PRINT "TAB"
 L1372:      CPV  bSB,1
             call z,L1396
 L1375:      ZEROV bI  ; FOR I=0 TO 9: PSET(GX+I*16+4,18),15: PRINT CHR$(65+I)
-L1375a:     LDV  bI
+L1375a:     LDV  bI                 ; 1380 (тем же циклом): PSET(2,GY+I*16+4),15: PRINT RIGHT$(STR$(I+1),2)
             add  a,a
             add  a,a
             add  a,a
             add  a,a
+            push af
             add  a,GX+4
             ld   b,a
             ld   c,18
@@ -542,16 +514,7 @@ L1375a:     LDV  bI
             LDV  bI
             add  a,65
             call gfx_putc
-            INCV bI
-            ld   a,(hl)
-            cp   10
-            jp   c,L1375a
-L1380:      ZEROV bI  ; FOR I=0 TO 9: PSET(2,GY+I*16+4),15: PRINT RIGHT$(STR$(I+1),2)
-L1380a:     LDV  bI
-            add  a,a
-            add  a,a
-            add  a,a
-            add  a,a
+            pop  af
             add  a,GY+4
             ld   c,a
             ld   b,2
@@ -559,23 +522,21 @@ L1380a:     LDV  bI
             call gfx_pset
             LDV  bI
             inc  a
+            ld   b,' '
             cp   10
-            jp   nc,L1380b
-            push af
-            ld   a,' '
+            jp   c,L1380b
+            ld   b,'1'
+            sub  10
+L1380b:     push af
+            ld   a,b
             call gfx_putc
             pop  af
             add  a,'0'
             call gfx_putc
-            jp   L1380c
-L1380b:     ld   a,'1'
-            call gfx_putc
-            ld   a,'0'
-            call gfx_putc
 L1380c:     INCV bI
             ld   a,(hl)
             cp   10
-            jp   c,L1380a
+            jp   c,L1375a
 L1385:      ld   bc,(GX-1)*256+GY-1     ; LINE(GX-1,GY-1)-(GX+160,GY+160),12,B
             ld   de,(GX+160)*256+GY+160
             ld   a,12
@@ -616,41 +577,29 @@ sl_print:   push hl
             call str_copy
             pop  hl
             push hl
-            ld   a,(hl)
-            ld   l,a
+            ld   l,(hl)
             ld   h,0
             call str_num
-            ld   a,'/'
+            pop  hl
+            ld   bc,sl_sep
+slp_1:      ld   a,(bc)                 ; "/", " ", "-" + MID$(STR$(поле),2)
             ld   (de),a
             inc  de
-            pop  hl
+            inc  bc
             inc  hl
             push hl
-            ld   a,(hl)
-            ld   l,a
+            push bc
+            ld   l,(hl)
             ld   h,0
             call str_digits
-            ld   a,' '
-            ld   (de),a
-            inc  de
+            pop  bc
             pop  hl
-            inc  hl
-            push hl
-            ld   a,(hl)
-            ld   l,a
-            ld   h,0
-            call str_digits
-            ld   a,'-'
-            ld   (de),a
-            inc  de
-            pop  hl
-            inc  hl
-            ld   a,(hl)
-            ld   l,a
-            ld   h,0
-            call str_digits
+            ld   a,c
+            cp   low (sl_sep+3)
+            jp   nz,slp_1
             ld   hl,sT
             jp   gfx_puts
+sl_sep:     db   "/ -"
 
 ; ---------------------------------------------------------------- 1410: ввод
 L1410:      ZEROV bAC
