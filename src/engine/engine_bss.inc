@@ -87,5 +87,7 @@ FABUF           ds      1120    ; флаги кандидатов (всегда 
                 ASSERT  vNS1 == vK+1
                 ASSERT  vR == vC+1      ; decode, explore, nextcr: C и R одним словом
                 ASSERT  vBY == vBX+1    ; explore: BX и BY одним словом
+                ASSERT  vSA == vGG+1    ; sample: GG и SA одним словом
+                ASSERT  MCBUF == MOBUF+144 && FABUF == MCBUF+144  ; fainit: одним заполнением
 
                 ENDMODULE
