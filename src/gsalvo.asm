@@ -792,7 +792,11 @@ L4050:      LDV  bNF                ; POKE &HCF99,NF: T2=USR3(0): NS=NF
 
 ; B = PH(K), C = SZ(K) (младшие байты)
 k_ph_sz:    LDV  bK
-            add  a,a
+            jp   a_ph_sz
+; B = PH(I), C = SZ(I)
+i_ph_sz:    LDV  bI
+; B = PH(A), C = SZ(A)
+a_ph_sz:    add  a,a
             ld   hl,ARR_SZ
             rst  00h
             ld   c,(hl)

@@ -264,6 +264,7 @@ ARR_PM: ds 100*2
 ARR_CM: ds 100*2
 ARR_PS: ds 100*2
 ARR_CS: ds 100*2
+            ASSERT ARR_CM == ARR_PM+200 && ARR_PS == ARR_CM+200
 ; байтовые массивы
 ARR_GT: ds 11
 ARR_RU: ds 10
@@ -271,6 +272,7 @@ ARR_PX: ds 12*5         ; PX(SH,I) = SH + I*12
 ARR_PY: ds 12*5
 ARR_QH: ds 12
 ARR_HS: ds 12*5         ; HS(SH,J) = SH + J*12
+            ASSERT ARR_HS == ARR_QH+12
 ARR_SQ: ds 11
 ARR_N:  ds 12*2         ; N$(I) — указатели на имена кораблей
 ; ---------------------------------------------------------------- состояние страниц (порт), вне страницы

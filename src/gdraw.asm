@@ -330,11 +330,8 @@ L1216a:     LDV  bI
             call cat3
             ld   hl,sT
             call gfx_puts
-L1220:      LDV  bI                 ; NH=PH(I): IF P=0 THEN NH=0: IF QH(I)>=SZ(I) THEN NH=5
-            ld   hl,ARR_PH
-            add  a,a
-            rst  00h
-            ld   a,(hl)
+L1220:      call i_ph_sz                ; NH=PH(I): IF P=0 THEN NH=0: IF QH(I)>=SZ(I) THEN NH=5
+            ld   a,b
             STV  bNH
             LDV  bP
             or   a

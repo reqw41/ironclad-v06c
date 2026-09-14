@@ -392,11 +392,7 @@ L420a:      ld   (hl),0
 L430:       SETV bSH,1
             ld   hl,0
             ld   (bAT),hl
-L440:       ld   hl,(bAT)
-            inc  hl
-            ld   (bAT),hl
-            ld   de,-1001
-            add  hl,de
+L440:       call at_inc
             jp   c,L410                 ; AT>1000
 L450:       call L3440
 L460:       call L1615
@@ -466,6 +462,13 @@ L520:       call te_tt
             jp   L2210
 L530:       call L702
 L540:       jp   L504                   ; 540..550 = 504: IF TP>=TT THEN WN=2: GOTO 2210 ELSE 510
+; AT=AT+1: CY, если AT>1000
+at_inc:     ld   hl,(bAT)
+            inc  hl
+            ld   (bAT),hl
+            ld   de,-1001
+            add  hl,de
+            ret
 ; A = TP, флаги cp TT / A = TE, флаги cp TT
 tp_tt:      LDV  bTT
             ld   b,a

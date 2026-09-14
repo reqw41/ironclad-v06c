@@ -40,11 +40,7 @@ L2010:      ld   hl,0
             jp   z,L2020
             call gh_erase
             ZEROV bRW
-L2020:      ld   hl,(bAT)
-            inc  hl
-            ld   (bAT),hl
-            ld   de,-1001
-            add  hl,de
+L2020:      call at_inc
             jp   nc,L2030
             call ms_seti
             TXT  "NO ROOM"
@@ -131,14 +127,10 @@ L2126:      ZEROV bSD
             call L1152
 L2128:                                  ; COPY стр.1 -> стр.2: записи клеток
 L2130:      LDV  bSH                ; CX=PX(SH,0): CY=PY(SH,0): OD=1: IF PX(SH,0)<>PX(SH,1) THEN OD=0
-            ld   hl,ARR_PX
-            rst  00h
-            ld   a,(hl)
+            call pxy_a
             STV  bCX
             ld   b,a
-            ld   de,60
-            add  hl,de
-            ld   a,(hl)
+            ld   a,e
             STV  bCY
             SETV bOD,1
             LDV  bSH
@@ -279,11 +271,8 @@ L2260:      call getkey
             STV  bK_
 L2265:      cp   9
             jp   z,L2266
-            call disp_blank
-            call L2505
             LDV  bDP
-            call page_show
-            call disp_on
+            call show_pg
             LDV  bMD
             or   a
             jp   nz,L2270
@@ -304,35 +293,30 @@ L2268:      CPV  bVP,2
             jp   nz,L2268a
             call show_end_image
             jp   L2260
-L2268a:     call disp_blank
-            call L2505
-            LDV  bVP
-            call page_show
-            call disp_on
+L2268a:     LDV  bVP
+            call show_pg
             jp   L2260
+; экран погашен: палитра игры, страница A, экран включён
+show_pg:    push af
+            call disp_blank
+            call L2505
+            pop  af
+            call page_show
+            jp   disp_on
 L2254:      call msg2i
             TXT  "LOADING NEXT GAME ..."
             INCV bGN
             LDV  bFS
             xor  1
             STV  bFS
-L2255:      ld   hl,ARR_PS              ; PS, PM, CM = 0
-            ld   de,200
+L2255:      ld   hl,ARR_PM              ; PS, PM, CM = 0 (лежат подряд: PM, CM, PS)
+            ld   de,600
             call memzero
-            ld   hl,ARR_PM
-            ld   de,200
-            call memzero
-            ld   hl,ARR_CM
-            ld   de,200
-            call memzero
-L2256:      ld   hl,ARR_PH              ; PH, QH, HS = 0
+L2256:      ld   hl,ARR_PH              ; PH, QH, HS = 0 (QH, HS — подряд)
             ld   de,24
             call memzero
             ld   hl,ARR_QH
-            ld   de,12
-            call memzero
-            ld   hl,ARR_HS
-            ld   de,60
+            ld   de,72
             call memzero
 L2257:      jp   L221
 L2270:      ld   hl,s_loading_menu
@@ -518,67 +502,54 @@ L3330a:     call inkey
             ret
 
 ; ---------------------------------------------------------------- 3440: случайное место корабля
-L3440:      ld   a,2
+L3440:      ld   a,2                    ; OD=RND: OD=0 — CX=RND(11-S): CY=RND(10), OD=1 — CX=RND(10): CY=RND(11-S)
             call rnd_n
             STV  bOD
             call sz_sh
             ld   a,c
             STV  bS
+            ld   b,a
+            ld   a,11
+            sub  b
+            ld   b,a
+            ld   c,10
             LDV  bOD
             or   a
-            jp   nz,L3441
-            LDV  bS
-            ld   b,a
-            ld   a,11
-            sub  b
+            jp   z,L3441
+            ld   a,b
+            ld   b,c
+            ld   c,a
+L3441:      push bc
+            ld   a,b
             call rnd_n
             STV  bCX
-            ld   a,10
-            call rnd_n
-            STV  bCY
-            ret
-L3441:      ld   a,10
-            call rnd_n
-            STV  bCX
-            LDV  bS
-            ld   b,a
-            ld   a,11
-            sub  b
+            pop  bc
+            ld   a,c
             call rnd_n
             STV  bCY
             ret
 
 ; 3460/3470: AL = кораблей на плаву (своих: PH(I)<SZ(I); противника: QH(I)<SZ(I))
-L3460:      ZEROV bAL
+L3460:      ld   hl,i_ph_sz
+            jp   al_cnt
+L3470:      ld   hl,i_qh_sz
+; AL = число I=1..NK, у которых (процедура HL: B = попаданий, C = SZ(I)) B < C
+al_cnt:     push hl
+            ZEROV bAL
             inc  a
             STV  bI
-L3460a:     LDV  bI
-            ld   hl,ARR_PH
-            add  a,a
-            rst  00h
-            ld   b,(hl)
-            call sz_i
+al_1:       pop  hl
+            push hl
+            call scn_c
             ld   a,b
             cp   c
-            jp   nc,L3462
+            jp   nc,al_2
             INCV bAL
-L3462:      INCV bI
+al_2:       INCV bI
             LDV  bNK
             cp   (hl)
-            jp   nc,L3460a
-            ret
-L3470:      ZEROV bAL
-            inc  a
-            STV  bI
-L3470a:     call i_qh_sz
-            ld   a,b
-            cp   c
-            jp   nc,L3472
-            INCV bAL
-L3472:      INCV bI
-            LDV  bNK
-            cp   (hl)
-            jp   nc,L3470a
+            jp   nc,al_1
+            pop  hl
             ret
 
 ; ---------------------------------------------------------------- 3900: помощь по клавишам (страница 2)
