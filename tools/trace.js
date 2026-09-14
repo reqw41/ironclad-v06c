@@ -33,6 +33,8 @@ const memory = new ctx.Memory(), keyboard = new ctx.Keyboard(), timer = new ctx.
 const cpu = new ctx.I8080(memory, io), tape = { advance: () => {}, sample: 0, reset: () => {} },
   v06c = new ctx.Vector06c(cpu, memory, io, ay, tape);
 v06c.bmp = new Uint32Array(576 * 288); v06c.displayFrame = () => {}; v06c.check_breakpoint = () => false; v06c.dbg = null;
+// VFDD=образ.fdd — дискета в приводе A (дисковая версия читает с неё картинки)
+if (process.env.VFDD) floppy.loadDsk(0, process.env.VFDD, new Uint8Array(fs.readFileSync(process.env.VFDD)));
 const rom = new Uint8Array(fs.readFileSync(ROM));
 const img = new Uint8Array(0x10000); img.set(rom.subarray(0, 0x10000 - 0x100), 0x100);
 memory.init_from_array(img, 0); memory.detach_boot && memory.detach_boot();
@@ -116,7 +118,7 @@ const crypto = require("crypto");
 const rw = a => rd(a) | (rd(a + 1) << 8);
 const R = +(RULES || 0);
 // переменные BASIC: метки b??, s??, ARR_* и граница game_vars_end (по порядку адресов)
-const names = Object.keys(L).filter(n => /^(b[A-Z][A-Z0-9_]*|s[A-Z][A-Z0-9]?|ARR_[A-Z]+)$/.test(n) && L[n] >= 0xE000).sort((a, b) => L[a] - L[b]);
+const names = Object.keys(L).filter(n => /^(b[A-Z][A-Z0-9_]*|s[A-Z][A-Z0-9]?|ARR_[A-Z]+)$/.test(n) && L[n] >= (L.bss_start !== undefined ? L.bss_start : 0xE000)).sort((a, b) => L[a] - L[b]);
 const ends = names.map((n, i) => (i + 1 < names.length ? L[names[i + 1]] : L.game_vars_end));
 // переменные-указатели на данные в ПЗУ сравниваются по содержимому (адреса сдвигаются вместе с кодом)
 const PTR1 = { sRN: 1, sBM: 1 }, PTRARR = { ARR_N: 12 };

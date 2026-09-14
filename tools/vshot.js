@@ -34,6 +34,8 @@ const memory = new ctx.Memory(), keyboard = new ctx.Keyboard(), timer = new ctx.
 const cpu = new ctx.I8080(memory, io), tape = { advance: () => {}, sample: 0, reset: () => {} },
   v06c = new ctx.Vector06c(cpu, memory, io, ay, tape);
 v06c.bmp = new Uint32Array(576 * 288); v06c.displayFrame = () => {}; v06c.check_breakpoint = () => false; v06c.dbg = null;
+// VFDD=образ.fdd — дискета в приводе A (дисковая версия читает с неё картинки)
+if (process.env.VFDD) floppy.loadDsk(0, process.env.VFDD, new Uint8Array(fs.readFileSync(process.env.VFDD)));
 const rom = new Uint8Array(fs.readFileSync(ROM));
 const img = new Uint8Array(0x10000); img.set(rom.subarray(0, 0x10000 - 0x100), 0x100);
 memory.init_from_array(img, 0); memory.detach_boot && memory.detach_boot();
