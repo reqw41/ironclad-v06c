@@ -612,10 +612,10 @@ L669:       INCV bNC
             cp   b
             jp   c,L610
 L672:       CPV  bBD,1
-            jp   nz,L674
+            ret  nz
             call L3798
             call te_tt
-            jp   nc,L674
+            ret  nc
             SETV bWC,1
             jp   L610
 L674:       ret
@@ -702,7 +702,7 @@ L735:       ld   b,DLY_1500             ; FOR I=1 TO 1500: IF INKEY$<>"" THEN I=
 L735a:      push bc
             call inkey
             pop  bc
-            jp   nz,L740
+            ret  nz
             ei
             halt
             dec  b
@@ -835,10 +835,10 @@ L940:       ZEROV bHW
             call L2605
 L950:       LDV  cfg_fam            ; только IRONCLAD.BAS
             or   a
-            jp   nz,L952
+            ret  nz
             LDV  bBD
             or   a
-            jp   nz,L952
+            ret  nz
             ld   hl,s_miss
             jp   fire2
 L952:       ret
