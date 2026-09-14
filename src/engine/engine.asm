@@ -104,16 +104,11 @@ fk1:
                 push    de
                 call    jpde
                 pop     de
-                call    nextk
-                jp      nc,fk1
-                ret
-
-; vK += 1; NC = vK <= NSHIPS (продолжать)
-nextk:
                 ld      hl,vK
                 inc     (hl)
                 call    nsh
-                cp      (hl)
+                cp      (hl)            ; NC = vK <= NSHIPS (продолжать)
+                jp      nc,fk1
                 ret
 
 ; ---------------------------------------------------------------- USR0: fold
@@ -807,10 +802,10 @@ psprobe:
                 ld      a,(eng_bar)
                 or      a
                 jp      z,psp2
+                push    bc              ; C = need (от psship)
                 ld      hl,6000         ; BARRAGE: вес 6000/CC/need
                 call    div16
-                ld      a,(vNEED)
-                ld      e,a
+                pop     de
                 ld      d,0
                 call    div16
                 call    scanwt
@@ -1236,10 +1231,9 @@ plstamp:
                 pop     hl
                 ex      de,hl
                 ld      hl,(vW2)
-                add     hl,de           ; следующая линия: +W2
-                dec     c
+                add     hl,de           ; следующая линия: +W2 (CY = 0: адреса MO
+                dec     c               ; далеко от 0FFFFh) — место поставлено
                 jp      nz,plst
-                or      a
                 ret
 plnext:
                 ld      hl,vT2
