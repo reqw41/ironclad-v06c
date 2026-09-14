@@ -51,7 +51,7 @@ boot:       di
             ld   b,FD_SPLASH_N
             ld   hl,8000h
 bt_sld:     call fdd_read               ; стенд засекает кадры от bt_sld до bt_splash
-bt_splash:  jp   c,res.res_err
+bt_splash:  jp   c,bt_err
             ld   hl,splash_pal
             call set_pal
             ei
@@ -92,7 +92,7 @@ pt_next:    ld   e,(hl)                 ; позиция на дискете
             ld   b,FD_PIC_N
             ld   hl,8000h
 pt_load:    call fdd_read               ; стенд засекает кадры от pt_load до pt_loaded
-pt_loaded:  jp   c,res.res_err
+pt_loaded:  jp   c,bt_err
             pop  hl
             ld   e,(hl)                 ; палитра картинки
             inc  hl
@@ -124,6 +124,13 @@ bt_wait:    ei
             jp   nz,bt_wait
             ret
             ENDIF
+
+; ошибка чтения до копирования резидента: весь экран красный (запись палитры без остановки
+; попадает во все индексы)
+bt_err:     di
+            ld   a,07h
+be_1:       out  (0Ch),a
+            jp   be_1
 
 ; палитра 16 байт (HL) -> cur_pal (её льёт ISR в обратный ход кадра)
 set_pal:    ld   de,cur_pal

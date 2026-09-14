@@ -12,6 +12,7 @@
 //                    печатает кадр с долями (кадр = 59904 такта) и число прочитанных секторов
 //   t LABEL        — то же, что until, но ещё печатает время от прошлого t/until
 //   m ADDR N       — напечатать N байт памяти;  pc — где сейчас PC
+//   eject          — вынуть дискету (проверка пути ошибки: NOT READY)
 //   cmp FILE ADDR [OFS [LEN]] — сверить память с ADDR с файлом (с байта OFS, LEN байт; по умолчанию весь)
 // Метки — из .sld: по умолчанию build/disk/boot.sld (или boot_pictest.sld для pictest.fdd) и
 // build/ironclad.sld; свой список — переменная VFDD_SLD=a.sld,b.sld. Метка модуля — res.fdd_read.
@@ -126,6 +127,7 @@ for (const cmd of (SCRIPT || "boot;w 100;s build/disk/shot.png").split(";").map(
       let bad = 0, first = -1; for (let i = 0; i < n; i++) if (rd(at + i) !== buf[ofs + i]) { bad++; if (first < 0) first = i; }
       console.log(`кадр ${now().toFixed(2)}: память $${at.toString(16)}+${n} против ${a[1]}@${ofs}: ` +
         (bad ? `РАСХОЖДЕНИЙ ${bad}, первое на $${(at + first).toString(16)}` : "совпадает")); if (bad) process.exitCode = 1; break; }
+    case "eject": floppy._disks[0].dsk = null; console.log(`кадр ${now().toFixed(2)}: дискета вынута`); break;
     case "pc": console.log(`кадр ${now().toFixed(2)}: PC ${cpu.pc.toString(16)}`); break;
     case "until": case "t": { hit = null; const t0 = now(); frame(+(a[2] || 3000), addr(a[1]));
       const t = now();
