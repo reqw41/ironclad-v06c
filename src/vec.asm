@@ -102,6 +102,15 @@ isr_ai:
 ; Копирует в vec_pal (текущая) и, если экран не погашен, в vec_pal_live (то, что льёт ISR).
 pal_set:
             ld   de,vec_pal
+            IFDEF DISK                  ; 16 цветов: 16 байт как есть
+            ld   b,16
+ps_1:       ld   a,(hl)
+            ld   (de),a
+            inc  de
+            inc  hl
+            dec  b
+            jp   nz,ps_1
+            ELSE
             ld   b,8
 ps_1:       ld   a,(hl)
             ld   (de),a
@@ -111,6 +120,7 @@ ps_1:       ld   a,(hl)
             inc  hl
             dec  b
             jp   nz,ps_1
+            ENDIF
             ld   a,(disp_off)
             or   a
             ret  nz
@@ -281,5 +291,5 @@ kbd_row0:   db 9,0,13,0,29,30,28,31
 ; очистить экран ($8000..$DFFF, 3 плоскости) нулями (слот 0 = цвет фона); $E000.. — память программы
 scr_clear_all:                          ; (только на старте — скорость не важна)
             ld   hl,8000h
-            ld   de,6000h
+            ld   de,NPL*2000h           ; (дисковая версия: все 4 плоскости)
             jp   memzero

@@ -200,10 +200,13 @@ L2270:      jp   setup_run              ; RUN "SETUP.BAS" (без «LOADING MENU
 
 ; страница A (доски) после картинки итога: поля экрана — снова слот 0 (cls1 льёт только 212
 ; видимых строк MSX), тайлы — через резидентную обёртку
-o2_showpg:  push af
+o2_showpg:
+            IFNDEF DISK                 ; (у дисковой версии поля экрана — индекс 0 всегда)
+            push af
             xor  a
             call end_margins
             pop  af
+            ENDIF
             jp   o_showpg
 
 ; экран победы/поражения (страница 2): VICTORY.SC5 / DEFEAT.SC5 (GOSUB 2508 — палитра 9042),
@@ -213,6 +216,23 @@ o2_showpg:  push af
 show_end_image:
             call disp_blank
             SETV pg_vis,2
+            IFDEF DISK
+            ; 16 цветов с дискеты: палитра 9042 как есть, белый бордюр — индекс 0 палитры (цвет 1),
+            ; поля экрана в картинке — нули, то есть тоже белые
+            ld   de,FD_DEFEAT
+            ld   hl,pal_defeat
+            CPV  bWN,1
+            jp   nz,sei_d
+            ld   de,FD_VICTORY
+            ld   hl,pal_victory
+sei_d:      push hl
+            call disk_pic
+            xor  a
+            ld   (vec_border),a
+            pop  hl
+            call pal_set
+            call end_captions
+            ELSE
             IFNDEF NOIMG
             ld   hl,img_defeat
             ld   de,pal_defeat
@@ -239,6 +259,7 @@ sei_1:      push de
             pop  hl
             call pal_set
             call end_captions
+            ENDIF
             ENDIF
             jp   disp_on
 
@@ -315,6 +336,7 @@ cap_keys:    db   77,186,2,0              ; клавиши кончаются н
 
 ; поля экрана (строки памяти 0..21 и 234..255) — цвет слота A во всех плоскостях (данные
 ; картинки в полях — нули)
+            IFNDEF DISK
 end_margins:                            ; A = слот << 5 (биты 7,6,5 — плоскости $8000,$A000,$C000)
             ld   c,a
             ld   hl,8000h+234           ; столбец: строки 234..255, затем 0..21 (L переполняется)
@@ -337,5 +359,6 @@ em_1:       ld   (hl),b
             cp   80h+NPL*20h
             jp   nz,em_p
             ret
+            ENDIF
 
 

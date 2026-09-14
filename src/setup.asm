@@ -44,6 +44,15 @@ S3406:      call disp_blank
             ld   (vec_border),a
             ld   hl,pal_menu
             call pal_set
+            IFDEF DISK
+            ld   de,FD_TITLE            ; BLOAD "IRONCLAD.SC5" — с дискеты, 16 цветов
+            call disk_pic
+            jp   nc,S3406f
+            ld   bc,0                   ; не прочиталась (ON ERROR GOTO 3424): пустая страница цветом 5
+            ld   de,255*256+211
+            ld   a,5
+            call gfx_fill
+            ELSE
             IFNDEF NOTITLE
             ld   hl,img_title           ; BLOAD "IRONCLAD.SC5" (окно меню уже стёрто, QR — отдельно)
             ld   de,8000h
@@ -54,6 +63,8 @@ S3406:      call disp_blank
             ld   a,5
             call gfx_fill
             ENDIF
+            ENDIF
+S3406f:
             ld   a,(gfx_fg)             ; подвал под картинкой (строки MSX 212..233): автор и версия
             push af
             ld   a,PC
@@ -80,7 +91,7 @@ fcl_2:      ld   (hl),a
             ld   l,17
             inc  h
             ld   a,h
-            cp   0E0h
+            cp   low (80h+NPL*20h)      ; за последней плоскостью ($E0; у дисковой версии 0)
             jp   nz,fcl_1
             ret
 
@@ -568,6 +579,11 @@ s_rules:    TXT  "ПРАВИЛА"
 
 
 ; переменные настроек в порядке cfg_TU..cfg_SB (161/162)
+            IFDEF DISK                  ; таблица — в одной странице (у дисковой версии код длиннее)
+            IF high $ != high ($+9)
+            ds   256 - low $
+            ENDIF
+            ENDIF
 t_cfgv:     db   low bTU, low bAM, low bXS, low bSV, low bFL, low bQS, low bBD, low bDL, low bBO, low bSB
             ASSERT high t_cfgv == high (t_cfgv+10)
 

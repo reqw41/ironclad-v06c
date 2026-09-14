@@ -7,7 +7,12 @@
 ; ============================================================================
 
 MSX_TOP     equ 233             ; строка памяти для y = 0
+            IFDEF DISK
+NPL         equ 4               ; плоскостей экрана: дисковая версия — 16 цветов, cmap тождественный
+            ELSE                ; (cmap_* = цвет<<4, биты 7..4 — плоскости $8000..$E000)
 NPL         equ 3               ; плоскостей экрана
+            ENDIF
+TILE_SZ     equ NPL*32          ; тайл 16x16: NPL плоскостей x 2 столбца x 16 строк
 
 ; A = цвет MSX -> A = слот<<5 (биты 7,6,5 — плоскости $8000,$A000,$C000). HL сохраняется.
 col2bits:
@@ -676,10 +681,15 @@ tile_addr:                              ; -> DE = данные тайла, HL = 
             add  hl,hl
             add  hl,hl
             add  hl,hl                  ; *32
+            IFDEF DISK
+            add  hl,hl                  ; *64
+            add  hl,hl                  ; *128
+            ELSE
             ld   d,h
             ld   e,l
             add  hl,hl                  ; *64
             add  hl,de                  ; *96
+            ENDIF
             ld   de,tiles_data
             add  hl,de
             ex   de,hl
@@ -741,6 +751,10 @@ tm_1:       push hl
             or   (hl)
             add  hl,bc
             or   (hl)
+            IFDEF DISK
+            add  hl,bc                  ; четвёртая плоскость
+            or   (hl)
+            ENDIF
             ld   (de),a
             pop  hl
             inc  hl
