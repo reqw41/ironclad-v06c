@@ -243,8 +243,6 @@ L2250:      ZEROV bAF  ; AF=0: IF MD THEN BLOAD картинки на стран
             LDV  bMD
             or   a
             jp   z,L2251
-            ld   a,DLY_LOAD             ; на MSX картинка грузится с диска, пока видна доска
-            call wait_frames
             IFNDEF NOIMG
             SETV bAF,1  ; без файла картинки AF=0 (ON ERROR GOTO 2258)
             ENDIF
@@ -292,9 +290,7 @@ show_pg:    push af
             pop  af
             call page_show
             jp   disp_on
-L2254:      call msg2i
-            TXT  "LOADING NEXT GAME ..."
-            INCV bGN
+L2254:      INCV bGN                    ; (MS$="LOADING NEXT GAME ..." — загрузки с диска нет)
             LDV  bFS
             xor  1
             STV  bFS
@@ -308,12 +304,7 @@ L2256:      ld   hl,ARR_PH              ; PH, QH, HS = 0 (QH, HS — подря�
             ld   de,72
             call memzero
 L2257:      jp   L221
-L2270:      ld   hl,s_loading_menu
-            call ms_set
-            call L1315
-            jp   setup_run              ; RUN "SETUP.BAS"
-
-DLY_LOAD    equ 50                      ; ~1 с: картинка победы грузилась с диска
+L2270:      jp   setup_run              ; RUN "SETUP.BAS" (без «LOADING MENU ...» — загрузки с диска нет)
 
 ; экран победы/поражения (страница 2): VICTORY.SC5 / DEFEAT.SC5 (GOSUB 2508 — палитра 9042)
 ; 8 цв.: 3 плоскости с $8000. 4 цв.: 2 плоскости с $A000, в $8000 — поля экрана белым
@@ -450,10 +441,7 @@ L2354:      call upcase
             SETV bAB,1
 L2356:      call ms_clear
             jp   L1305
-L2360:      ld   hl,s_loading_menu
-            call ms_set
-            call L1315
-            jp   setup_run
+L2360:      jp   setup_run              ; RUN "SETUP.BAS" (без «LOADING MENU ...»)
 
 ; ---------------------------------------------------------------- 2505/2508: палитры
 L2505:      ld   hl,cmap_game           ; цвета игры (8 слотов), бордюр — слот 0
@@ -740,7 +728,6 @@ rf_3:       call at_draw_vis
 
 s_enemy_wins:   TXT  "ENEMY WINS"
 s_you_win:      TXT  "YOU WIN"
-s_loading_menu: TXT  "LOADING MENU ..."
 s_press_key_back: TXT  "Press a key to go back"
 ; 9070: подписи клавиш (пары строк, "!" — конец)
 keys_tab:   TXT  "ARROWS"

@@ -59,7 +59,9 @@ S2300:      call disp_blank
             xor  a
             ld   (gfx_x),a
             call putsi
-            TXT  "A GAME BY MEHMET BELGIN"
+            TXT  "A GAME BY MEHMET BELGIN  "
+            call putsi                  ; версия (была в «LOADING V1.4 ...» на титуле)
+            include "../build/data/version.inc"
             xor  a
             ld   (gfx_x),a
             ld   a,24
@@ -97,19 +99,7 @@ S3500:      ld   a,1                    ; COLOR 1: PF=5: PE=3: PK=1: PC=3
             ld   (gfx_fg),a
             ZEROV bMI
             call S3600
-            ld   hl,s_loading_ver       ; PSET(128-4*LEN(A$),200),1: PRINT A$
-            call str_len
-            add  a,a
-            add  a,a
-            ld   b,a
-            ld   a,128
-            sub  b
-            ld   b,a
-            ld   c,200
-            ld   a,1
-            call gfx_pset
-            ld   hl,s_loading_ver
-            call gfx_puts
+                                        ; 3502 «LOADING V1.4 ...» убрана: загрузки с диска нет (версия — у подписи автора)
             call S3520
 S3503:      call L3330
 S3504:      call S3540
@@ -613,9 +603,6 @@ s_q:        TXT  "?"
 s_rules:    TXT  "RULES"
 s_qq:       TXT  "Q"
 s_exit:     TXT  "EXIT"
-s_loading_ver: db "LOADING "
-            include "../build/data/version.inc"
-            TXT  " ..."
 
 
 ; переменные настроек в порядке cfg_TU..cfg_SB (161/162)

@@ -407,7 +407,7 @@ def build_palettes(pals):
 if __name__ == '__main__':
     os.makedirs(OUT, exist_ok=True)
     ver = open(os.path.join(REF, 'VERSION')).read().strip()
-    write('version.inc', '        db "V%s"\n' % ver)
+    write('version.inc', '        TXT "V%s"\n' % ver)
     build_text()
     fb = build_font()
     nf = len(fb)
