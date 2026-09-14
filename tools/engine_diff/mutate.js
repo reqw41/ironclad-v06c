@@ -26,10 +26,12 @@ const MUT = [
   ['pickn: MG(BX) = -8 вместо -9', 'ld      (hl),-9', 'ld      (hl),-8'],
   ['pickn: 255 -> все корабли, но первый 2', 'ld      b,1             ; 255: все', 'ld      b,2             ; 255: все'],
   // explore / sgt
+  ['forcr: клетки с PM <> 0 не отсеяны (cz -> call)', 'call    pmtest\n                call    z,jpde', 'call    pmtest\n                call    jpde'],
+  ['fork: K с 2', 'fork:\n                ld      a,1', 'fork:\n                ld      a,2'],
   ['sgt: потерян ccf (флаг)', 'rla                     ; CY = знак DE\n                ccf', 'rla                     ; CY = знак DE\n                nop'],
   ['sgt1: sbc -> sub (потерян заём)', 'sub     e\n                ld      a,h\n                sbc     a,d             ; CY <=> HL < DE', 'sub     e\n                ld      a,h\n                sub     d               ; CY <=> HL < DE'],
   ['explore: край 9 -> 8', 'ld      a,(vR)\n                dec     a\n                cp      8', 'ld      a,(vR)\n                dec     a\n                cp      7'],
-  ['SALVO PLUS: буй cp 3 -> cp 2', 'ld      a,(hl)\n                cp      3\n                jp      z,extnext', 'ld      a,(hl)\n                cp      2\n                jp      z,extnext'],
+  ['SALVO PLUS: буй cp 3 -> cp 2', 'ld      a,(hl)\n                cp      3\n                ret     z', 'ld      a,(hl)\n                cp      2\n                ret     z'],
   ['bumpst: после переполнения 2', 'call    clrmo           ; HL -> vST (он сразу за MO)\n                inc     (hl)', 'call    clrmo           ; HL -> vST (он сразу за MO)\n                inc     (hl)\n                inc     (hl)'],
   // fold / scan / cand
   ['fold: маска NS 0Fh -> 07h', 'ld      a,l             ; NS\n                and     0Fh', 'ld      a,l             ; NS\n                and     07h'],

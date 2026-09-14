@@ -96,6 +96,18 @@ bumpst:
                 inc     (hl)
                 ret
 
+; для K = 1..NSHIPS (vK) зовёт обработчик (DE); в конце vK = NSHIPS+1
+fork:
+                ld      a,1
+                ld      (vK),a
+fk1:
+                push    de
+                call    jpde
+                pop     de
+                call    nextk
+                jp      nc,fk1
+                ret
+
 ; vK += 1; NC = vK <= NSHIPS (продолжать)
 nextk:
                 ld      hl,vK
@@ -128,16 +140,13 @@ fmark:                                  ; выстрелы NS-1..0 (порядо
                 dec     c
                 jp      nz,fmark
 
-                ld      a,1
-                ld      (vK),a
+                ld      de,fship
+                jp      fork
 fship:
                 ld      hl,ARR_HK
                 call    kel
                 ld      (vH),a
-                call    scan
-                call    nextk
-                jp      nc,fship
-                ret
+                jp      scan
 
 ; ------------------------------------------------- USR1: снять покрытие клетки
 ; Оригинал ставил в карту выстрелов одну клетку и гнал scan по всем 20W
@@ -399,11 +408,10 @@ sgt1:
 extshot:
                 ld      hl,-1
                 ld      (vBS),hl
-                ld      hl,0
-                ld      (vC),hl         ; C = R = 0
-extcell:
-                call    pmtest          ; PM(C,R) должно быть 0
-                jp      nz,extnext
+                ld      de,extcell
+                call    forcr
+                jp      extfin
+extcell:                                ; PM(C,R) = 0; HL = 2*(C+10R)
                 ld      a,(eng_sp)      ; SALVO PLUS: BZ(C,R)=3 — доказанная
                 or      a               ; пустая вода, туда не стреляем
                 jp      z,extmo
@@ -411,14 +419,14 @@ extcell:
                 add     hl,de
                 ld      a,(hl)
                 cp      3
-                jp      z,extnext
+                ret     z
 extmo:
                 call    padidx          ; MO(P9) не должно нести метку хода
                 ld      de,MOBUF
                 add     hl,de
                 ld      a,(vST)
                 cp      (hl)
-                jp      z,extnext
+                ret     z
                 call    mc8             ; SC = MC(P9)*8 + дрожание
                 ld      a,(vRD)
                 call    jadd
@@ -446,14 +454,13 @@ extsc:
                 ex      de,hl           ; DE = SC
                 ld      hl,(vBS)
                 call    sgt             ; SC > BS ?
-                jp      nc,extnext
+                ret     nc
                 ex      de,hl
                 ld      (vBS),hl
                 ld      hl,(vC)         ; BX, BY = C, R
                 ld      (vBX),hl
-extnext:
-                call    nextcr
-                jp      c,extcell
+                ret
+extfin:
                 ld      hl,(vBX)        ; метка MO(BX*12 + BY + 13)
                 ld      b,l
                 ld      c,h
@@ -470,22 +477,29 @@ extnext:
                 ld      (vP9),hl
                 ret
 
-; следующая клетка обхода C = 0..9 (внешний), R = 0..9 (внутренний);
-; CY = продолжать.  В конце C = R = 10, как у оригинала.
-nextcr:
-                ld      hl,vR
+; обход C = 0..9 (внешний), R = 0..9 (внутренний): для клеток с PM(C,R) = 0
+; зовёт обработчик (DE) с HL = 2*(C+10R).  В конце C = R = 10, как у оригинала.
+forcr:
+                ld      hl,0
+                ld      (vC),hl
+fc1:
+                push    de
+                call    pmtest
+                call    z,jpde
+                pop     de
+                ld      hl,vR           ; следующая клетка
                 inc     (hl)
                 ld      a,(hl)
                 cp      10
-                ret     c
+                jp      c,fc1
                 dec     hl              ; vC
                 inc     (hl)
                 ld      a,(hl)
                 cp      10
                 ret     nc
                 inc     hl
-                ld      (hl),0          ; R = 0; CY = 1
-                ret
+                ld      (hl),0          ; R = 0
+                jp      fc1
 
 ; HL = MC(C,R)*8
 mc8:
@@ -522,26 +536,22 @@ jadd:
 ; Каждый живой кандидат добавляет 2880/CC(K) (не меньше 1) своим клеткам.
 @eng_marg:
 marg:
-                ld      a,1
-                ld      (vK),a
+                call    mode0           ; vMODE = 0 и без единого scan, как у оригинала
+                ld      de,mgship
+                jp      fork
 mgship:
                 ld      hl,ARR_CC
                 call    kel16
                 ld      a,d             ; кандидатов нет — нечего взвешивать
                 or      e
-                jp      z,mgnext
+                ret     z
                 ld      hl,2880
                 call    div16
                 ld      a,h
                 or      l
-                jp      nz,mgok
+                jp      nz,scanwt
                 inc     hl              ; 0 -> 1
-mgok:
-                call    scanwt
-mgnext:
-                call    nextk
-                jp      nc,mgship
-                jp      mode0           ; и без единого scan — как у оригинала
+                jp      scanwt
 
 ; scan в режиме 1 с весом HL (vWT), затем vMODE = 0
 scanwt:
@@ -763,18 +773,18 @@ mgnc:
 @eng_probesel:
                 ld      a,1
                 call    mgseedx         ; MG = разведочные счета
-                ld      a,1
-                ld      (vK),a
+                ld      de,psship
+                jp      fork
 psship:
                 ld      hl,ARR_PH
                 call    kel
                 or      a
-                jp      z,psnext
+                ret     z
                 ld      b,a
                 ld      hl,ARR_SZ
                 call    kel
                 sub     b               ; SZ-PH: попаданий ещё нужно
-                jp      z,psnext
+                ret     z
                 ld      c,a
                 ld      a,(eng_bar)
                 or      a
@@ -792,8 +802,7 @@ ps1:
                 or      d
                 jp      nz,psprobe
                 ld      hl,25000        ; найден: добор
-                call    scanwt
-                jp      psnext
+                jp      scanwt
 psprobe:
                 ld      a,(eng_bar)
                 or      a
@@ -815,7 +824,7 @@ psp2:
                 ld      a,h
                 and     l
                 inc     a
-                jp      z,psnext        ; ни одной клетки
+                ret     z               ; ни одной клетки
                 ld      hl,(vBXW)       ; MG(BX) += 12000
                 call    mgat
                 ld      a,(hl)
@@ -825,9 +834,6 @@ psp2:
                 ld      a,(hl)
                 adc     a,high 12000
                 ld      (hl),a
-psnext:
-                call    nextk
-                jp      nc,psship
                 ret
 
 ; probesel: HL -> MG(P9) -> CY = клетка в игре, покрыта (n = MO(P9) > 0) и
@@ -889,11 +895,9 @@ mgseedx:
                 ld      a,l
                 and     7
                 ld      (vRDS),a
-                ld      hl,0
-                ld      (vC),hl         ; C = R = 0
-mmr:
-                call    pmtest
-                jp      nz,mmnext
+                ld      de,mmr
+                jp      forcr
+mmr:                                    ; PM(C,R) = 0
                 ld      hl,0
                 ld      a,(vSMC)
                 or      a
@@ -907,13 +911,10 @@ mmr:
                 ld      (hl),e
                 inc     hl
                 ld      (hl),d
-mmnext:
-                call    nextcr
-                jp      c,mmr
                 ret
 
 ; HL = 2*(vC + 10*vR) — смещение клетки в массиве 10x10;
-; Z = PM(C,R) = 0.  HL сохраняется, портит A, DE.
+; Z = PM(C,R) = 0.  Портит A, BC; DE сохраняет (forcr держит в нём обработчик).
 pmtest:
                 ld      hl,(vC)         ; L = C, H = R
                 ld      a,h
@@ -926,8 +927,8 @@ pmtest:
                 ld      h,0
                 add     hl,hl
                 push    hl
-                ld      de,ARR_PM
-                add     hl,de
+                ld      bc,ARR_PM
+                add     hl,bc
                 ld      a,(hl)
                 inc     hl
                 or      (hl)
