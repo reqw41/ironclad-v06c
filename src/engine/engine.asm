@@ -1497,8 +1497,7 @@ rnz:
                 and     80h
                 xor     l
                 ld      l,a
-                ld      a,h
-                or      a
+                ld      a,h             ; CY = 0: его сбросил xor выше
                 rra                     ; H>>1
                 xor     l
                 ld      l,a

@@ -48,10 +48,13 @@ function readOffsets(file) {
 }
 
 // Новое пустое состояние варианта v
+// Массивы состояния — всегда размеров Вектора; Z80-сторона пишет и читает
+// только свои (MSX) размерности, остальное у неё остаётся входным — так
+// сравнение заодно проверяет, что перевод не трогает лишних элементов.
 function blank(v) {
   const S = { v, arr: {}, MO: new Uint8Array(144), MC: new Uint8Array(144), FA: new Uint8Array(1120),
     vars: {}, SMEM: new Uint8Array(3), jiffy: 0, eng: { sp: VARIANT[v].sp, bar: VARIANT[v].bar } };
-  for (const a of ARRS) S.arr[a] = new Uint16Array(MSX_LEN[v][a]);
+  for (const a of ARRS) S.arr[a] = new Uint16Array(VEC_LEN[a]);
   for (const [n, sz, base] of VARS) S.vars[n] = base ? 0 : new Uint8Array(sz);
   return S;
 }
@@ -66,8 +69,11 @@ function clone(S) {
 
 // ---------------------------------------------------------------- Z80
 class Z80Layout {
-  constructor(v, orig) {
-    this.v = v; this.o = orig; this.off = readOffsets(VARIANT[v].offs);
+  // wide: эталон с широкими TX/TY (build.js buildWide)
+  constructor(v, orig, wide) {
+    this.v = v; this.o = orig; this.off = wide ? orig.offs : readOffsets(VARIANT[v].offs);
+    this.len = { ...MSX_LEN[v] };
+    if (wide) { this.len.TX = 11; this.len.TY = 11; }
     this.fasize = VARIANT[v].fasize;
     const s = orig.sym;
     this.addr = {};
@@ -87,7 +93,7 @@ class Z80Layout {
     box.w16(0xF6C4, ARYBASE - 8);
     for (const a of ARRS) {
       const base = this.arrAddr(a), arr = S.arr[a];
-      for (let i = 0; i < arr.length; i++) box.w16(base + 2 * i, arr[i]);
+      for (let i = 0; i < this.len[a]; i++) box.w16(base + 2 * i, arr[i]);
     }
     const A = this.addr;
     for (let a = A.PARM; a < A.MOBUF; a++) m[a] = canary(a);
@@ -103,14 +109,14 @@ class Z80Layout {
     // разрешённые для записи зоны
     box.allowed.fill(0);
     box.allow(0xF000 - 0x100, 0x100);
-    for (const a of ARRS) box.allow(this.arrAddr(a), 2 * MSX_LEN[this.v][a]);
+    for (const a of ARRS) box.allow(this.arrAddr(a), 2 * this.len[a]);
     box.allow(A.PARM, A.FABUF + this.fasize - A.PARM);
   }
   extract(box, S0) {
     const S = clone(S0), A = this.addr;
     for (const a of ARRS) {
       const base = this.arrAddr(a), arr = S.arr[a];
-      for (let i = 0; i < arr.length; i++) arr[i] = box.r16(base + 2 * i);
+      for (let i = 0; i < this.len[a]; i++) arr[i] = box.r16(base + 2 * i);
     }
     for (const [n, sz, base] of VARS) {
       if (base) S.vars[n] = (box.r16(A[n]) - A[base]) & 0xffff;
@@ -186,17 +192,6 @@ class I8080Layout {
     S.FA.set(box.mem.subarray(A.FABUF, A.FABUF + 1120));
     S.SMEM.set(box.mem.subarray(A.SMEMG, A.SMEMG + 3));
     return S;
-  }
-  // хвосты массивов Вектора за пределами размерностей MSX не должны меняться
-  tailsIntact(box, S, canary) {
-    for (const a of ARRS) {
-      const n = S.arr[a].length;
-      for (let i = 2 * n; i < 2 * VEC_LEN[a]; i++) {
-        const ad = this.arr[a] + i;
-        if (box.mem[ad] !== canary(ad)) return a;
-      }
-    }
-    return null;
   }
   codeIntact(box) {
     const c = this.m.code;

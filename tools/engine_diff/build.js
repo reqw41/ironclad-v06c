@@ -104,4 +104,26 @@ function buildMine(outDir, engineDir) {
   return { code, org: 0x100, sym: s, codeSize: end - start, bssSize: s.bss_end - s.bss_start, labels };
 }
 
-module.exports = { buildOrig, buildMine, parseSym, ROOT, REF };
+// «Широкий» эталон: НЕИЗМЕНЁННЫЙ fold.asm + sampler.inc оригинала, собранный
+// с другим offsets*.inc (так BUILDING.md и велит при изменении массивов):
+// TX/TY по 11 элементов, как у Вектора, чтобы сверять залпы NS/NF 6..11.
+// Меняются только непосредственные смещения массивов в коде.
+const WIDE_OFFS = { MG: 0, CC: 300, OS: 330, SZ: 360, PH: 400, HK: 440, TX: 470, TY: 500, BZ: 540, PM: 760 };
+function buildWide(outDir) {
+  const res = {};
+  for (const [v, o] of Object.entries(ORIG)) {
+    const dir = path.join(outDir, v);
+    fs.mkdirSync(dir, { recursive: true });
+    for (const f of ['fold.asm', 'sampler.inc']) fs.copyFileSync(path.join(REF, 'src/z80', f), path.join(dir, f));
+    const inc = Object.entries(WIDE_OFFS).map(([k, x]) => `o${k.padEnd(3)} equ ${x}`).join('\n') + '\n';
+    fs.writeFileSync(path.join(dir, 'offsets.inc'), inc);
+    fs.writeFileSync(path.join(dir, 'offsets_sp.inc'), inc);
+    const raw = path.join(dir, o.bin + '.raw'), sym = path.join(dir, o.bin + '.sym');
+    run([...o.defs, '--raw=' + raw, '--sym=' + sym, path.join(dir, 'fold.asm')], dir);
+    const s = parseSym(sym);
+    res[v] = { code: fs.readFileSync(raw), org: s.start, sym: s, offs: WIDE_OFFS };
+  }
+  return res;
+}
+
+module.exports = { buildOrig, buildMine, buildWide, parseSym, ROOT, REF };

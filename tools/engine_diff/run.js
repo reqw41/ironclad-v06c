@@ -19,7 +19,7 @@
 const fs = require('fs');
 const path = require('path');
 const { I8080Box, Z80Box } = require('./cpu.js');
-const { buildOrig, buildMine, ROOT } = require('./build.js');
+const { buildOrig, buildMine, buildWide, ROOT } = require('./build.js');
 const { Z80Layout, I8080Layout, diff, VARIANT } = require('./state.js');
 const { Rng, playSession, randomState, ENTRIES, getv } = require('./model.js');
 
@@ -28,6 +28,9 @@ const opt = (n, d) => { const i = args.indexOf('--' + n); return i < 0 ? d : arg
 const flag = n => args.includes('--' + n);
 const SESSIONS = +opt('sessions', 12);
 const RANDOM = +opt('random', 400);
+// доля «широких» случаев (залп 6..11 выстрелов, эталон с TX/TY на 11)
+const WSESS = +opt('wide-sessions', SESSIONS ? Math.max(1, Math.round(SESSIONS / 3)) : 0);
+const WRANDOM = +opt('wide-random', RANDOM ? Math.max(1, Math.round(RANDOM / 4)) : 0);
 const SEED = +opt('seed', 1);
 const VARIANTS = opt('variants', 'salvo,sp,bar').split(',').filter(Boolean);
 const QUIET = flag('quiet');
@@ -40,6 +43,7 @@ function log(...a) { if (!QUIET) console.log(...a); }
 
 // ---------------------------------------------------------------- сборка
 const orig = buildOrig(path.join(OUT, 'orig'));
+const wide = buildWide(path.join(OUT, 'orig_wide'));
 const mine = buildMine(path.join(OUT, opt('build-sub', 'diff')), opt('engine-dir', null));
 log(`оригиналы: ${Object.entries(orig).map(([v, o]) => `${v} ${o.code.length} Б @${o.org.toString(16).toUpperCase()} (${o.release})`).join('; ')}`);
 log(`перевод: код ${mine.codeSize} Б, данные ${mine.bssSize} Б`);
@@ -72,6 +76,8 @@ const scen = {};       // v -> tag -> n
 const fails = [];      // первые расхождения
 let invalid = 0;       // случаи, где оригинал писал вне своих данных (генератор виноват)
 let total = 0;
+const games = {};      // v -> статистика партий модели
+let turnV = 0, turnZ = 0, callsInTurn = [];
 
 function st(v, e) {
   stats[v] = stats[v] || {};
@@ -103,14 +109,18 @@ function run8080(box, entry, hl) {
 }
 
 function variantRun(v) {
-  const zl = new Z80Layout(v, orig[v]);
+  const zlG = new Z80Layout(v, orig[v]), zlW = new Z80Layout(v, wide[v], true);
   const il = new I8080Layout(mine);
   const zb = new Z80Box(), ib = new I8080Box();
   const faLen = VARIANT[v].fasize;
   let salt = 0;
 
-  function call(S, entry, arg, why) {
+  function callW(S, entry, arg, why) { return callAny(S, entry, arg, why, true); }
+  function call(S, entry, arg, why) { return callAny(S, entry, arg, why, false); }
+  function callAny(S, entry, arg, why, isWide) {
+    const zl = isWide ? zlW : zlG;
     total++;
+    callsInTurn.push(entry);
     salt = (salt + 0x9E37) & 0xffff;
     const s0 = salt;
     const canary = a => ((a * 0x3D) ^ (a >> 8) ^ s0 ^ (s0 >> 8)) & 0xff;
@@ -118,7 +128,7 @@ function variantRun(v) {
     il.load(ib, S, canary);
     const rz = zb.call(zl.entry[entry]);
     const ri = run8080(ib, il.entry[entry], arg);
-    const s = st(v, entry);
+    const s = st(v, isWide ? entry + '*' : entry);
     s.n++;
     const Sz = zl.extract(zb, S);
     if (rz.timeout || rz.badsp || zb.stray.length || !zl.codeIntact(zb)) {
@@ -133,8 +143,6 @@ function variantRun(v) {
     if (ri.badsp) d = ['i8080: стек не сошёлся'].concat(d);
     if (ib.stray.length) d = [`i8080: запись вне данных ${[...new Set(ib.stray)].slice(0, 6).map(x => x.toString(16)).join(',')}`].concat(d);
     if (!il.codeIntact(ib)) d = ['i8080: испорчен код'].concat(d);
-    const tl = il.tailsIntact(ib, S, canary);
-    if (tl) d = [`i8080: тронут хвост ${tl}`].concat(d);
     // хвост FA 760..1119 в SALVO/BARRAGE: меняет только fainit (заполняет 1)
     if (faLen < 1120) for (let i = faLen; i < 1120; i++) {
       const want = entry === 'fainit' ? 1 : S.FA[i];
@@ -142,19 +150,33 @@ function variantRun(v) {
     }
     if (d.length) {
       s.bad++;
-      if (fails.length < 20) fails.push({ v, entry, why, arg, d: d.slice(0, 8) });
+      if (fails.length < 20) fails.push({ v, entry: isWide ? entry + '*' : entry, why, arg, d: d.slice(0, 8) });
     } else if (!ri.timeout) {
       s.cyc.push(ri.cycles); s.vcyc.push(ri.vcycles); s.zcyc.push(rz.cycles);
+      turnV += ri.vcycles; turnZ += rz.cycles;
     }
     scenarios(v, entry, S, Sz, arg);
     return Sz;
   }
 
   const rng = new Rng(SEED * 7919 + v.length * 104729 + v.charCodeAt(0));
-  for (let i = 0; i < SESSIONS; i++) playSession(v, rng, call);
+  const G = games[v] = { n: 0, end: {}, turns: [], tv: [], tz: [], worst: null };
+  const hooks = {
+    turn(sn) {
+      if (sn >= 3) { G.tv.push(turnV); G.tz.push(turnZ); if (!G.worst || turnV > G.worst.v) G.worst = { v: turnV, calls: callsInTurn.slice() }; }
+      turnV = 0; turnZ = 0; callsInTurn = [];
+    },
+    game(why, sn) { G.n++; G.end[why] = (G.end[why] || 0) + 1; G.turns.push(sn); },
+  };
+  for (let i = 0; i < SESSIONS; i++) { turnV = 0; turnZ = 0; callsInTurn = []; playSession(v, rng, call, { hooks }); }
+  for (let i = 0; i < WSESS; i++) { turnV = 0; turnZ = 0; callsInTurn = []; playSession(v, rng, callW, { hooks, maxNF: 11 }); }
   for (const e of ENTRIES[v]) for (let i = 0; i < RANDOM; i++) {
     const { S, arg } = randomState(v, rng, e);
     call(S, e, arg, 'random');
+  }
+  for (const e of ['fold', 'pickn', 'explore']) for (let i = 0; i < WRANDOM; i++) {
+    const { S, arg } = randomState(v, rng, e, true);
+    callW(S, e, arg, 'random');
   }
   // div16 напрямую: частное против точного деления
   let dbad = 0, dn = 0;
@@ -177,7 +199,8 @@ function variantRun(v) {
 
 function scenarios(v, e, S, Sz, arg) {
   const A = S.arr;
-  if (e === 'fold') tag(v, (arg & 15) === 0 ? 'fold NS=0' : 'fold NS>0');
+  if (e === 'fold') tag(v, (arg & 15) === 0 ? 'fold NS=0' : (arg & 15) > 5 ? 'fold NS>5' : 'fold NS>0');
+  if ((e === 'pickn' || e === 'explore') && getv(S, 'vNF') > 5) tag(v, e + ' NF>5');
   if (e === 'kill1') tag(v, 'kill1');
   if (e === 'pickn') { const kl = getv(S, 'vKL'); tag(v, kl === 0 ? 'pickn vKL=0' : kl === 255 ? 'pickn vKL=255' : 'pickn vKL=корабль'); }
   if (e === 'explore') {
@@ -209,7 +232,7 @@ for (const v of VARIANTS) variantRun(v);
 const secs = ((Date.now() - t0) / 1000).toFixed(1);
 
 const REQUIRED_SCEN = {
-  salvo: ['fold NS=0', 'fold NS>0', 'kill1', 'pickn vKL=0', 'pickn vKL=корабль', 'pickn vKL=255',
+  salvo: ['fold NS=0', 'fold NS>0', 'fold NS>5', 'pickn NF>5', 'explore NF>5', 'kill1', 'pickn vKL=0', 'pickn vKL=корабль', 'pickn vKL=255',
     'explore vRIM≠0 SMEMB=0', 'explore vRIM=0 SMEMB≠0', 'explore vRIM≠0 SMEMB≠0', 'explore vRIM=0 SMEMB=0',
     'sample ≥3 выборок', 'sample 1-2 выборки + marg', 'sample 0 выборок + marg', 'sample vRK≠0',
     'probesel добор (CC=1)', 'probesel зонд', 'rnd16 семя из JIFFY', 'rnd16 семя 0ACE1h'],
@@ -223,11 +246,16 @@ if (total === 0) { gateOk = false; why.push('пустая выборка'); }
 const pct = (a, q) => { if (!a.length) return '-'; const b = a.slice().sort((x, y) => x - y); return b[Math.min(b.length - 1, Math.floor(q * b.length))]; };
 const rows = [];
 for (const v of VARIANTS) {
-  for (const e of ENTRIES[v].concat(['div16'])) {
+  // обязательные: все точки входа (эталон как есть) и «широкие» fold/pickn/explore
+  // (только они касаются TX/TY); прочие широкие — попутные, без минимума
+  const WREQ = ['fold*', 'pickn*', 'explore*'];
+  const extra = ENTRIES[v].map(e => e + '*').filter(e => !WREQ.includes(e) && (stats[v] || {})[e]);
+  for (const e of ENTRIES[v].concat(WREQ, extra, ['div16'])) {
     const s = (stats[v] || {})[e] || { n: 0, bad: 0, cyc: [], vcyc: [], zcyc: [] };
     rows.push({ v, e, n: s.n, bad: s.bad, med: pct(s.vcyc, 0.5), p90: pct(s.vcyc, 0.9), max: pct(s.vcyc, 1), cmed: pct(s.cyc, 0.5), cmax: pct(s.cyc, 1), zmed: pct(s.zcyc, 0.5), zmax: pct(s.zcyc, 1) });
     if (s.bad) { gateOk = false; why.push(`${v}/${e}: ${s.bad} расхождений`); }
-    if (s.n < MIN_CASES) { gateOk = false; why.push(`${v}/${e}: всего ${s.n} случаев (< ${MIN_CASES})`); }
+    const min = extra.includes(e) ? 0 : WREQ.includes(e) ? Math.ceil(MIN_CASES / 2.5) : MIN_CASES;
+    if (s.n < min) { gateOk = false; why.push(`${v}/${e}: всего ${s.n} случаев (< ${min})`); }
   }
   for (const t of REQUIRED_SCEN[v]) if (!((scen[v] || {})[t] > 0)) { gateOk = false; why.push(`${v}: сценарий «${t}» не встретился`); }
 }
@@ -244,8 +272,19 @@ if (deadLabels.length) { gateOk = false; why.push(`непройденные ме
 if (deadInsn.length) { gateOk = false; why.push(`непройденные команды: ${deadInsn.length}`); }
 
 console.log(`\nсверка: ${total} вызовов за ${secs} с, вне инвариантов (отброшено): ${invalid}`);
+console.log('(* — эталон с TX/TY на 11: залп 6..11 выстрелов)');
 console.log('вариант  вход       случаев  расх.   такты Вектора (медиана / p90 / макс)      8080 T (мед/макс)     Z80 T (мед/макс)');
 for (const r of rows) console.log(`${r.v.padEnd(8)} ${r.e.padEnd(10)} ${String(r.n).padStart(7)} ${String(r.bad).padStart(6)}   ${String(r.med).padStart(9)} ${String(r.p90).padStart(9)} ${String(r.max).padStart(10)}   ${String(r.cmed).padStart(9)} ${String(r.cmax).padStart(10)}   ${String(r.zmed).padStart(9)} ${String(r.zmax).padStart(10)}`);
+console.log('\nход противника целиком (свёртка + распространение + выбор залпа; ходы с SN>=3):');
+for (const v of VARIANTS) {
+  const G = games[v]; if (!G) continue;
+  const sec = x => (x / 3e6).toFixed(2);
+  const zsec = x => (x / 3.58e6).toFixed(2);
+  console.log(`  ${v}: партий ${G.n} (${Object.entries(G.end).map(([k, n]) => k + ' ' + n).join(', ')}), ходов в партии мед. ${pct(G.turns, 0.5)}; ` +
+    `Вектор 3 МГц: мед. ${sec(pct(G.tv, 0.5))} с, p90 ${sec(pct(G.tv, 0.9))} с, макс ${sec(pct(G.tv, 1))} с; ` +
+    `MSX Z80 3.58 МГц (только машинный код): мед. ${zsec(pct(G.tz, 0.5))} с, макс ${zsec(pct(G.tz, 1))} с`);
+  if (G.worst) { const c = {}; for (const e of G.worst.calls) c[e] = (c[e] || 0) + 1; console.log(`     худший ход: ${Object.entries(c).map(([k, n]) => k + '×' + n).join(' ')}`); }
+}
 if (!QUIET) {
   console.log('\nсценарии:');
   for (const v of VARIANTS) console.log(`  ${v}: ` + Object.entries(scen[v] || {}).sort().map(([t, n]) => `${t}=${n}`).join('; '));

@@ -93,11 +93,13 @@ function playSession(v, rng, call, opts = {}) {
   if (rng.chance(0.5)) { S.SMEM[0] = 0; S.SMEM[1] = 0; S.SMEM[2] = 0; }
   else { S.SMEM[0] = rng.int(15); S.SMEM[1] = Math.min(255, S.SMEM[0] * (8 + rng.int(12))); }
   const games = opts.games || (1 + rng.int(3));
-  for (let g = 0; g < games; g++) S = playGame(v, rng, call, S, ZT, SZ, NK);
+  const hooks = opts.hooks || { turn() {}, game() {} };
+  const maxNF = opts.maxNF || 5;
+  for (let g = 0; g < games; g++) S = playGame(v, rng, call, S, ZT, SZ, NK, hooks, maxNF);
   return S;
 }
 
-function playGame(v, rng, call, S, ZT, SZ, NK) {
+function playGame(v, rng, call, S, ZT, SZ, NK, hooks, maxNF) {
   const A = S.arr;
   const rimBias = rng.chance(0.35);
   const { occ } = placeFleet(rng, SZ, rimBias);
@@ -131,7 +133,8 @@ function playGame(v, rng, call, S, ZT, SZ, NK) {
   }
   for (let c = 0; c <= 9; c++) for (let r = 0; r <= 9; r++) S.MC[P9(c, r)] = (RU[c] + RU[r]) & 255;
   let BL = NK - ZT, TP = 0;
-  let NF = 1 + rng.int(5);
+  // NF: у MSX TX(4) — до 5 выстрелов; у Вектора TX[11] — до 11 (SALVO PLUS, SV=1)
+  let NF = maxNF > 5 && rng.chance(0.7) ? 6 + rng.int(maxNF - 5) : 1 + rng.int(Math.min(5, maxNF));
   const shrink = rng.chance(0.5);
   let NS = 0;
   for (let turn = 0; turn < 200 && TP < TT; turn++) {
@@ -152,7 +155,7 @@ function playGame(v, rng, call, S, ZT, SZ, NK) {
     // 3844: выстрелы
     for (let nc = 0; nc < NS; nc++) {
       const fx = s16(B.TX[nc]), fy = s16(B.TY[nc]);
-      if (fx < 0 || fx > 9 || fy < 0 || fy > 9) return S;      // BASIC упал бы — партия окончена
+      if (fx < 0 || fx > 9 || fy < 0 || fy > 9) { hooks.game('выстрел вне поля', SN); return S; } // BASIC упал бы
       const sh = occ[fx][fy];
       const ci = fx + 10 * fy;
       if (!sh) { B.PM[ci] = u16(1 + 4 * SN); continue; }
@@ -163,7 +166,9 @@ function playGame(v, rng, call, S, ZT, SZ, NK) {
       if (TP >= TT) break;
     }
     if (TP < TT) FP = 1;
+    hooks.turn(SN);
   }
+  hooks.game(TP >= TT ? 'флот потоплен' : 'лимит ходов', SN);
   // 4103-4105: конец партии — счётчики сессии
   if (S.SMEM[0] < 14) {
     let T3 = 0;
@@ -271,7 +276,7 @@ const ENTRIES = { salvo: ['fold', 'kill1', 'explore', 'pickn', 'marg', 'sample',
   sp: ['fold', 'kill1', 'explore', 'pickn', 'marg', 'sample', 'fainit'] };
 ENTRIES.bar = ENTRIES.salvo;
 
-function randomState(v, rng, entry) {
+function randomState(v, rng, entry, wide) {
   const S = blank(v), A = S.arr, ZT = ZTOF[v];
   scrambleVars(S, rng);
   // флот: перестановка настоящего (сумма CT та же — FA не выходит за буфер)
@@ -325,12 +330,12 @@ function randomState(v, rng, entry) {
   }
   for (let k = 0; k < A.PH.length; k++) A.PH[k] = k >= 1 && k <= sizes.length ? rng.pick([0, 0, 1, rng.int(A.SZ[k] + 1), A.SZ[k], A.SZ[k] + 1]) : rng.int(65536);
   for (let k = 0; k < A.HK.length; k++) A.HK[k] = k >= 1 && k <= ZT ? rng.pick([0, 0, 1, rng.int(A.SZ[k] + 1), rng.int(8)]) | (rng.chance(0.1) ? 0x100 : 0) : rng.int(65536);
-  for (let i = 0; i < 5; i++) { A.TX[i] = u16(rng.int(13) - 1) | (rng.chance(0.1) ? 0x300 : 0); A.TY[i] = u16(rng.int(13) - 1); }
+  for (let i = 0; i < 11; i++) { A.TX[i] = u16(rng.int(13) - 1) | (rng.chance(0.1) ? 0x300 : 0); A.TY[i] = u16(rng.int(13) - 1); }
   setv(S, 'vKL', rng.pick([0, 0, 255, 1 + rng.int(ZT)]));
   setv(S, 'vRK', rng.pick([0, 0, 1, rng.int(256)]));
   setv(S, 'vRD', rng.int(256));
   setv(S, 'vRIM', rng.pick([0, 0, 1, rng.int(256)]));
-  setv(S, 'vNF', rng.pick([0, 1, 2, 3, 4, 5]));
+  setv(S, 'vNF', wide ? 6 + rng.int(6) : rng.pick([0, 1, 2, 3, 4, 5]));
   S.SMEM[0] = rng.int(256); S.SMEM[1] = rng.int(256); S.SMEM[2] = rng.pick([0, 0, 1, rng.int(256)]);
   S.jiffy = rng.chance(0.2) ? 0 : rng.int(65536);
   if (rng.chance(0.2)) setv(S, 'vSEED', 0);
@@ -345,7 +350,7 @@ function randomState(v, rng, entry) {
   if (entry !== 'sample' && rng.chance(0.15))
     for (let k = 1; k <= ZT; k++) if (rng.chance(0.5)) A.CC[k] = rng.pick([rng.int(65536), 256 + rng.int(3000), 2881 + rng.int(1000)]);
   let arg = rng.int(65536);
-  if (entry === 'fold') arg = (arg & 0xfff0) | rng.int(6);
+  if (entry === 'fold') arg = (arg & 0xfff0) | (wide ? 6 + rng.int(6) : rng.int(6));
   if (entry === 'kill1') arg = ((1 + rng.int(ZT)) << 8) | rng.int(256);
   return { S, arg };
 }
