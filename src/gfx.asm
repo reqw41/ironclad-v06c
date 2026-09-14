@@ -272,8 +272,9 @@ sb_1:       ld   a,d
             ret
 
 ; ---------------------------------------------------------------- PRINT#1
-; Строка HL (0 в конце) с графического курсора (gfx_x, gfx_y) цветом gfx_fg.
-; Фон знакомест не трогается (как GRPPRT MSX). Курсор сдвигается на 8 точек на знак.
+; Строка HL (0 в конце) с графического курсора (gfx_x, gfx_y): знак — цветом gfx_fg,
+; остальное знакоместо 8x8 — цветом фона gfx_bg (COLOR fg,bg): так рисует SCREEN 5 MSX2,
+; точка PSET перед PRINT на скриншотах оригинала не видна. Курсор +8 точек на знак.
 gfx_puts:
             ld   a,(hl)
             or   a
@@ -308,30 +309,24 @@ gfx_putc:
             ld   (gc_colx),a
             ld   a,(gfx_y)
             ld   (gc_y),a
-            ld   a,7
+            ld   a,8
             ld   (gc_cnt),a
 gc_row:
             ld   a,(gc_y)
             cp   212
             jp   nc,gc_skip
+            ld   a,0FFh                 ; фон знакоместа
+            call shift_bits
+            ld   c,a
+            ld   a,(gfx_bg)
+            call gc_put
             ld   hl,(gc_src)
             ld   a,(hl)
             or   a
             jp   z,gc_skip
             call shift_bits
-            ld   a,(gc_colx)
-            cp   31
-            jp   nz,gc_ok
-            ld   e,0
-gc_ok:      ld   h,a
-            ld   a,(gc_y)
-            ld   b,a
-            ld   a,MSX_TOP
-            sub  b
-            ld   l,a
             ld   a,(gfx_fg)
-            ld   c,a
-            call put_bits
+            call gc_put
 gc_skip:    ld   hl,(gc_src)
             inc  hl
             ld   (gc_src),hl
@@ -344,6 +339,19 @@ gc_skip:    ld   hl,(gc_src)
             add  a,8
             ld   (gfx_x),a
             ret
+; биты D,E строки gc_y в столбце gc_colx цветом A
+gc_put:     ld   c,a
+            ld   a,(gc_colx)
+            cp   31
+            jp   nz,gcp_1
+            ld   e,0
+gcp_1:      ld   h,a
+            ld   a,(gc_y)
+            ld   b,a
+            ld   a,MSX_TOP
+            sub  b
+            ld   l,a
+            jp   put_bits
 
 ; ---------------------------------------------------------------- глиф 8x10
 ; A = номер глифа (0..31), B = x, C = y, E = цвет заливки (обводка — цвет 10), TPSET.

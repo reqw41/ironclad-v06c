@@ -4,7 +4,6 @@
 ; Образ .rom грузится с $0100 и стартует с $0100.
 ; ============================================================================
             DEVICE NOSLOT64K
-            OUTPUT "build/ironclad.rom"
 
 STACK_TOP   equ 8000h
 
@@ -39,18 +38,32 @@ bz_1:       xor  a
 
             IFDEF LIBTEST
             include "libtest.asm"
+            ELSE
+            include "page.asm"
+            include "setup.asm"
+            include "game.asm"
+            include "gdraw.asm"
+            include "gai.asm"
+            include "gmisc.asm"
+            include "gsalvo.asm"
+            IFDEF ENGINE_STUB
+            include "engine_stub.asm"
+            ELSE
+            include "engine/engine.asm"
+            include "engine_glue.asm"
+            ENDIF
             ENDIF
 
 ; ---------------------------------------------------------------- данные
             include "../build/data/palettes.inc"
             include "../build/data/font.inc"
             include "../build/data/tiles.inc"
-            IFNDEF LIBTEST
+            include "../build/data/qr.inc"
+            IFNDEF NOIMG
 img_title:  incbin "../build/data/title.zx0"
 img_defeat: incbin "../build/data/defeat.zx0"
-            include "../build/data/qr.inc"
-            ENDIF
 img_victory: incbin "../build/data/victory.zx0"
+            ENDIF
 
 image_end:
             ; ---------------------------------------------------------------- BSS

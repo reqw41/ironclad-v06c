@@ -1,0 +1,12 @@
+ENG_KL:     ds 1
+ENG_RK:     ds 1
+ENG_RD:     ds 1
+ENG_NF:     ds 1
+ENG_RIM:    ds 1
+ENG_MC:     ds 144
+ENG_FA:     ds 1120
+SMEMG:      ds 1
+SMEMR:      ds 1
+SMEMB:      ds 1
+eng_sp:     ds 1
+eng_bar:    ds 1

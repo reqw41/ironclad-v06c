@@ -29,6 +29,7 @@ gp_cx:      ds 1
 gfx_x:      ds 1
 gfx_y:      ds 1
 gfx_fg:     ds 1
+gfx_bg:     ds 1
 gs_n:       ds 1
 gc_src:     ds 2
 gc_colx:    ds 1

@@ -213,6 +213,8 @@ if __name__ == '__main__':
     nf = build_font()
     build_palettes()
     im = build_images()
+    ver = open(os.path.join(REF, 'VERSION')).read().strip()
+    write('version.inc', '        db "V%s"\n' % ver)
     print('тайлы %d Б, глифы %d Б, шрифт %d Б' % (nt, ng, nf))
     for k, v in im.items():
         print('%-8s %6d Б' % (k, v))
