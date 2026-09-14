@@ -342,6 +342,12 @@ gp_w1:      ld   a,(hl)
             inc  hl
             jp   gfx_puts
 
+; PRINT текста, лежащего прямо за вызовом (TXT); продолжение — за текстом
+putsi:      pop  hl
+            call gfx_puts
+            inc  hl
+            jp   (hl)
+
 ; знак A (быстрый путь: строки знака сдвигаются один раз, по плоскостям — 4 вида цикла)
 gfx_putc:
             sub  32

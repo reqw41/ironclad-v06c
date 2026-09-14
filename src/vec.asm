@@ -79,13 +79,8 @@ isr_pal:
 ; если экран не погашен, в vec_pal_live (то, что льёт ISR).
 pal_set:
             ld   de,vec_pal
-            ld   b,16
-ps_1:       ld   a,(hl)
-            ld   (de),a
-            inc  hl
-            inc  de
-            dec  b
-            jp   nz,ps_1
+            ld   bc,16
+            call memcpy
             ld   a,(disp_off)
             or   a
             ret  nz
@@ -111,14 +106,8 @@ disp_on:
 pal_live:
             ld   hl,vec_pal
             ld   de,vec_pal_live
-            ld   b,16
-dn_1:       ld   a,(hl)
-            ld   (de),a
-            inc  hl
-            inc  de
-            dec  b
-            jp   nz,dn_1
-            ret
+            ld   bc,16
+            jp   memcpy
 
 ; ---------------------------------------------------------------- ожидание
 ; wait_frames: A = число кадров (1..255).
@@ -240,21 +229,7 @@ kbd_map:
 
 ; ---------------------------------------------------------------- экран
 ; очистить экран ($8000..$DFFF, 3 плоскости) нулями (слот 0 = цвет фона); $E000.. — память программы
-scr_clear_all:
-            di
-            ld   hl,0
-            add  hl,sp
-            ld   (sca_sp),hl
-            ld   sp,0E000h              ; первый push пишет $DFFE/$DFFF
-            ld   de,0
-            ld   b,192                  ; 192 * 64 push = 24 КБ
-sca_1:
-            REPT 64
-            push de
-            ENDR
-            dec  b
-            jp   nz,sca_1
-            ld   hl,(sca_sp)
-            ld   sp,hl
-            ei
-            ret
+scr_clear_all:                          ; (только на старте — скорость не важна)
+            ld   hl,8000h
+            ld   de,6000h
+            jp   memzero

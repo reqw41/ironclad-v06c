@@ -366,9 +366,8 @@ L358:       call L2108
 L365:       call L1615
 L370:       CPV  bLG,1
             jp   z,L380
-L375:       ld   hl,s_blocked
-            call ms_set
-            call L1305
+L375:       call msg1i
+            TXT  "BLOCKED"
             jp   L328
 L380:       call L1652
 L381:       call ship_to_ps
@@ -573,8 +572,8 @@ L501:       CPV  bDL,2  ; IF DL>1 AND GN=1 THEN MS$="COIN TOSS: "+MS$
             jp   c,L501a
             CPV  bGN,1
             jp   nz,L501a
-            ld   hl,s_coin_toss
-            call ms_cat
+            call ms_cati
+            TXT  "COIN TOSS: "
 L501a:      pop  hl
             call ms_cat
 L502:       call L1305
@@ -674,9 +673,8 @@ L647:       CPV  bDP,1
 L650:       call cm_cxcy                ; IF CM(CX,CY)>0 THEN "ALREADY FIRED"
             call hl_pos
             jp   z,L655
-            ld   hl,s_already_fired
-            call ms_set
-            call L1305
+            call msg1i
+            TXT  "ALREADY FIRED"
             jp   L620
 L655:       ZEROV bFB
             call L3322
@@ -795,9 +793,8 @@ L703:       CPV  bSV,3
             jp   c,L704
             STV  bNF
 L704:       ZEROV bNC
-L710:       ld   hl,s_enemy_plotting
-            call ms_set
-            call L1315
+L710:       call msg2i
+            TXT  "ENEMY IS PLOTTING..."
 L715:       LDV  bDP
             or   a
             jp   nz,L716
@@ -908,8 +905,8 @@ L879:       call L2615
             jp   L870a
 L882:       call L1706
             call L2622
-L890:       ld   hl,s_sunk_enemy
-            call ms_set
+L890:       call ms_seti
+            TXT  "SUNK - ENEMY "
             call n_sh
             call ms_cat
             call L1305
@@ -1111,8 +1108,8 @@ L990:       INCV bEK
             ld   de,sES                 ; ES$=ES$+LEFT$(N$(SH),3)+","
             call cat_sh3
             jp   L992
-L991:       ld   hl,s_enemy_sank
-            call ms_set
+L991:       call ms_seti
+            TXT  "ENEMY SANK YOUR "
             call n_sh
             call ms_cat
             call L1315
@@ -1151,6 +1148,26 @@ fxfy:       LDV  bFY
 ms_set:
             ld   de,sMS
             jp   str_copy
+; Текст — прямо за вызовом (TXT), продолжение — за текстом:
+; ms_seti: MS$ = текст; ms_cati: MS$ = MS$ + текст; msg1i/msg2i: MS$ = текст: GOSUB 1305/1315
+ms_seti:    pop  hl
+            call ms_set
+            inc  hl
+            jp   (hl)
+ms_cati:    pop  hl
+            call ms_cat
+            inc  hl
+            jp   (hl)
+msg1i:      pop  hl
+            call ms_set
+            inc  hl
+            push hl
+            jp   L1305
+msg2i:      pop  hl
+            call ms_set
+            inc  hl
+            push hl
+            jp   L1315
 ; MS$ = ""
 ms_clear:
             xor  a
@@ -1192,18 +1209,12 @@ ms_catd:
             jp   str_digits
 
 ; ---------------------------------------------------------------- тексты
-s_blocked:          TXT  "BLOCKED"
 s_you_fire_first:   TXT  "YOU FIRE FIRST"
 s_enemy_fires_first: TXT  "ENEMY FIRES FIRST"
-s_coin_toss:        TXT  "COIN TOSS: "
-s_already_fired:    TXT  "ALREADY FIRED"
-s_enemy_plotting:   TXT  "ENEMY IS PLOTTING..."
 s_you_fire:         TXT  "YOU FIRE "
 s_miss:             TXT  " - MISS"
 s_hit:              TXT  " - HIT"
-s_sunk_enemy:       TXT  "SUNK - ENEMY "
 s_enemy_fires:      TXT  "ENEMY FIRES "
-s_enemy_sank:       TXT  "ENEMY SANK YOUR "
 
 ; 9020..9030: флоты (имя, размер)
 ships_std:  dw sh_carrier

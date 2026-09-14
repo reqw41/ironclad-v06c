@@ -63,21 +63,9 @@ sn_1:       ld   d,a
 ; PLAY: HL = мелодия (dw голос0, dw голос1). Шумовой эффект гасится.
 mus_start:
             di
-            ld   e,(hl)
-            inc  hl
-            ld   d,(hl)
-            inc  hl
-            ld   a,e
-            ld   (mus_p),a
-            ld   a,d
-            ld   (mus_p+1),a
-            ld   e,(hl)
-            inc  hl
-            ld   d,(hl)
-            ld   a,e
-            ld   (mus_p+2),a
-            ld   a,d
-            ld   (mus_p+3),a
+            ld   de,mus_p
+            ld   bc,4
+            call memcpy
             xor  a
             ld   (mus_cnt),a
             ld   (mus_cnt+1),a
@@ -136,26 +124,7 @@ sx_nx:      ld   a,(sx_ch)
 ; HL = делитель шума: base*(1 + r&3) + (r>>8 & 63)
 sx_rnddiv:
             ld   hl,(sfx_rs)
-            ld   a,l                    ; xorshift16 (7,9,8)
-            rrca
-            and  80h
-            ld   e,a
-            ld   a,h
-            rra
-            ld   a,l
-            rra
-            xor  h
-            ld   h,a
-            ld   a,e
-            xor  l
-            ld   l,a
-            ld   a,h
-            or   a
-            rra
-            xor  l
-            ld   l,a
-            xor  h
-            ld   h,a
+            call xs16                   ; xorshift16 (7,9,8)
             ld   (sfx_rs),hl
             ld   a,h
             and  63

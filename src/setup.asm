@@ -54,8 +54,8 @@ S2300:      call disp_blank
             xor  a
             ld   (gfx_x),a
             ld   (gfx_y),a
-            ld   hl,s_signing_off
-            call gfx_puts
+            call putsi
+            TXT  "SIGNING OFF. THANKS FOR PLAYING."
             xor  a
             ld   (gfx_x),a
             ld   a,8
@@ -64,14 +64,14 @@ S2300:      call disp_blank
             ld   (gfx_y),a
             xor  a
             ld   (gfx_x),a
-            ld   hl,s_author
-            call gfx_puts
+            call putsi
+            TXT  "A GAME BY MEHMET BELGIN"
             xor  a
             ld   (gfx_x),a
             ld   a,24
             ld   (gfx_y),a
-            ld   hl,s_ok
-            call gfx_puts
+            call putsi
+            TXT  "Ok"
             call disp_on
             call L3330
             call getkey
@@ -370,8 +370,8 @@ S3595:      ld   bc,38*256+192
             ld   bc,44*256+196
             ld   a,PK
             call gfx_pset
-            ld   hl,s_exit_basic
-            call gfx_puts
+            call putsi
+            TXT  "EXIT TO BASIC? Q AGAIN"
             call getkey
             STV  bK_
             call S3520
@@ -620,10 +620,6 @@ s_q:        TXT  "?"
 s_rules:    TXT  "RULES"
 s_qq:       TXT  "Q"
 s_exit:     TXT  "EXIT"
-s_exit_basic: TXT  "EXIT TO BASIC? Q AGAIN"
-s_author:   TXT  "A GAME BY MEHMET BELGIN"
-s_signing_off: TXT  "SIGNING OFF. THANKS FOR PLAYING."
-s_ok:       TXT  "Ok"
 s_loading_ver: db "LOADING "
             include "../build/data/version.inc"
             TXT  " ..."

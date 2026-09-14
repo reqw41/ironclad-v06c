@@ -19,7 +19,6 @@ kbd_rep:    ds 1
 kq_head:    ds 1
 kq_tail:    ds 1
 kq_buf:     ds KQ_SIZE
-sca_sp:     ds 2
 ; gfx
 gf_col:     ds 1
 gf_h:       ds 1

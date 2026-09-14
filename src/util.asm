@@ -5,6 +5,15 @@
 
 ; HL += A — add_a_hl, RST 0 (код в векторе $0000, ставит старт)
 
+; HL, DE = длина: обнулить
+memzero:    ld   (hl),0
+            inc  hl
+            dec  de
+            ld   a,d
+            or   e
+            jp   nz,memzero
+            ret
+
 ; копировать BC байт HL -> DE
 memcpy:     ld   a,b
             or   c
@@ -81,7 +90,11 @@ rst_stv:    ex   (sp),hl
 ; HL = следующее 16-битное xorshift (7,9,8); rnd_seed не должен быть 0
 rnd16:
             ld   hl,(rnd_seed)
-            ld   a,l
+            call xs16
+            ld   (rnd_seed),hl
+            ret
+; HL = xorshift16(HL) (7,9,8); портит A, E
+xs16:       ld   a,l
             rrca
             and  80h
             ld   e,a                    ; (lo&1)<<7
@@ -101,7 +114,6 @@ rnd16:
             ld   l,a                    ; x ^= x>>9
             xor  h
             ld   h,a                    ; x ^= x<<8
-            ld   (rnd_seed),hl
             ret
 
 ; INT(RND(1)*N): A = N (1..255) -> A = 0..N-1

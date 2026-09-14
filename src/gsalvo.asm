@@ -77,8 +77,8 @@ hits_msg:   push bc
             call ms_catc
             pop  af
             call ms_catd
-            ld   hl,s_lbr
-            call ms_cat
+            call ms_cati
+            TXT  " ["
             ld   hl,sS1
             call ms_cat
             ld   a,']'
@@ -92,8 +92,8 @@ salvo_sank:
             ret  z
             push de
             push hl
-            ld   hl,s_sank
-            call ms_cat
+            call ms_cati
+            TXT  " SANK: "
             pop  hl
             call ms_cat
             ld   de,sMS                 ; убрать завершающую запятую
@@ -295,9 +295,8 @@ L3840:      ZEROV bEK
             CPV  bFP,1
             jp   nz,L3843
             ZEROV bFP
-            ld   hl,s_reviews
-            call ms_set
-            call L1315
+            call msg2i
+            TXT  "ENEMY REVIEWS LAST SALVO ..."
             call L4301
 L3843:      call L4000
             ld   hl,ARR_HK              ; FOR K=1 TO ZT: HK(K)=0
@@ -481,8 +480,8 @@ L3882:      LDV  bSH
             jp   nz,L3883
             ld   hl,bSJ
             dec  (hl)
-L3883:      ld   hl,s_undo
-            call ms_set
+L3883:      call ms_seti
+            TXT  "UNDO "
             LDV  bCX
             add  a,65
             call ms_catc
@@ -592,13 +591,11 @@ L4002:      INCV bK
 L4002x:     LDV  bKM
             or   a
             jp   nz,L4002b
-            ld   hl,s_probes
-            call ms_set
-            call L1315
+            call msg2i
+            TXT  "ENEMY PROBES OPEN SEA ..."
             jp   L4070
-L4002b:     ld   hl,s_closes
-            call ms_set
-            call L1315
+L4002b:     call msg2i
+            TXT  "ENEMY CLOSES IN ..."
 L4003:      ZEROV bNA  ; NA, KL, T5 = сумма CC(K)*SZ(K) живых K<=ZT
             ld   hl,0
             ld   (bT5),hl
@@ -1574,11 +1571,5 @@ L4339:      pop  bc
             ret
 
 s_hits:         TXT  "HITS:"
-s_lbr:          TXT  " ["
-s_sank:         TXT  " SANK: "
 s_press_space:  TXT  "Press SPACE to continue ..."
-s_reviews:      TXT  "ENEMY REVIEWS LAST SALVO ..."
 s_enemy_hits:   TXT  "ENEMY HITS:"
-s_undo:         TXT  "UNDO "
-s_probes:       TXT  "ENEMY PROBES OPEN SEA ..."
-s_closes:       TXT  "ENEMY CLOSES IN ..."

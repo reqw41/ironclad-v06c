@@ -524,8 +524,8 @@ L1355:      call rec_clear
 L1355s:     ld   bc,232*256+4           ; PSET(232,4),12: PRINT "TAB"
             ld   a,12
             call gfx_pset
-            ld   hl,s_tab
-            call gfx_puts
+            call putsi
+            TXT  "TAB"
 L1372:      CPV  bSB,1
             call z,L1396
 L1375:      ZEROV bI  ; FOR I=0 TO 9: PSET(GX+I*16+4,18),15: PRINT CHR$(65+I)
@@ -1247,6 +1247,5 @@ L1795a:     call pxy_off
 
 s_enemy:    TXT  "ENEMY"
 s_yours:    TXT  "YOURS"
-s_tab:      TXT  "TAB"
 s_game:     TXT  "GAME"
 s_at:       TXT  "AT:"

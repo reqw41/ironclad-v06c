@@ -57,9 +57,8 @@ sd1_1:      ZEROV bSD
 ; ---------------------------------------------------------------- 2010: авторасстановка
 L2010:      ld   hl,0
             ld   (bAT),hl
-            ld   hl,s_placing
-            call ms_set
-            call L1305
+            call msg1i
+            TXT  "PLACING FLEET ..."
             LDV  bRW
             or   a
             jp   z,L2020
@@ -71,8 +70,8 @@ L2020:      ld   hl,(bAT)
             ld   de,-1001
             add  hl,de
             jp   nc,L2030
-            ld   hl,s_no_room
-            call ms_set
+            call ms_seti
+            TXT  "NO ROOM"
             jp   L1305
 L2030:      call L3440
 L2040:      call L1615
@@ -99,8 +98,8 @@ L2085:      jp   L2635                  ; COPY стр.1 -> стр.2: запис�
 ; ---------------------------------------------------------------- 2108: отмена
 L2108:      CPV  bSH,2
             jp   nc,L2110
-            ld   hl,s_nothing_undo
-            call ms_set
+            call ms_seti
+            TXT  "NOTHING TO UNDO"
             jp   L1305
 L2110:      ld   hl,bSH
             dec  (hl)
@@ -343,9 +342,8 @@ L2268a:     call disp_blank
             call page_show
             call disp_on
             jp   L2260
-L2254:      ld   hl,s_loading_next
-            call ms_set
-            call L1315
+L2254:      call msg2i
+            TXT  "LOADING NEXT GAME ..."
             INCV bGN
             LDV  bFS
             xor  1
@@ -498,19 +496,10 @@ em_2:       inc  hl
             jp   nz,em_1
             ret
 
-; HL, DE = длина: обнулить
-memzero:    ld   (hl),0
-            inc  hl
-            dec  de
-            ld   a,d
-            or   e
-            jp   nz,memzero
-            ret
 
 ; ---------------------------------------------------------------- 2350: выход в меню
-L2350:      ld   hl,s_terminate
-            call ms_set
-            call L1305
+L2350:      call msg1i
+            TXT  "TERMINATE GAME? Q AGAIN"
             ZEROV bAB
 L2352:      call getkey
             STV  bK_
@@ -640,8 +629,8 @@ L3900:      SETV pg_vis,2
             call gfx_pset
             ld   a,15
             ld   (gfx_fg),a
-            ld   hl,s_keys
-            call gfx_puts
+            call putsi
+            TXT  "KEYS"
 L3901:      SETV hk_y,36  ; колонка 110 (в оригинале — в CX, см. docs)
             ld   hl,keys_tab
 L3903:      ld   a,(hl)
@@ -755,8 +744,8 @@ L3946:      SETV bSD,1
             jp   L1105
 
 ; 3960: MS$="PLACE "+N$(SH)+SPACE$(19-LEN(N$(SH)))+"?:HELP": ... подсказка клавиш
-L3960:      ld   hl,s_place
-            call ms_set
+L3960:      call ms_seti
+            TXT  "PLACE "
             call n_sh
             push hl
             call ms_cat
@@ -775,11 +764,11 @@ L3960a:     ld   a,b
             pop  bc
             dec  b
             jp   L3960a
-L3960b:     ld   hl,s_help
-            call ms_cat
+L3960b:     call ms_cati
+            TXT  "?:HELP"
             call L1305
-            ld   hl,s_place_keys
-            call ms_set
+            call ms_seti
+            TXT  "SPC:DROP R:TURN U:UNDO Z:AUTO"
             jp   L1315
 
 ; ---------------------------------------------------------------- перерисовка страницы (порт)
@@ -859,19 +848,10 @@ rf_3:       call at_draw_vis
             jp   disp_on
 
 
-s_placing:      TXT  "PLACING FLEET ..."
-s_no_room:      TXT  "NO ROOM"
-s_nothing_undo: TXT  "NOTHING TO UNDO"
 s_enemy_wins:   TXT  "ENEMY WINS"
 s_you_win:      TXT  "YOU WIN"
-s_loading_next: TXT  "LOADING NEXT GAME ..."
 s_loading_menu: TXT  "LOADING MENU ..."
-s_terminate:    TXT  "TERMINATE GAME? Q AGAIN"
-s_keys:         TXT  "KEYS"
 s_press_key_back: TXT  "Press a key to go back"
-s_place:        TXT  "PLACE "
-s_help:         TXT  "?:HELP"
-s_place_keys:   TXT  "SPC:DROP R:TURN U:UNDO Z:AUTO"
 ; 9070: подписи клавиш (пары строк, "!" — конец)
 keys_tab:   TXT  "ARROWS"
             TXT  "MOVE"
