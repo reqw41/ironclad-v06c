@@ -145,6 +145,9 @@ while (!finished && frames < 400000 && guard++ < 2000000) {
   if (!qEmpty() || !(inGetkey() || inPoll())) continue;
   const where = inGetkey() ? "getkey<" + nm(retaddr()) : "poll";
   const rec = { i: step++, where, vram: vramHash(), vars: snapVars() };
+  // отладка: TRACE_VDUMP="каталог:шаг" — видеопамять ($8000..$DFFF) шагов >= шаг в каталог/v<шаг>.bin (в сверку не идёт)
+  if (process.env.TRACE_VDUMP) { const [dir, from] = process.env.TRACE_VDUMP.split(":"); if (rec.i >= +from) {
+    const b = Buffer.alloc(0x6000); for (let i = 0; i < 0x6000; i++) b[i] = rd(0x8000 + i); fs.mkdirSync(dir, { recursive: true }); fs.writeFileSync(dir + "/v" + rec.i + ".bin", b); } }
   if (!menuDone) {
     if (inGetkey() && nm(retaddr()).startsWith("S354")) { for (let i = 0; i < R; i++) tap("right"); menuDone = true; tap("space"); rec.key = "menu"; trace.push(rec); }
     continue;

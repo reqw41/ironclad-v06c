@@ -354,7 +354,27 @@ def best_order(name, px, pal, slots, planes):
     json.dump(cache, open(cache_f, 'w'))
     return best[1]
 
-IMG_COLORS = {'title': 8, 'victory': int(os.environ.get('VICTORY_COLORS', '4')), 'defeat': 4}
+IMG_COLORS = {'title': 6, 'victory': 6, 'defeat': 6}
+
+def end_order(name, px, pal, others):
+    """Слоты картинки итога: 0 — цвет 5, цвета others + белый (1) — в слоты 1.. в порядке,
+    дающем самый короткий поток ZX0 (3 плоскости). Кэш — build/data/slotcache.json."""
+    import json, hashlib
+    cache_f = os.path.join(OUT, 'slotcache.json')
+    cache = json.load(open(cache_f)) if os.path.exists(cache_f) else {}
+    key = hashlib.md5(('end6w' + name + repr(others) + repr(px)).encode()).hexdigest()
+    if key in cache:
+        return cache[key]
+    best = None
+    for perm in itertools.permutations(others + [1]):
+        sl = [5] + list(perm)
+        cm = cmap_of(sl, pal)
+        n = zx0('_try', vram_planes(px, cm, 3))
+        if best is None or n < best[0]:
+            best = (n, sl)
+    cache[key] = best[1]
+    json.dump(cache, open(cache_f, 'w'))
+    return best[1]
 
 def vram_planes(px, slotmap, planes):
     """Плоскости картинки без полей: planes x 8 КБ, старший бит слота — в первой."""
@@ -386,26 +406,30 @@ def build_images():
     cm = cmap_of(sl, mp)
     res['title'] = zx0('title', vram_planes(t, cm, 3))
     pals['menu'] = (sl, cm)
-    # итог матча (4 цв.): данные — 2 плоскости $A000/$C000 (слоты 0..3, самый частый цвет = слот 0);
-    # слот 4 = цвет 1 палитры 9042 (белый бордюр MSX): плоскость $8000 код заливает в полях экрана
+    # итог матча (6 цв. + белый, решение владельца): данные — 3 плоскости $8000..$C000.
+    # Слот 0 = цвет 5 (фон картинки и полосы подписей); белый — цвет 1 палитры 9042 (бордюр и
+    # поля экрана, как COLOR 15,1,1 MSX; заголовок подписи) — свой слот, если его нет среди 6
+    # цветов картинки. Цвета (обязателен 2 — «TAB:»/«SPACE:») и белый — в слоты 1.., порядок —
+    # по размеру ZX0 (кэш). Слот белого код берёт из cmap (cmap_X+1): поля — его биты во всех
+    # плоскостях (end_margins), бордюр — индекс 2*слот.
     ep = mpal(PAL_END)
     for nm, f in (('victory', 'VICTORY.SC5'), ('defeat', 'DEFEAT.SC5')):
         px = load_sc5(f)
         # подписи (строки 168..203) нарисованы в картинке; полоса 162..211 — ровный фон 5,
         # подписи печатает программа (end_captions)
         line_bf(px, 0, 162, 255, 211, 5)
-        n = IMG_COLORS[nm]
+        if nm == 'victory':
+            # рамка автора — столбцы 0..2 и 253..255 цветом 5 в строках 0..161 — зеркалом соседних
+            for y in range(162):
+                for x in range(3): px[y][x] = px[y][5 - x]
+                for x in range(253, 256): px[y][x] = px[y][505 - x]
         cnt = collections.Counter(c for r in px for c in r)
-        top = cnt.most_common(1)[0][0]
-        sl = pick_slots(cnt, ep, n, (top, 2))     # 2 — цвет «TAB:»/«SPACE:» в подписях
-        sl = best_order(nm, px, ep, sl, 2 if n == 4 else 3)
+        six = pick_slots(cnt, ep, IMG_COLORS[nm], (5, 2))
+        others = [c for c in six if c not in (5, 1)]
+        sl = end_order(nm, px, ep, others)
         cm = cmap_of(sl, ep)
-        if n == 4:
-            res[nm] = zx0(nm, vram_planes(px, cm, 2))
-            sl = sl + [1]                         # слот 4 — бордюр
-            cm = dict(cm); cm[1] = 4              # белый (бордюр, заголовок подписи) — слот 4
-        else:
-            res[nm] = zx0(nm, vram_planes(px, cm, 3))
+        assert cm[5] == 0 and sl[cm[1]] == 1, (nm, sl)
+        res[nm] = zx0(nm, vram_planes(px, cm, 3))
         pals[nm] = (sl, cm)
     return res, pals
 
@@ -423,10 +447,7 @@ def build_palettes(pals):
            'cmap_menu:', db_lines([pals['menu'][1][c] << 5 for c in range(16)]),
            'cmap_victory:', db_lines([pals['victory'][1][c] << 5 for c in range(16)]),
            'cmap_defeat:', db_lines([pals['defeat'][1][c] << 5 for c in range(16)]),
-           'VICTORY_PLANES equ %d' % (3 if IMG_COLORS['victory'] == 8 else 2),
-           'DEFEAT_PLANES equ %d' % (3 if IMG_COLORS['defeat'] == 8 else 2),
-           '; 4-цветные: данные в $A000/$C000, бордюр — слот 4 (индекс 8), поля — плоскость $8000',
-           'BORDER_4C equ 8']
+           '; картинки итога: данные во всех плоскостях; белый (бордюр, поля) — слот cmap_X[1]>>5']
     write('palettes.inc', '\n'.join(txt) + '\n')
     print('слоты: игра', GAME_SLOTS, 'меню', pals['menu'][0], 'победа', pals['victory'][0], 'поражение', pals['defeat'][0])
 
