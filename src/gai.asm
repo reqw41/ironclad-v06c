@@ -324,16 +324,11 @@ nb_take:    push de
 
 L1840:      ZEROV bD  ; FOR D=0 TO 3: соседняя открытая клетка
 L1840a:     call L1890
-            LDV  bU1
-            ld   b,a
             LDV  bHX
-            add  a,b
-            call st_x
-            LDV  bV1
-            ld   b,a
+            ld   d,a
             LDV  bHY
-            add  a,b
-            call st_y
+            ld   e,a
+            call xy_uv
             CPV  bX,10
             jp   nc,L1841               ; X<0 тоже сюда (как беззнаковое >= 10)
             CPV  bY,10
@@ -875,115 +870,13 @@ nb_hit2:    call pm_xy
 L1960:      ld   hl,0
             ld   (bSC),hl
             ZEROV bD
-L1960a:     call uv_d                   ; U1=1-D: V1=D: A=0: C=X-U1: R=Y-V1: GA(0,0)=0
-            ZEROV bA
-            ld   hl,0
-            ld   (ARR_GA),hl
-            LDV  bU1
-            ld   b,a
-            LDV  bX
-            sub  b
-            STV  bC
-            LDV  bV1
-            ld   b,a
-            LDV  bY
-            sub  b
-            STV  bR
-L1961:      CPV  bA,4  ; IF A<4 AND C>=0 AND R>=0 THEN IF PM(C,R)<>1 THEN ...
-            jp   nc,L1962
-            LDV  bC
-            or   a
-            jp   m,L1962
-            LDV  bR
-            or   a
-            jp   m,L1962
-            ld   e,a
-            LDV  bC
-            call pm_xy
-            cp   1
-            jp   z,L1962
-            ld   c,0                    ; -(PM(C,R)>1)
-            jp   c,L1961a               ; PM=0
-            inc  c
-L1961a:     LDV  bA                 ; GA(0,A+1)=GA(0,A)+c
-            add  a,a
-            add  a,a
-            add  a,a
-            add  a,a
-            ld   hl,ARR_GA
-            rst  00h
-            ld   a,(hl)
-            add  a,c
-            ld   de,16
-            add  hl,de
-            ld   (hl),a
-            inc  hl
-            ld   (hl),0
-            INCV bA
-            LDV  bU1
-            ld   b,a
-            LDV  bC
-            sub  b
-            STV  bC
-            LDV  bV1
-            ld   b,a
-            LDV  bR
-            sub  b
-            STV  bR
-            jp   L1961
-L1962:      ZEROV bB  ; B=0: C=X+U1: R=Y+V1: GA(1,0)=0
-            ld   hl,0
-            ld   (ARR_GA+2),hl
-            LDV  bU1
-            ld   b,a
-            LDV  bX
-            add  a,b
-            STV  bC
-            LDV  bV1
-            ld   b,a
-            LDV  bY
-            add  a,b
-            STV  bR
-L1963:      CPV  bB,4
-            jp   nc,L1964
-            CPV  bC,10
-            jp   nc,L1964
-            CPV  bR,10
-            jp   nc,L1964
-            ld   e,a
-            LDV  bC
-            call pm_xy
-            cp   1
-            jp   z,L1964
-            ld   c,0
-            jp   c,L1963a
-            inc  c
-L1963a:     LDV  bB                 ; GA(1,B+1)=GA(1,B)+c
-            add  a,a
-            add  a,a
-            add  a,a
-            add  a,a
-            ld   hl,ARR_GA+2
-            rst  00h
-            ld   a,(hl)
-            add  a,c
-            ld   de,16
-            add  hl,de
-            ld   (hl),a
-            inc  hl
-            ld   (hl),0
-            INCV bB
-            LDV  bU1
-            ld   b,a
-            LDV  bC
-            add  a,b
-            STV  bC
-            LDV  bV1
-            ld   b,a
-            LDV  bR
-            add  a,b
-            STV  bR
-            jp   L1963
+L1960a:     call uv_d                   ; U1=1-D: V1=D
+            call uv_neg                 ; 1961 идёт назад: шаг -U1,-V1 (U1, V1 вернутся ниже)
+            xor  a                      ; 1961: A=0: GA(0,0)=0: C=X-U1: R=Y-V1: цикл
+            call ga_walk
+            call uv_neg
+            ld   a,2                    ; 1962/1963: B=0: GA(1,0)=0: C=X+U1: R=Y+V1: цикл
+            call ga_walk
 L1964:      SETV bK,1  ; FOR K=1 TO 5: L=SZ(K): FOR M=0 TO L-1: N=L-1-M
 L1964a:     LDV  bK
             ld   hl,ARR_SZ
@@ -1054,6 +947,88 @@ L1965:      INCV bM
             ld   a,8                    ; SC=SC*8+INT(RND(1)*8)
             jp   sc_mul_rnd
 
+; U1=-U1: V1=-V1
+uv_neg:     LDV  bU1
+            cpl
+            inc  a
+            STV  bU1
+            LDV  bV1
+            cpl
+            inc  a
+            STV  bV1
+            ret
+; 1961/1963: k = A (0: счётчик n = bA, столбец GA(0,·); 2: n = bB, GA(1,·)).
+; n=0: GA(k,0)=0: C=X+U1: R=Y+V1; пока n<4 и C, R в поле (без знака < 10) и PM(C,R)<>1:
+; GA(k,n+1)=GA(k,n)-(PM(C,R)>1): n=n+1: C=C+U1: R=R+V1
+ga_walk:    STV  gw_k
+            rrca
+            ld   hl,bA
+            rst  00h
+            ld   (hl),0
+            LDV  gw_k
+            ld   hl,ARR_GA
+            rst  00h
+            xor  a
+            ld   (hl),a
+            inc  hl
+            ld   (hl),a
+            LDV  bU1
+            ld   b,a
+            LDV  bX
+            add  a,b
+            STV  bC
+            LDV  bV1
+            ld   b,a
+            LDV  bY
+            add  a,b
+            STV  bR
+gw_1:       LDV  gw_k
+            rrca
+            ld   hl,bA
+            rst  00h
+            ld   a,(hl)
+            cp   4
+            ret  nc
+            CPV  bC,10
+            ret  nc
+            CPV  bR,10
+            ret  nc
+            ld   e,a
+            LDV  bC
+            call pm_xy
+            cp   1
+            ret  z
+            ld   c,0                    ; -(PM(C,R)>1)
+            jp   c,gw_2                 ; PM=0
+            inc  c
+gw_2:       LDV  gw_k
+            ld   b,a
+            rrca
+            ld   hl,bA
+            rst  00h
+            ld   a,(hl)
+            inc  (hl)
+            add  a,a
+            add  a,a
+            add  a,a
+            add  a,a
+            add  a,b
+            ld   hl,ARR_GA
+            rst  00h
+            ld   a,(hl)
+            add  a,c
+            ld   de,16
+            add  hl,de
+            ld   (hl),a
+            inc  hl
+            ld   (hl),0
+            call cr_p
+            ld   a,d
+            STV  bC
+            ld   a,e
+            STV  bR
+            jp   gw_1
+
 ; ---------------------------------------------------------------- 1967: ANKA (детский)
 L1967:      SETV bHW,1
             ZEROV bI
@@ -1076,16 +1051,11 @@ L1968a:     LDV  bDA
             and  3
             STV  bD
             call L1890
-            LDV  bU1                ; X=I+U1: Y=J+V1
-            ld   b,a
-            LDV  bI
-            add  a,b
-            call st_x
-            LDV  bV1
-            ld   b,a
+            LDV  bI                 ; X=I+U1: Y=J+V1
+            ld   d,a
             LDV  bJ
-            add  a,b
-            call st_y
+            ld   e,a
+            call xy_uv
             CPV  bX,10  ; вне поля -> 1971
             jp   nc,L1971
             CPV  bY,10
