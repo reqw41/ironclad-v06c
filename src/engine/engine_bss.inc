@@ -85,6 +85,7 @@ FABUF           ds      1120    ; флаги кандидатов (всегда 
 @SMEMB          ds      1       ; привычка «край» выучена (читает eng_explore)
 
                 ASSERT  vNS1 == vK+1
-                ASSERT  vR == vC+1      ; decode пишет их одним словом
+                ASSERT  vR == vC+1      ; decode, explore, nextcr: C и R одним словом
+                ASSERT  vBY == vBX+1    ; explore: BX и BY одним словом
 
                 ENDMODULE

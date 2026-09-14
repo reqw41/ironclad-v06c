@@ -277,129 +277,97 @@ shipset:
                 ld      a,(vKL)
                 or      a
                 jp      z,pknorm
-                ld      b,a
-                ld      a,1
-                ld      (vMODE),a
-                ld      hl,2000
-                ld      (vWT),hl
-                ld      a,b
-                cp      255
-                jp      nz,pkone
-                ld      a,1
-pkall:
-                ld      (vK),a
-                push    af
-                call    scan
-                pop     af
+                ld      b,a             ; корабли от B до C
+                ld      c,a
                 inc     a
-                ld      hl,vNS1
-                cp      (hl)
-                jp      c,pkall
-                jp      pkdone
-pkone:
+                jp      nz,pkl          ; не 255: один
+                ld      b,1             ; 255: все
+                ld      a,(vNS1)
+                dec     a
+                ld      c,a
+pkl:
+                ld      a,b
                 ld      (vK),a
-                call    scan
-pkdone:
+                push    bc
+                ld      hl,2000
+                call    scanwt
+                pop     bc
+                ld      a,b
+                inc     b
+                cp      c
+                jp      nz,pkl
                 xor     a
-                ld      (vMODE),a
                 ld      (vKL),a
 pknorm:
                 xor     a
                 ld      (vT),a
-; Клетки P9 = 13..130: указатель в HL, лучший счёт BS в BC; vBS, vP9 = 131
-; и vBXW (при каждом новом лучшем) пишутся, как у оригинала.
+; клетки P9 = 13..130: наибольший MG (со знаком; из равных — более ранняя)
 pnshot:
-                ld      bc,-1           ; BS = -1
-                ld      hl,ARR_MG+2*13
+                ld      hl,-1           ; BS = -1
+                ld      (vBS),hl
+                ld      hl,13
 pncell:
+                ld      (vP9),hl
+                call    mgat
                 ld      e,(hl)
                 inc     hl
                 ld      d,(hl)          ; DE = MG(P9)
-                inc     hl
-                ld      a,b             ; MG(P9) > BS (со знаком)?
-                xor     d
-                jp      m,pndiff
-                ld      a,c             ; знаки равны: беззнаково
-                sub     e
-                ld      a,b
-                sbc     a,d
-                jp      nc,pnnext       ; равные: остаётся более ранняя
-                jp      pnnew
-pndiff:
-                ld      a,d             ; знаки разные: больше, если MG >= 0
-                or      a
-                jp      m,pnnext
-pnnew:
-                ld      b,d
-                ld      c,e
-                push    hl
-                ld      de,-(ARR_MG+2)  ; BXW = (HL-2 - ARR_MG)/2
-                add     hl,de
-                ld      a,h
-                or      a
-                rra
-                ld      h,a
-                ld      a,l
-                rra
-                ld      l,a
-                ld      (vBXW),hl
-                pop     hl
-pnnext:
-                ld      a,l             ; 118 слов < 256 байт: младший байт
-                cp      low (ARR_MG+2*131)  ; адреса конца однозначен
-                jp      nz,pncell
-                ld      h,b
-                ld      l,c
+                ld      hl,(vBS)
+                call    sgt             ; MG(P9) > BS ?
+                jp      nc,pnnext
+                ex      de,hl
                 ld      (vBS),hl
-                ld      hl,131
-                ld      (vP9),hl
-
-                ld      hl,(vBXW)       ; BX -> столбец и строка
-                ld      b,0
-                ld      de,-12
-pndiv:
-                add     hl,de           ; CY <=> HL >= 12 (до вычитания)
-                jp      nc,pndone
-                inc     b
-                jp      pndiv
-pndone:
-                ld      de,12
-                add     hl,de           ; остаток
-                dec     b               ; B = X
+                ld      hl,(vP9)
+                ld      (vBXW),hl
+pnnext:
+                ld      hl,(vP9)
+                inc     hl
                 ld      a,l
-                dec     a
-                ld      c,a             ; C = Y
-                ld      a,(vT)
-                ld      hl,ARR_TX
-                call    elptr
-                ld      (hl),b          ; со знаком: клетка поля даёт -1
-                inc     hl
-                ld      a,b
-                rla
-                sbc     a,a
-                ld      (hl),a
-                ld      a,(vT)
-                ld      hl,ARR_TY
-                call    elptr
-                ld      (hl),c
-                inc     hl
-                ld      a,c
-                rla
-                sbc     a,a
-                ld      (hl),a
+                cp      131
+                jp      nz,pncell
+                ld      (vP9),hl
                 ld      hl,(vBXW)       ; MG(BX) = -9
-                add     hl,hl
-                ld      de,ARR_MG
-                add     hl,de
+                call    mgat
                 ld      (hl),-9
                 inc     hl
                 ld      (hl),-1
+                ld      a,(vBXW)        ; BX (<= 130) -> столбец и строка
+                ld      l,a
+                ld      c,12
+                call    divsm           ; A = X+1, E = Y+1
+                dec     a
+                ld      b,a             ; X (клетка поля даёт -1)
+                dec     e
+                ld      c,e             ; Y
+                call    stnext
+                jp      c,pnshot
+                ret
+
+; TX(T) = B, TY(T) = C (слова со знаком); T += 1; CY = T < NF
+stnext:
+                ld      a,b
+                ld      hl,ARR_TX
+                call    st1
+                ld      a,c
+                ld      hl,ARR_TY
+                call    st1
                 ld      hl,vT
                 inc     (hl)
                 ld      a,(hl)
                 ld      hl,vNF
                 cp      (hl)
-                jp      c,pnshot
+                ret
+; HL[vT] = A со знаком.  Сохраняет BC.
+st1:
+                push    af
+                ld      a,(vT)
+                call    elptr
+                pop     af
+                ld      (hl),a
+                inc     hl
+                rla
+                sbc     a,a
+                ld      (hl),a
                 ret
 
 ; CY = 1, если DE > HL (16 бит со знаком).  Портит A.
@@ -428,15 +396,8 @@ sgt1:
 extshot:
                 ld      hl,-1
                 ld      (vBS),hl
-                xor     a
-                ld      (vC),a
-extcol:
-                xor     a
-                ld      (vR),a
-                ld      e,a
-                ld      a,(vC)          ; P9 = C*12 + 13
-                call    pidx
-                ld      (vP9),hl
+                ld      hl,0
+                ld      (vC),hl         ; C = R = 0
 extcell:
                 call    pmtest          ; PM(C,R) должно быть 0
                 jp      nz,extnext
@@ -449,44 +410,25 @@ extcell:
                 cp      3
                 jp      z,extnext
 extmo:
-                ld      hl,(vP9)        ; MO(P9) не должно нести метку хода
+                call    padidx          ; MO(P9) не должно нести метку хода
                 ld      de,MOBUF
                 add     hl,de
                 ld      a,(vST)
                 cp      (hl)
                 jp      z,extnext
-
-                ld      hl,(vP9)        ; SC = MC(P9)*8
-                ld      de,MCBUF
-                add     hl,de
-                ld      l,(hl)
-                ld      h,0
-                add     hl,hl
-                add     hl,hl
-                add     hl,hl
+                call    mc8             ; SC = MC(P9)*8 + дрожание
                 ld      a,(vRD)
-                ld      b,a
-                call    jit
-                ld      e,a
-                ld      d,0
-                add     hl,de
-                ld      a,(vRIM)        ; бонусы края: случайная «личность»
-                ld      b,a             ; и выученная привычка
-                ld      a,(SMEMB)
-                or      b
-                jp      z,extsc
-                ld      a,(vC)
-                or      a
-                jp      z,extrim
-                cp      9
-                jp      z,extrim
+                call    jadd
+                ld      a,(vC)          ; край: C или R = 0 или 9
+                dec     a
+                cp      8
+                jp      nc,extrim
                 ld      a,(vR)
-                or      a
-                jp      z,extrim
-                cp      9
-                jp      nz,extsc
+                dec     a
+                cp      8
+                jp      c,extsc
 extrim:
-                ld      a,b             ; +192, если личность — край
+                ld      a,(vRIM)        ; +192, если личность — край
                 or      a
                 jp      z,extmem
                 ld      de,192
@@ -504,53 +446,76 @@ extsc:
                 jp      nc,extnext
                 ex      de,hl
                 ld      (vBS),hl
-                ld      a,(vC)
-                ld      (vBX),a
-                ld      a,(vR)
-                ld      (vBY),a
+                ld      hl,(vC)         ; BX, BY = C, R
+                ld      (vBX),hl
 extnext:
-                ld      hl,(vP9)
-                inc     hl
-                ld      (vP9),hl
-                ld      hl,vR
-                inc     (hl)
-                ld      a,(hl)
-                cp      10
+                call    nextcr
                 jp      c,extcell
-                ld      hl,vC
-                inc     (hl)
-                ld      a,(hl)
-                cp      10
-                jp      c,extcol
-
-                ld      a,(vT)          ; TX(T) = BX, TY(T) = BY
-                ld      hl,ARR_TX
-                call    elptr
-                ld      a,(vBX)
-                ld      (hl),a
-                inc     hl
-                ld      (hl),0
-                ld      a,(vT)
-                ld      hl,ARR_TY
-                call    elptr
-                ld      a,(vBY)
-                ld      (hl),a
-                inc     hl
-                ld      (hl),0
-                ld      a,(vBY)         ; метка MO(BX*12 + BY + 13)
-                ld      e,a
-                ld      a,(vBX)
+                ld      hl,(vBX)        ; метка MO(BX*12 + BY + 13)
+                ld      e,h
+                ld      a,l
                 call    pidx
                 ld      de,MOBUF
                 add     hl,de
                 ld      a,(vST)
                 ld      (hl),a
-                ld      hl,vT
+                ld      hl,(vBX)
+                ld      b,l
+                ld      c,h
+                call    stnext          ; TX(T) = BX, TY(T) = BY
+                jp      c,extshot
+                ld      hl,131          ; vP9: где кончал перебор оригинала
+                ld      (vP9),hl
+                ret
+
+; следующая клетка обхода C = 0..9 (внешний), R = 0..9 (внутренний);
+; CY = продолжать.  В конце C = R = 10, как у оригинала.
+nextcr:
+                ld      hl,vR
                 inc     (hl)
                 ld      a,(hl)
-                ld      hl,vNF
-                cp      (hl)
-                jp      c,extshot
+                cp      10
+                ret     c
+                dec     hl              ; vC
+                inc     (hl)
+                ld      a,(hl)
+                cp      10
+                ret     nc
+                inc     hl
+                ld      (hl),0          ; R = 0; CY = 1
+                ret
+
+; HL = MC(C,R)*8
+mc8:
+                call    padidx
+                ld      de,MCBUF
+                add     hl,de
+                ld      l,(hl)
+                ld      h,0
+                add     hl,hl
+                add     hl,hl
+                add     hl,hl
+                ret
+
+; HL += (C*5 + R*3 + A) AND 7 — дрожание.  Портит BC, DE.
+jadd:
+                ld      b,a
+                ld      a,(vC)
+                ld      c,a
+                add     a,a
+                add     a,a
+                add     a,c             ; C*5
+                ld      c,a
+                ld      a,(vR)
+                ld      e,a
+                add     a,a
+                add     a,e             ; R*3
+                add     a,c
+                add     a,b
+                and     7
+                ld      e,a
+                ld      d,0
+                add     hl,de
                 ret
 
 ; ------------------------------------------------- USR4: маргинальные веса
@@ -975,72 +940,27 @@ mgseedx:
                 ld      a,l
                 and     7
                 ld      (vRDS),a
-                xor     a
-                ld      (vC),a
-mmc:
-                xor     a
-                ld      (vR),a
+                ld      hl,0
+                ld      (vC),hl         ; C = R = 0
 mmr:
                 call    pmtest
                 jp      nz,mmnext
                 ld      hl,0
                 ld      a,(vSMC)
                 or      a
-                jp      z,mmj
-                call    padidx
-                ld      de,MCBUF
-                add     hl,de
-                ld      l,(hl)
-                ld      h,0
-                add     hl,hl
-                add     hl,hl
-                add     hl,hl           ; MC*8
-mmj:
-                push    hl
+                call    nz,mc8          ; MC*8
                 ld      a,(vRDS)
-                ld      b,a
-                call    jit
-                pop     hl
-                ld      e,a
-                ld      d,0
-                add     hl,de
+                call    jadd            ; + дрожание
                 push    hl
                 call    padidx
-                add     hl,hl
-                ld      de,ARR_MG
-                add     hl,de
+                call    mgat
                 pop     de
                 ld      (hl),e
                 inc     hl
                 ld      (hl),d
 mmnext:
-                ld      hl,vR
-                inc     (hl)
-                ld      a,(hl)
-                cp      10
+                call    nextcr
                 jp      c,mmr
-                ld      hl,vC
-                inc     (hl)
-                ld      a,(hl)
-                cp      10
-                jp      c,mmc
-                ret
-
-; A = (C*5 + R*3 + B) AND 7.  Портит C, E.
-jit:
-                ld      a,(vC)
-                ld      c,a
-                add     a,a
-                add     a,a
-                add     a,c             ; C*5
-                ld      c,a
-                ld      a,(vR)
-                ld      e,a
-                add     a,a
-                add     a,e             ; R*3
-                add     a,c
-                add     a,b
-                and     7
                 ret
 
 ; HL = 2*(vC + 10*vR) — смещение клетки в массиве 10x10;

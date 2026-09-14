@@ -19,14 +19,15 @@ const SRC = path.join(ROOT, 'src/engine');
 // [имя, что заменить (точный фрагмент, обязан встречаться 1 раз), на что]
 const MUT = [
   // pickn
-  ['pickn: сравнение наоборот', 'sbc     a,d\n                jp      nc,pnnext       ; равные', 'sbc     a,d\n                jp      c,pnnext        ; равные'],
-  ['pickn: разные знаки наоборот', 'ld      a,d             ; знаки разные: больше, если MG >= 0\n                or      a\n                jp      m,pnnext', 'ld      a,d             ; знаки разные: больше, если MG >= 0\n                or      a\n                jp      p,pnnext'],
-  ['pickn: BXW без or a перед rra (флаг)', 'ld      a,h\n                or      a\n                rra\n                ld      h,a', 'ld      a,h\n                rra\n                ld      h,a'],
-  ['pndiv: jp nc -> jp z (флаг)', 'add     hl,de           ; CY <=> HL >= 12 (до вычитания)\n                jp      nc,pndone', 'add     hl,de           ; CY <=> HL >= 12 (до вычитания)\n                jp      z,pndone'],
+  ['pickn: сравнение наоборот', 'call    sgt             ; MG(P9) > BS ?\n                jp      nc,pnnext', 'call    sgt             ; MG(P9) > BS ?\n                jp      c,pnnext'],
+  ['pickn: новый лучший без BXW', 'ld      hl,(vP9)\n                ld      (vBXW),hl\npnnext:', 'ld      hl,(vP9)\n                nop\n                nop\n                nop\npnnext:'],
+  ['pickn: X без dec (со знаком)', 'dec     a\n                ld      b,a             ; X', 'nop\n                ld      b,a             ; X'],
+  ['pickn: MG(BX) = -8 вместо -9', 'ld      (hl),-9', 'ld      (hl),-8'],
+  ['pickn: 255 -> все корабли, но первый 2', 'ld      b,1             ; 255: все', 'ld      b,2             ; 255: все'],
   // explore / sgt
   ['sgt: потерян ccf (флаг)', 'rla                     ; CY = знак DE\n                ccf', 'rla                     ; CY = знак DE\n                nop'],
   ['sgt1: sbc -> sub (потерян заём)', 'sub     e\n                ld      a,h\n                sbc     a,d             ; CY <=> HL < DE', 'sub     e\n                ld      a,h\n                sub     d               ; CY <=> HL < DE'],
-  ['explore: край 9 -> 8', 'ld      a,(vR)\n                or      a\n                jp      z,extrim\n                cp      9', 'ld      a,(vR)\n                or      a\n                jp      z,extrim\n                cp      8'],
+  ['explore: край 9 -> 8', 'ld      a,(vR)\n                dec     a\n                cp      8', 'ld      a,(vR)\n                dec     a\n                cp      7'],
   ['SALVO PLUS: буй cp 3 -> cp 2', 'ld      a,(hl)\n                cp      3\n                jp      z,extnext', 'ld      a,(hl)\n                cp      2\n                jp      z,extnext'],
   ['bumpst: после переполнения 2', 'call    clrmo\n                ld      hl,vST\n                inc     (hl)', 'call    clrmo\n                ld      hl,vST\n                inc     (hl)\n                inc     (hl)'],
   // fold / scan / cand
@@ -39,7 +40,7 @@ const MUT = [
   ['candmg: знак клетки наоборот', 'jp      m,mgskip        ; знак: клетка вне игры', 'jp      p,mgskip        ; знак: клетка вне игры'],
   ['candmg: adc -> add (потерян перенос)', 'ld      a,(hl)\n                adc     a,d\n                ld      (hl),a', 'ld      a,(hl)\n                add     a,d\n                ld      (hl),a'],
   // kill1
-  ['kill1: клетка по 13 вместо 12 (перенос V+1 >= 12 в соседний столбец)', 'ld      l,a\n                ld      c,12\n                call    divsm', 'ld      l,a\n                ld      c,13\n                call    divsm'],
+  ['kill1: клетка по 13 вместо 12 (перенос V+1 >= 12 в соседний столбец)', 'ld      l,a\n                ld      c,12\n                call    divsm           ; A = x0+1', 'ld      l,a\n                ld      c,13\n                call    divsm           ; A = x0+1'],
   ['kill1: столбец вниз 9+x0 вместо 10+x0', 'add     a,10\n                call    krow', 'add     a,9\n                call    krow'],
   ['kill1: отсечка x0 < 11 вместо < 10', 'cp      10\n                jp      nc,k1end        ; клетка поля', 'cp      11\n                jp      nc,k1end        ; клетка поля'],
   ['kill1: без строки поперёк', 'push    bc\n                call    krow', 'push    bc\n                nop\n                nop\n                nop'],
