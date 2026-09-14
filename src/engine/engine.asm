@@ -111,38 +111,6 @@ fk1:
                 jp      nc,fk1
                 ret
 
-; ---------------------------------------------------------------- USR0: fold
-@eng_fold:
-                call    clrmap
-                ld      a,l             ; NS
-                and     0Fh
-                ret     z
-                ld      c,a
-fmark:                                  ; выстрелы NS-1..0 (порядок меток не важен):
-                push    bc              ; элемент C-1 = (база-2)[C]
-                ld      a,c
-                ld      hl,ARR_TY-2
-                call    getel
-                ld      b,a
-                ld      a,c
-                ld      hl,ARR_TX-2
-                call    getel
-                ld      d,a
-                ld      e,b
-                call    mapptr
-                ld      (hl),1
-                pop     bc
-                dec     c
-                jp      nz,fmark
-
-                ld      de,fship
-                jp      fork
-fship:
-                ld      hl,ARR_HK
-                call    kel
-                ld      (vH),a
-                jp      scan
-
 ; ------------------------------------------------- USR1: снять покрытие клетки
 ; Оригинал ставил в карту выстрелов одну клетку и гнал scan по всем 20W
 ; кандидатам корабля KN с H=0 — погибал каждый живой, покрывающий клетку.
@@ -383,6 +351,43 @@ sgt:
                 rla                     ; CY = знак DE
                 ccf                     ; DE >= 0 > HL
                 ret
+
+; probesel: HL -> MG(P9) -> CY = клетка в игре, покрыта (n = MO(P9) > 0) и
+; |2n - CC| < BS (без знака); HL = |2n - CC|
+psh:
+                inc     hl
+                ld      a,(hl)
+                rla
+                ccf
+                ret     nc              ; клетка вне игры
+                ld      hl,(vP9)
+                ld      de,MOBUF
+                add     hl,de
+                ld      a,(hl)
+                or      a
+                ret     z               ; NC
+                add     a,a             ; 2n (в байте, как в оригинале)
+                ld      e,a
+                ld      d,0
+                ld      hl,(vCCK)
+                ld      a,l             ; HL = CC - 2n
+                sub     e
+                ld      l,a
+                ld      a,h
+                sbc     a,d
+                ld      h,a
+                jp      nc,psabs
+                xor     a               ; |2n - CC| = 0 - HL
+                sub     l
+                ld      l,a
+                sbc     a,a
+                sub     h
+                ld      h,a
+psabs:
+                ex      de,hl
+                ld      hl,(vBS)
+                ex      de,hl
+                                        ; CY <=> |d| < BS — sgt1 (ниже)
 sgt1:
                 ld      a,l
                 sub     e
@@ -523,6 +528,26 @@ jadd:
                 add     hl,de
                 ret
 
+; ============================================================================
+; USR5: совместная выборка.  До шести совместных расстановок всего живого
+; флота (законных, без касаний); MG получает +16 за каждое покрытие клетки.
+; Меньше трёх удачных — под MG подкладываются маргинальные веса (marg).
+@eng_sample:
+                call    sortso
+                xor     a
+                call    mgseedx         ; MG = -1 / дрожание
+                ld      hl,6*256
+                ld      (vGG),hl        ; GG = 0, SA = 6
+smploop:                                ; первая выборка — всегда (GG = 0)
+                call    onesamp
+                ld      a,(vGG)
+                cp      3
+                ld      hl,vSA
+                dec     (hl)            ; CY сохраняется
+                ret     nc              ; три удачных
+                jp      nz,smploop
+                                        ; попытки кончились — marg (ниже)
+
 ; ------------------------------------------------- USR4: маргинальные веса
 ; Каждый живой кандидат добавляет 2880/CC(K) (не меньше 1) своим клеткам.
 @eng_marg:
@@ -575,6 +600,37 @@ dvl:
                 ld      h,b
                 ld      l,c
                 ret
+
+; ---------------------------------------------------------------- USR0: fold
+@eng_fold:
+                call    clrmap
+                ld      a,l             ; NS
+                and     0Fh
+                ret     z
+                ld      c,a
+fmark:                                  ; выстрелы NS-1..0 (порядок меток не важен):
+                push    bc              ; элемент C-1 = (база-2)[C]
+                ld      a,c
+                ld      hl,ARR_TY-2
+                call    getel
+                ld      b,a
+                ld      a,c
+                ld      hl,ARR_TX-2
+                call    getel
+                ld      d,a
+                ld      e,b
+                call    mapptr
+                ld      (hl),1
+                pop     bc
+                dec     c
+                jp      nz,fmark
+
+                ld      de,fship
+                jp      fork
+fship:
+                ld      hl,ARR_HK
+                call    kel
+                ld      (vH),a          ; и сразу scan (ниже)
 
 ; ---------------------------------------------------------------- scan: корабль K
 ; Перебор всех 20W кандидатов корабля vK в порядке оригинала.  Мёртвые
@@ -826,44 +882,6 @@ psp2:
                 ld      (hl),a
                 ret
 
-; probesel: HL -> MG(P9) -> CY = клетка в игре, покрыта (n = MO(P9) > 0) и
-; |2n - CC| < BS (без знака); HL = |2n - CC|
-psh:
-                inc     hl
-                ld      a,(hl)
-                rla
-                ccf
-                ret     nc              ; клетка вне игры
-                ld      hl,(vP9)
-                ld      de,MOBUF
-                add     hl,de
-                ld      a,(hl)
-                or      a
-                ret     z               ; NC
-                add     a,a             ; 2n (в байте, как в оригинале)
-                ld      e,a
-                ld      d,0
-                ld      hl,(vCCK)
-                ld      a,l             ; HL = CC - 2n
-                sub     e
-                ld      l,a
-                ld      a,h
-                sbc     a,d
-                ld      h,a
-                jp      nc,psabs
-                xor     a               ; |2n - CC| = 0 - HL
-                sub     l
-                ld      l,a
-                sbc     a,a
-                sub     h
-                ld      h,a
-psabs:
-                ex      de,hl
-                ld      hl,(vBS)
-                ex      de,hl
-                jp      sgt1            ; CY <=> |d| < BS
-
-
 ; ------------------------------------------------ MG = -1, затем счета клеток
 ; A = 0: живым клеткам дрожание (mgseed сэмплера)
 ; A = 1: живым клеткам MC*8 + дрожание (mgseedmc probesel)
@@ -977,26 +995,6 @@ pidx:
                 ld      l,a
                 ld      h,0
                 ret
-
-; ============================================================================
-; USR5: совместная выборка.  До шести совместных расстановок всего живого
-; флота (законных, без касаний); MG получает +16 за каждое покрытие клетки.
-; Меньше трёх удачных — под MG подкладываются маргинальные веса (marg).
-@eng_sample:
-                call    sortso
-                xor     a
-                call    mgseedx         ; MG = -1 / дрожание
-                ld      hl,6*256
-                ld      (vGG),hl        ; GG = 0, SA = 6
-smploop:                                ; первая выборка — всегда (GG = 0)
-                call    onesamp
-                ld      a,(vGG)
-                cp      3
-                ld      hl,vSA
-                dec     (hl)            ; CY сохраняется
-                ret     nc              ; три удачных
-                jp      nz,smploop
-                jp      marg            ; попытки кончились
 
 ; --- SO[0..NSHIPS-1] = номера кораблей по возрастанию CC
 sortso:
