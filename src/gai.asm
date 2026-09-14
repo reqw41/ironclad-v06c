@@ -695,13 +695,9 @@ buoy_xy:    CPV  bX,10
 ; ---------------------------------------------------------------- 1930: буи вокруг потопленного
 L1930:      ZEROV bI
 L1930a:     call pxy_off                ; PX(SH,I), PY(SH,I)
-            ld   de,ARR_PX
-            add  hl,de
-            ld   a,(hl)
+            call pxy_hl
             STV  rp_tmp
-            ld   de,60
-            add  hl,de
-            ld   a,(hl)
+            ld   a,e
             STV  rp_tmp+1
             LDV  rp_tmp             ; FOR X=PX-1 TO PX+1
             dec  a

@@ -83,12 +83,7 @@ L2110:      ld   hl,bSH
             dec  (hl)
 L2112:      ZEROV bI  ; PS(PX(SH,I),PY(SH,I))=0
 L2112a:     call pxy_off
-            ld   de,ARR_PX
-            add  hl,de
-            ld   a,(hl)
-            ld   de,60
-            add  hl,de
-            ld   e,(hl)
+            call pxy_hl
             ld   bc,ARR_PS
             call w10
             ld   (hl),0

@@ -51,12 +51,12 @@ cur_on:     ds 1        ; курсор-спрайт (страница 0) вид�
 cur_x:      ds 1        ; KX, KY
 cur_y:      ds 1
 gh_on:      ds 1        ; призрак корабля на странице 1 (1664-1668)
+gh_rw:      ds 1        ; копия RW,RX,RY,RH,SY,SX (1668) — в том же порядке, что bRW..bSX
 gh_rx:      ds 1
 gh_ry:      ds 1
-gh_rw:      ds 1
 gh_rh:      ds 1
-gh_sx:      ds 1
 gh_sy:      ds 1
+gh_sx:      ds 1
 gh_od:      ds 1        ; композит 3204: ориентация и тайлы кораблей
 gh_s:       ds 1
 sl_n:       ds 1        ; строка «GAME» (1396): сколько раз напечатана поверх (1 или 2)
@@ -93,6 +93,7 @@ bRY: ds 1
 bRH: ds 1
 bSY: ds 1
 bSX: ds 1
+            ASSERT bSX-bRW == 5 && bAY == bAX+1
 bCL: ds 1
 bDP: ds 1
 bKX: ds 1

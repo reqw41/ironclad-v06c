@@ -754,30 +754,21 @@ L1615:      call sz_sh                  ; S=SZ(SH): AX=CX: AY=CY
             STV  bAX
             LDV  bCY
             STV  bAY
-L1618:      LDV  bOD
+L1618:      ld   hl,bAX                 ; IF AX+S-1>9 THEN AX=10-S (OD=1 — то же с AY)
+            LDV  bOD
             or   a
-            jp   nz,L1620
-            LDV  bS                 ; IF AX+S-1>9 THEN AX=10-S
-            ld   b,a
-            LDV  bAX
-            add  a,b
-            dec  a
-            cp   10
-            jp   c,L1622
-            ld   a,10
-            sub  b
-            STV  bAX
-            jp   L1622
+            jp   z,L1620
+            inc  hl                     ; bAY
 L1620:      LDV  bS
             ld   b,a
-            LDV  bAY
+            ld   a,(hl)
             add  a,b
             dec  a
             cp   10
             jp   c,L1622
             ld   a,10
             sub  b
-            STV  bAY
+            ld   (hl),a
 L1622:      SETV bLG,1
             LDV  bAY                ; BZ(AX+I,AY) либо BZ(AX,AY+I)
             ld   e,a
@@ -941,18 +932,10 @@ L1666:      LDV  bLG                ; IF LG=0 THEN IF OD=1 THEN SX=16 ELSE SY=12
             SETV bSX,16
             jp   L1668
 L1666a:     SETV bSY,128
-L1668:      LDV  bRX                ; COPY композита -> страница 1
-            STV  gh_rx
-            LDV  bRY
-            STV  gh_ry
-            LDV  bRW
-            STV  gh_rw
-            LDV  bRH
-            STV  gh_rh
-            LDV  bSX
-            STV  gh_sx
-            LDV  bSY
-            STV  gh_sy
+L1668:      ld   hl,bRW                 ; COPY композита -> страница 1
+            ld   de,gh_rw
+            ld   bc,6
+            call memcpy
             SETV gh_on,1
             jp   gh_draw
 ; RW=0: призрак затёрт (не восстанавливать)
@@ -966,14 +949,8 @@ L3204:      LDV  bOD
             STV  gh_s
             ld   hl,ARR_GT
             ld   de,gh_gt
-            ld   b,5
-L3204a:     ld   a,(hl)
-            ld   (de),a
-            inc  hl
-            inc  de
-            dec  b
-            jp   nz,L3204a
-            ret
+            ld   bc,5
+            jp   memcpy
 
 ; ---------------------------------------------------------------- 1683: запретная зона вокруг корабля
 L1683:      SETV bE,1  ; E=1: IF TU=1 THEN E=0
@@ -981,28 +958,23 @@ L1683:      SETV bE,1  ; E=1: IF TU=1 THEN E=0
             jp   nz,L1684
             ZEROV bE
 L1684:      LDV  bE                 ; U1=TX(0)-E: V1=TY(0)-E: U2=TX(TN-1)+E: V2=TY(TN-1)+E
-            ld   c,a
-            ld   a,(ARR_TX)
-            sub  c
+            ld   d,a
+            xor  a
+            call tx_a
+            ld   a,b
+            sub  d
             STV  bU1
-            ld   a,(ARR_TY)
-            sub  c
+            ld   a,c
+            sub  d
             STV  bV1
             LDV  bTN
             dec  a
-            add  a,a
-            ld   hl,ARR_TX
-            rst  00h
-            ld   a,(hl)
-            add  a,c
+            call tx_a
+            ld   a,b
+            add  a,d
             STV  bU2
-            LDV  bTN
-            dec  a
-            add  a,a
-            ld   hl,ARR_TY
-            rst  00h
-            ld   a,(hl)
-            add  a,c
+            ld   a,c
+            add  a,d
             STV  bV2
             call clamp_uv
 L1689:      LDV  bU1                ; FOR U=U1 TO U2: FOR V=V1 TO V2: BZ(U,V)=1
@@ -1064,32 +1036,23 @@ L1756:      SETV bE,1  ; E=1: IF AM=0 OR BD=1 THEN E=0
             jp   nz,L1757
 L1756a:     ZEROV bE
 L1757:      ZEROV bI  ; FOR I=0 TO SZ(SH)-1
-L1757a:     call pxy_off
+L1757a:     call pxy_off                ; SD=1: CM(QX(SH,I),QY(SH,I))=3
+            ld   de,ARR_QX              ; SD=0: PM(PX,PY)=PM-(PM AND 3)+3
+            ld   bc,ARR_CM
+            CPV  bSD,1
+            jp   z,L1757c
+            ld   de,ARR_PX
+            ld   bc,ARR_PM
+L1757c:     add  hl,de
+            call pxy_2                  ; A = X(SH,I), E = Y(SH,I) (Y = X + 60 у обоих)
+            call w10
             CPV  bSD,1
             jp   nz,L1757b
-            ld   de,ARR_QX              ; CM(QX(SH,I),QY(SH,I))=3
-            add  hl,de
-            ld   b,(hl)
-            ld   de,ARR_QY-ARR_QX
-            add  hl,de
-            ld   e,(hl)
-            ld   a,b
-            ld   bc,ARR_CM
-            call w10
             ld   (hl),3
             inc  hl
             ld   (hl),0
             jp   L1758
-L1757b:     ld   de,ARR_PX              ; PM(PX,PY)=PM-(PM AND 3)+3
-            add  hl,de
-            ld   b,(hl)
-            ld   de,ARR_PY-ARR_PX
-            add  hl,de
-            ld   e,(hl)
-            ld   a,b
-            ld   bc,ARR_PM
-            call w10
-            ld   a,(hl)
+L1757b:     ld   a,(hl)
             or   3
             ld   (hl),a
 L1758:      call next_i_sz
@@ -1177,13 +1140,9 @@ l1758_xy:   ld   hl,(rp_tmp+2)
 ; 1795 (сборки BD): потопленный свой корабль — PM -> 3 и перерисовать
 L1795:      ZEROV bI
 L1795a:     call pxy_off
-            ld   de,ARR_PX
-            add  hl,de
-            ld   a,(hl)
+            call pxy_hl
             STV  bC
-            ld   de,ARR_PY-ARR_PX
-            add  hl,de
-            ld   a,(hl)
+            ld   a,e
             STV  bR
             ld   bc,ARR_PM
             call w10cr
