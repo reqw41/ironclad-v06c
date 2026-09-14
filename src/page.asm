@@ -12,9 +12,7 @@ GY          equ 30
 ; HL = &cellrec[A][C + 10R]: A = страница, B = C, C = R
 cell_rec:
             push de
-            ld   l,a                    ; page*400
-            ld   h,0
-            ld   de,0
+            ld   de,0                   ; page*400
             or   a
             jp   z,cr_p0
             ld   de,400
@@ -83,18 +81,8 @@ cell_op:
             ld   (hl),0FFh
             inc  hl
             ld   (hl),0FFh
-            pop  bc
-            LDV  pg_vis
-            ld   e,a
-            LDV  co_pg
-            cp   e
-            ret  nz
-            push bc
-            call cell_xy
-            ld   a,d
-            call gfx_tile
-            pop  bc
-            jp   cell_cursor
+            ld   hl,gfx_tile
+            jp   co_tail
 
 ; COPY ...,TPSET в клетку: A = страница, B = C, C = R, D = код слоя (тайл или 32+цифра)
 cell_tp:
@@ -110,7 +98,9 @@ ct_1:       ld   a,(hl)
             jp   nz,ct_1
             dec  hl                     ; слоёв больше 4 не бывает; на всякий случай — последний
 ct_2:       ld   (hl),d
-            pop  bc
+            ld   hl,draw_layer_tp
+; если страница на экране — нарисовать слой D процедурой HL в клетке B,C, курсор поверх
+co_tail:    pop  bc
             LDV  pg_vis
             ld   e,a
             LDV  co_pg
@@ -119,7 +109,7 @@ ct_2:       ld   (hl),d
             push bc
             call cell_xy
             ld   a,d
-            call draw_layer_tp
+            call scn_c
             pop  bc
             jp   cell_cursor
 
@@ -163,12 +153,10 @@ cell_redraw:
             ld   a,(hl)
             cp   0FFh
             jp   nz,cd_t
-            ld   d,b                    ; пусто: цвет фона страницы
-            ld   e,c
-            ld   a,d
+            ld   a,b                    ; пусто: цвет фона страницы
             add  a,15
             ld   d,a
-            ld   a,e
+            ld   a,c
             add  a,15
             ld   e,a
             ld   a,1
@@ -187,9 +175,8 @@ cd_l:       ld   hl,(cd_p)
             push bc
             call draw_layer_tp
             pop  bc
-            LDV  cd_n
-            dec  a
-            STV  cd_n
+            ld   hl,cd_n
+            dec  (hl)
             jp   nz,cd_l
 cd_done:    pop  bc
             ; fallthrough — курсор поверх
@@ -297,10 +284,8 @@ gd_1:       push bc
 gd_v:       ld   a,c
             add  a,16
             ld   c,a
-gd_2:       LDV  gh_i
-            inc  a
-            STV  gh_i
-            ld   hl,gh_s
+gd_2:       INCV gh_i
+            LDV  gh_s
             cp   (hl)
             jp   nz,gd_1
             ; рамка композита: зелёная (9) у копии (0,32)/(0,48), красная (8) у (0,128)/(16,48)
@@ -406,10 +391,9 @@ page_show:
             ld   hl,cellrec
             ld   de,cellrec+400
             ld   bc,0
-ps_c:       push bc
-            ld   b,4
-            push hl
+ps_c:       push hl
             push de
+            ld   b,4
 ps_cmp:     ld   a,(de)
             cp   (hl)
             jp   nz,ps_diff
@@ -417,27 +401,14 @@ ps_cmp:     ld   a,(de)
             inc  de
             dec  b
             jp   nz,ps_cmp
-            pop  de
-            pop  hl
-            pop  bc
-            jp   ps_next
-ps_diff:    pop  de
-            pop  hl
-            pop  bc
-            push hl
-            push de
-            push bc
-            ld   a,c                    ; индекс = C + 10R -> (C,R)
-            ld   c,0
-ps_d10:     cp   10
-            jp   c,ps_d11
-            sub  10
-            inc  c
-            jp   ps_d10
-ps_d11:     ld   b,a
+            jp   ps_same
+ps_diff:    push bc
+            ld   a,c                    ; индекс = C + 10R -> B = C, C = R
+            call div10
+            ld   c,a
             call cell_redraw
             pop  bc
-            pop  de
+ps_same:    pop  de
             pop  hl
 ps_next:    ld   a,4
             rst  00h
@@ -489,16 +460,14 @@ ghc_c:      push bc
             call cell_redraw
             pop  bc
             inc  b
-            LDV  gh_n
-            dec  a
-            STV  gh_n
+            ld   hl,gh_n
+            dec  (hl)
             jp   nz,ghc_c
             LDV  gh_c0
             ld   b,a
             inc  c
-            LDV  gh_i
-            dec  a
-            STV  gh_i
+            ld   hl,gh_i
+            dec  (hl)
             jp   nz,ghc_r
             ret
 
