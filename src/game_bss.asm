@@ -254,6 +254,8 @@ co_pg:      ds 1
 cd_p:       ds 2
 cd_n:       ds 1
 gh_i:       ds 1
+gh_n:       ds 1
+gh_c0:      ds 1
 cw_pg:      ds 1
 hr_q:       ds 1
 hr_j:       ds 1

@@ -491,7 +491,9 @@ ps_0c:      ld   a,(cur_on)
             call nz,cur_draw
 ps_n:       jp   at_draw_vis
 
-; перерисовать клетки под призраком из записей страницы pg_vis
+; перерисовать клетки под призраком из записей страницы pg_vis — по прямоугольнику
+; RX,RY,RW,RH (как COPY со страницы 2 в 1662), а не по композиту: при повороте композит
+; уже пересобран под новую ориентацию, а стирать надо старый прямоугольник
 gh_cells:   ld   a,(gh_rx)
             sub  GX
             rrca
@@ -499,6 +501,7 @@ gh_cells:   ld   a,(gh_rx)
             rrca
             rrca
             and  0Fh
+            ld   (gh_c0),a
             ld   b,a
             ld   a,(gh_ry)
             sub  GY
@@ -508,21 +511,35 @@ gh_cells:   ld   a,(gh_rx)
             rrca
             and  0Fh
             ld   c,a
-            ld   a,(gh_s)
-            ld   (gh_i),a
-ghc_1:      push bc
+            ld   a,(gh_rh)
+            rrca
+            rrca
+            rrca
+            rrca
+            and  0Fh
+            ld   (gh_i),a               ; строк
+ghc_r:      ld   a,(gh_rw)
+            rrca
+            rrca
+            rrca
+            rrca
+            and  0Fh
+            ld   (gh_n),a               ; столбцов
+ghc_c:      push bc
             call cell_redraw
             pop  bc
-            ld   a,(gh_od)
-            or   a
-            jp   nz,ghc_v
             inc  b
-            jp   ghc_2
-ghc_v:      inc  c
-ghc_2:      ld   a,(gh_i)
+            ld   a,(gh_n)
+            dec  a
+            ld   (gh_n),a
+            jp   nz,ghc_c
+            ld   a,(gh_c0)
+            ld   b,a
+            inc  c
+            ld   a,(gh_i)
             dec  a
             ld   (gh_i),a
-            jp   nz,ghc_1
+            jp   nz,ghc_r
             ret
 
 ; все 100 клеток страницы A = тайл воды (1154: COPY(96,32)-(255,191) — фон сетки = 100 тайлов 0)
