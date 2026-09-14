@@ -111,22 +111,20 @@ nextk:
                 and     0Fh
                 ret     z
                 ld      c,a
-fmark:                                  ; выстрелы NS-1..0 (порядок меток не важен)
-                dec     c
-                push    bc
+fmark:                                  ; выстрелы NS-1..0 (порядок меток не важен):
+                push    bc              ; элемент C-1 = (база-2)[C]
                 ld      a,c
-                ld      hl,ARR_TY
+                ld      hl,ARR_TY-2
                 call    getel
                 ld      b,a
                 ld      a,c
-                ld      hl,ARR_TX
+                ld      hl,ARR_TX-2
                 call    getel
                 ld      d,a
                 ld      e,b
                 call    mapptr
                 ld      (hl),1
                 pop     bc
-                inc     c
                 dec     c
                 jp      nz,fmark
 
@@ -286,8 +284,7 @@ pkl:
                 jp      nz,pkl
                 xor     a
                 ld      (vKL),a
-pknorm:
-                xor     a
+pknorm:                                 ; A = 0 (и после jp z — vKL = 0)
                 ld      (vT),a
 ; клетки P9 = 13..130: наибольший MG (со знаком; из равных — более ранняя)
 pnshot:
@@ -544,9 +541,7 @@ mgok:
 mgnext:
                 call    nextk
                 jp      nc,mgship
-                xor     a               ; и без единого scan — как у оригинала
-                ld      (vMODE),a
-                ret
+                jp      mode0           ; и без единого scan — как у оригинала
 
 ; scan в режиме 1 с весом HL (vWT), затем vMODE = 0
 scanwt:
@@ -556,6 +551,7 @@ scanwt:
 scanm:
                 ld      (vMODE),a
                 call    scan
+mode0:
                 xor     a
                 ld      (vMODE),a
                 ret
