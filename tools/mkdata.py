@@ -224,6 +224,26 @@ def vram_image(px, slotmap, planes):
                 v[p*0x2000 + col*256 + row] = b
     return v
 
+def best_order(name, px, pal, slots, planes):
+    """Порядок слотов 1..n-1 (слот 0 — фон — на месте), дающий самый короткий поток ZX0.
+    Цвета картинки те же, меняется только номер слота каждого цвета. Кэш — build/data/slotcache.json."""
+    import json, hashlib
+    cache_f = os.path.join(OUT, 'slotcache.json')
+    cache = json.load(open(cache_f)) if os.path.exists(cache_f) else {}
+    key = hashlib.md5((name + repr(slots) + repr(planes) + repr(px)).encode()).hexdigest()
+    if key in cache:
+        return cache[key]
+    best = None
+    for perm in itertools.permutations(range(1, len(slots))):
+        sl = [slots[0]] + [slots[i] for i in perm]
+        cm = cmap_of(sl, pal)
+        n = zx0('_try', vram_planes(px, cm, planes))
+        if best is None or n < best[0]:
+            best = (n, sl)
+    cache[key] = best[1]
+    json.dump(cache, open(cache_f, 'w'))
+    return best[1]
+
 IMG_COLORS = {'title': 8, 'victory': int(os.environ.get('VICTORY_COLORS', '4')), 'defeat': 4}
 
 def vram_planes(px, slotmap, planes):
@@ -252,10 +272,7 @@ def build_images():
     cnt = collections.Counter(c for r in t for c in r)
     # 6 цветов (решение владельца): цвета меню 5, 1, 3, огонь 11 и ещё два по картинке;
     # самые редкие — в слоты 4, 5 (старший бит слота, плоскость $8000 почти пустая — лучше жмётся)
-    sl = pick_slots(cnt, mp, 6, (5, 1, 3, 11))
-    cm0 = cmap_of(sl, mp)
-    use = collections.Counter(cm0[c] for r in t for c in r)
-    sl = [sl[0]] + [sl[i] for i in sorted(range(1, len(sl)), key=lambda i: -use[i])]
+    sl = best_order('title', t, mp, pick_slots(cnt, mp, 6, (5, 1, 3, 11)), 3)
     cm = cmap_of(sl, mp)
     res['title'] = zx0('title', vram_planes(t, cm, 3))
     pals['menu'] = (sl, cm)
@@ -271,6 +288,7 @@ def build_images():
         cnt = collections.Counter(c for r in px for c in r)
         top = cnt.most_common(1)[0][0]
         sl = pick_slots(cnt, ep, n, (top, 2))     # 2 — цвет «TAB:»/«SPACE:» в подписях
+        sl = best_order(nm, px, ep, sl, 2 if n == 4 else 3)
         cm = cmap_of(sl, ep)
         if n == 4:
             res[nm] = zx0(nm, vram_planes(px, cm, 2))
