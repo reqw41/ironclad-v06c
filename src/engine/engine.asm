@@ -517,10 +517,8 @@ marg:
 mgship:
                 ld      hl,ARR_CC
                 call    kel16
-                ld      b,d
-                ld      c,e
-                ld      a,b             ; кандидатов нет — нечего взвешивать
-                or      c
+                ld      a,d             ; кандидатов нет — нечего взвешивать
+                or      e
                 jp      z,mgnext
                 ld      hl,2880
                 call    div16
@@ -549,42 +547,24 @@ scanm:
                 ld      (vMODE),a
                 ret
 
-; HL = HL / BC без знака (BC <> 0), сдвигом с вычитанием.  Портит A, DE.
-; Оригинал делил повторным вычитанием: частное то же (при BC = 0 оригинал
-; зависал бы — у нас частное FFFFh), а время не зависит от величины частного
-; (6000/1 было 6000 итераций).  Остаток после k шагов < 2^k, поэтому сдвиг
-; остатка на шагах 1..16 никогда не выходит за 16 бит — 17-й бит не нужен.
+; HL = HL / DE без знака повторным вычитанием, как у оригинала: время растёт
+; с частным (2880/1 — 2880 шагов по 32 такта).  При DE = 0 частное 0
+; (оригинал зависал — вне инвариантов игры).  Портит BC, DE.
 div16:
-                ex      de,hl           ; DE = делимое -> частное
-                ld      hl,0            ; остаток
-                ld      a,16
-dvlp:
-                push    af
-                ex      de,hl
-                add     hl,hl           ; частное/делимое <<= 1, CY = старший бит
-                ex      de,hl
-                ld      a,l
-                rla
-                ld      l,a
-                ld      a,h
-                rla
-                ld      h,a             ; остаток = остаток*2 + CY
-                ld      a,l
-                sub     c
-                ld      l,a
-                ld      a,h
-                sbc     a,b
-                ld      h,a
-                jp      nc,dvone
-                add     hl,bc           ; не вычлось — вернуть
-                jp      dvnx
-dvone:
-                inc     e               ; бит частного
-dvnx:
-                pop     af
-                dec     a
-                jp      nz,dvlp
-                ex      de,hl
+                ld      a,e
+                cpl
+                ld      e,a
+                ld      a,d
+                cpl
+                ld      d,a
+                inc     de              ; DE = -делитель
+                ld      bc,-1
+dvl:
+                inc     bc
+                add     hl,de           ; CY <=> вычлось без заёма
+                jp      c,dvl
+                ld      h,b
+                ld      l,c
                 ret
 
 ; ---------------------------------------------------------------- scan: корабль K
@@ -812,13 +792,11 @@ psprobe:
                 ld      a,(eng_bar)
                 or      a
                 jp      z,psp2
-                ld      c,e             ; BARRAGE: вес 6000/CC/need
-                ld      b,d
-                ld      hl,6000
+                ld      hl,6000         ; BARRAGE: вес 6000/CC/need
                 call    div16
                 ld      a,(vNEED)
-                ld      c,a
-                ld      b,0
+                ld      e,a
+                ld      d,0
                 call    div16
                 call    scanwt
 psp2:

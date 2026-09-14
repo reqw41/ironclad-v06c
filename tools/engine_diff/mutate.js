@@ -48,7 +48,8 @@ const MUT = [
   ['kill1: vIDX не восстановлен', 'ld      hl,(vKI)\n                ld      (vIDX),hl', 'ld      hl,(vKI)\n                nop\n                nop\n                nop'],
   ['cand: sbc -> sub в CC (потерян заём)', 'ld      a,(hl)\n                sub     1\n                ld      (hl),a\n                inc     hl\n                ld      a,(hl)\n                sbc     a,0', 'ld      a,(hl)\n                sub     1\n                ld      (hl),a\n                inc     hl\n                ld      a,(hl)\n                sub     0'],
   // marg / div16 / probesel
-  ['div16: 15 шагов вместо 16', 'ld      hl,0            ; остаток\n                ld      a,16', 'ld      hl,0            ; остаток\n                ld      a,15'],
+  ['div16: частное на 1 больше', 'ld      bc,-1\ndvl:', 'ld      bc,0\ndvl:'],
+  ['div16: делитель без +1 (обратный код)', 'inc     de              ; DE = -делитель', 'nop'],
   ['probesel: 12000 -> 12001', 'add     a,low 12000', 'add     a,low 12001'],
   ['probesel: +12000 без переноса в старший байт', 'adc     a,high 12000', 'add     a,high 12000'],
   ['probesel: sbc -> sub (потерян заём)', 'sub     l\n                ld      a,b\n                sbc     a,h             ; CY <=> |d| < BS', 'sub     l\n                ld      a,b\n                sub     h               ; CY <=> |d| < BS'],
