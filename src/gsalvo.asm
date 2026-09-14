@@ -52,10 +52,7 @@ L3803:      call L1305
             LDV  bSK
             or   a
             call nz,L3820
-L3804:      LDV  bTT
-            ld   b,a
-            LDV  bTE
-            cp   b
+L3804:      call te_tt
             jp   nc,L3805
             ld   hl,s_press_space
             call ms_set
@@ -310,10 +307,7 @@ L3844a:     LDV  bNC
             ld   a,c
             STV  bBY
             call L910
-            LDV  bTT                ; IF TP>=TT THEN NC=NS-1
-            ld   b,a
-            LDV  bTP
-            cp   b
+            call tp_tt                  ; IF TP>=TT THEN NC=NS-1
             jp   c,L3846
             LDV  bNS
             dec  a
@@ -323,10 +317,7 @@ L3846:      INCV bNC
             cp   (hl)
             jp   z,L3847
             jp   nc,L3844a
-L3847:      LDV  bTT
-            ld   b,a
-            LDV  bTP
-            cp   b
+L3847:      call tp_tt
             jp   nc,L3853
             SETV bFP,1
 L3853:      LDV  bSN                ; NV=SN: "ENEMY HITS:"+STR$(EK)+"/"+NS+" ["+S1$+"]"
@@ -341,10 +332,7 @@ L3853:      LDV  bSN                ; NV=SN: "ENEMY HITS:"+STR$(EK)+"/"+NS+" ["+
             ld   de,15
             call salvo_sank
 L3854:      call L1315
-            LDV  bTT
-            ld   b,a
-            LDV  bTP
-            cp   b
+            call tp_tt
             ret  nc
 L3855:      ld   hl,s_press_space
             call ms_set
@@ -384,9 +372,7 @@ L3870:      call cm_cxcy                ; CM(CX,CY)=SL
             ld   (hl),a
             inc  hl
             ld   (hl),0
-            SETV bSD,1
-            call cr_cxcy
-            call L1105
+            call rd_cxcy
 L3872:      LDV  bSH
             or   a
             jp   nz,L3874
@@ -448,9 +434,7 @@ L3881:      dec  a
             ld   (hl),0
             inc  hl
             ld   (hl),0
-            SETV bSD,1
-            call cr_cxcy
-            call L1105
+            call rd_cxcy
 L3882:      LDV  bSH
             or   a
             jp   z,L3883

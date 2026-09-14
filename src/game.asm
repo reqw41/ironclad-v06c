@@ -438,42 +438,69 @@ L501a:      pop  hl
 L502:       call L1305
             CPV  bFS,1
             call z,L702
-L504:       LDV  bTT
-            ld   b,a
-            LDV  bTP
-            cp   b
+L504:       call tp_tt
             jp   c,L510
             SETV bWN,2
             jp   L2210
 L510:       call L602
-L520:       LDV  bTT
-            ld   b,a
-            LDV  bTE
-            cp   b
+L520:       call te_tt
             jp   c,L530
             SETV bWN,1
             jp   L2210
 L530:       call L702
-L540:       LDV  bTT
+L540:       jp   L504                   ; 540..550 = 504: IF TP>=TT THEN WN=2: GOTO 2210 ELSE 510
+; A = TP, флаги cp TT / A = TE, флаги cp TT
+tp_tt:      LDV  bTT
             ld   b,a
             LDV  bTP
             cp   b
-            jp   c,L550
-            SETV bWN,2
-            jp   L2210
-L550:       jp   L510
-
-; ---------------------------------------------------------------- 602: ход игрока
-L602:       SETV bNF,1
+            ret
+te_tt:      LDV  bTT
+            ld   b,a
+            LDV  bTE
+            cp   b
+            ret
+; 602/703: NF=1: IF SV=1 THEN GOSUB HL (3460/3470): NF=AL; IF SV>=3 THEN NF=SV; NC=0
+nf_calc:    SETV bNF,1
             CPV  bSV,1
-            jp   nz,L603
-            call L3460
+            jp   nz,nfc_1
+            call scn_c
             LDV  bAL
             STV  bNF
-L603:       CPV  bSV,3
-            jp   c,L604
+nfc_1:      CPV  bSV,3
+            jp   c,nfc_2
             STV  bNF
-L604:       ZEROV bNC
+nfc_2:      ZEROV bNC
+            ret
+; MS$ = "YOU FIRE " + CO$ + HL: GOSUB 1305
+fire1:      push hl
+            ld   hl,s_you_fire
+            ld   de,sCO
+            call ms_2
+            jp   L1305
+; MS$ = "ENEMY FIRES " + CE$ + HL: GOSUB 1315
+fire2:      push hl
+            ld   hl,s_enemy_fires
+            ld   de,sCE
+            call ms_2
+            jp   L1315
+; MS$ = HL + DE + [SP+2]
+ms_2:       push de
+            call ms_set
+            pop  hl
+            call ms_cat
+            pop  de
+            pop  hl
+            push de
+            jp   ms_cat
+; SD=1: C=CX: R=CY: GOSUB 1105
+rd_cxcy:    SETV bSD,1
+            call cr_cxcy
+            jp   L1105
+
+; ---------------------------------------------------------------- 602: ход игрока
+L602:       ld   hl,L3460               ; 602..604
+            call nf_calc
             call ms_clear
             call L1305
             call L1315
@@ -566,10 +593,7 @@ L665:       call L810
 L667:       LDV  cfg_fam            ; 667, 668 — только IRONCLAD.BAS
             or   a
             jp   nz,L669
-            LDV  bTT
-            ld   b,a
-            LDV  bTE
-            cp   b
+            call te_tt
             jp   c,L668
             LDV  bBD
             or   a
@@ -587,10 +611,7 @@ L669:       INCV bNC
 L672:       CPV  bBD,1
             jp   nz,L674
             call L3798
-            LDV  bTT
-            ld   b,a
-            LDV  bTE
-            cp   b
+            call te_tt
             jp   nc,L674
             SETV bWC,1
             jp   L610
@@ -628,12 +649,7 @@ mk_coord:
             ld   a,'1'
             ld   (de),a
             inc  de
-            ld   a,'0'-10+10
-            ld   (de),a
-            inc  de
             xor  a
-            ld   (de),a
-            ret
 mc_1:       add  a,'0'
             ld   (de),a
             inc  de
@@ -642,16 +658,8 @@ mc_1:       add  a,'0'
             ret
 
 ; ---------------------------------------------------------------- 702: ход противника
-L702:       SETV bNF,1
-            CPV  bSV,1
-            jp   nz,L703
-            call L3470
-            LDV  bAL
-            STV  bNF
-L703:       CPV  bSV,3
-            jp   c,L704
-            STV  bNF
-L704:       ZEROV bNC
+L702:       ld   hl,L3470               ; 702..704
+            call nf_calc
 L710:       call msg2i
             TXT  "ENEMY IS PLOTTING..."
 L715:       LDV  bDP
@@ -676,10 +684,7 @@ L718a:      CPV  bDL,1
             jp   L720
 L718b:      call L1810
             call L910
-L720:       LDV  bTT
-            ld   b,a
-            LDV  bTP
-            cp   b
+L720:       call tp_tt
             jp   nc,L735
 L722:       CPV  bXS,1
             jp   nz,L724
@@ -719,18 +724,10 @@ L830:       ZEROV bHW
             ld   (hl),1
             inc  hl
             ld   (hl),0
-            SETV bSD,1
-            call cr_cxcy
-            call L1105
+            call rd_cxcy
             call L2605
-L840:       ld   hl,s_you_fire
-            call ms_set
-            ld   hl,sCO
-            call ms_cat
-            ld   hl,s_miss
-            call ms_cat
-            call L1305
-            ret
+L840:       ld   hl,s_miss
+            jp   fire1
 L850:       SETV bHW,1
             call cm_cxcy
             ld   (hl),2
@@ -739,9 +736,7 @@ L850:       SETV bHW,1
             call qh_sh
             inc  (hl)
             INCV bTE
-            SETV bSD,1
-            call cr_cxcy
-            call L1105
+            call rd_cxcy
 L860:       call qh_sh
             ld   b,(hl)
             call sz_sh
@@ -749,14 +744,8 @@ L860:       call qh_sh
             cp   c
             jp   nc,L878
 L870:       call L2615
-L870a:      ld   hl,s_you_fire
-            call ms_set
-            ld   hl,sCO
-            call ms_cat
-            ld   hl,s_hit
-            call ms_cat
-            call L1305
-            ret
+L870a:      ld   hl,s_hit
+            jp   fire1
 L878:       LDV  bQS
             or   a
             jp   z,L882
@@ -851,13 +840,8 @@ L950:       LDV  cfg_fam            ; только IRONCLAD.BAS
             LDV  bBD
             or   a
             jp   nz,L952
-            ld   hl,s_enemy_fires
-            call ms_set
-            ld   hl,sCE
-            call ms_cat
             ld   hl,s_miss
-            call ms_cat
-            call L1315
+            jp   fire2
 L952:       ret
 ; SD=0: C=FX: R=FY: GOSUB 1105
 L940c:      ZEROV bSD
@@ -915,25 +899,16 @@ L970:       call ph_sh
             ld   a,b
             cp   c
             jp   nc,L980
+L974:       call L2615                  ; 974/975
+            INCV bEK
             LDV  cfg_fam
             or   a
-            jp   z,L975
-L974:       call L2615                  ; сборки BD
-            INCV bEK
-            jp   L976
-L975:       call L2615                  ; IRONCLAD.BAS
-            INCV bEK
-            call L977
+            call z,L977                 ; IRONCLAD.BAS
 L976:       CPV  bBD,1
             jp   z,L3884
             jp   L1280
-L977:       ld   hl,s_enemy_fires
-            call ms_set
-            ld   hl,sCE
-            call ms_cat
-            ld   hl,s_hit
-            call ms_cat
-            jp   L1315
+L977:       ld   hl,s_hit
+            jp   fire2
 L980:       ZEROV bNT
             inc  a
             STV  bSW

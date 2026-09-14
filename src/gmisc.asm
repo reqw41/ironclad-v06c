@@ -739,9 +739,7 @@ L3944:      CPV  bM+1,0FFh  ; IRONCLAD.BAS: -4 -> 0, иначе ничего
 L3943z:     ld   (hl),0
             inc  hl
             ld   (hl),0
-L3946:      SETV bSD,1
-            call cr_cxcy
-            jp   L1105
+L3946:      jp   rd_cxcy
 
 ; 3960: MS$="PLACE "+N$(SH)+SPACE$(19-LEN(N$(SH)))+"?:HELP": ... подсказка клавиш
 L3960:      call ms_seti
