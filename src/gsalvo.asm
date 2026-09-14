@@ -53,14 +53,11 @@ L3803:      call L1305
             or   a
             call nz,L3820
 L3804:      call te_tt
-            jp   nc,L3805
+            jp   nc,L3330a              ; 3805: IF INKEY$<>"" THEN 3805
             ld   hl,s_press_space
             call ms_set
             call L1315
-            ZEROV bKQ
-L3805:      call inkey                  ; IF INKEY$<>"" THEN 3805
-            jp   nz,L3805
-            ret
+            jp   L3330                  ; KQ$="": 3805
 
 ; MS$ = строка HL + STR$(A) + "/" + MID$(STR$(B),2) + " [" + S1$ + "]"
 hits_msg:   push bc
@@ -331,9 +328,7 @@ L3854:      call L1315
 L3855:      ld   hl,s_press_space
             call ms_set
             call L1305
-            ZEROV bKQ
-L3856:      call inkey
-            jp   nz,L3856
+            call L3330                  ; KQ$="": 3856
 L3857:      call getkey                 ; TAB — листать страницы (без 1473), пробел — дальше
             STV  bK_
             cp   9
@@ -380,16 +375,7 @@ L3874:      SETV bHW,1
             INCV bSK
             ld   a,b                    ; HS(SH,QH(SH)-1)=SL
             dec  a
-            add  a,a
-            add  a,a
-            ld   c,a
-            add  a,a
-            add  a,c
-            ld   c,a
-            LDV  bSH
-            add  a,c
-            ld   hl,ARR_HS
-            rst  00h
+            call hs_sh
             LDV  bSL
             ld   (hl),a
 L3876:      call qh_sh
@@ -405,6 +391,14 @@ L3878:      LDV  bSJ                ; SJ=SJ+1: SQ(SJ-1)=SH
             ld   (hl),a
             INCV bSJ
             ret
+
+; HL = &HS(SH,A) (портит C)
+hs_sh:      call x12
+            ld   c,a
+            LDV  bSH
+            add  a,c
+            ld   hl,ARR_HS
+            jp   add_a_hl
 
 ; 3880: отмена выстрела залпа (U)
 L3880:      LDV  bNC
@@ -440,16 +434,7 @@ L3882:      LDV  bSH
             ld   hl,bSK
             dec  (hl)
             ld   a,b                    ; HS(SH,QH(SH))=0
-            add  a,a
-            add  a,a
-            ld   c,a
-            add  a,a
-            add  a,c
-            ld   c,a
-            LDV  bSH
-            add  a,c
-            ld   hl,ARR_HS
-            rst  00h
+            call hs_sh
             ld   (hl),0
             call sz_sh                  ; IF QH(SH)=SZ(SH)-1 THEN SJ=SJ-1
             dec  c
