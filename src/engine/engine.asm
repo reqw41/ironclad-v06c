@@ -231,16 +231,13 @@ krow:
 famw:
                 ld      b,a
                 call    shipset         ; HL -> FA(OS(K)); BC сохранён
-                ld      a,(vW)
+                ld      a,(vW)          ; W >= 1: m*W = m, сложенное W раз
                 ld      c,a
                 xor     a
-                inc     b
 fm1:
-                dec     b
-                jp      z,fm2
-                add     a,c
-                jp      fm1
-fm2:
+                add     a,b
+                dec     c
+                jp      nz,fm1
                 ld      e,a
                 ld      d,0
                 add     hl,de
@@ -405,7 +402,22 @@ extshot:
                 ld      (vBS),hl
                 ld      de,extcell
                 call    forcr
-                jp      extfin
+                ld      hl,(vBX)        ; метка MO(BX*12 + BY + 13)
+                ld      b,l
+                ld      c,h
+                ld      e,h
+                ld      a,l
+                call    pidx
+                ld      de,MOBUF
+                add     hl,de
+                ld      a,(vST)
+                ld      (hl),a
+                call    stnext          ; TX(T) = BX, TY(T) = BY
+                jp      c,extshot
+                ld      hl,131          ; vP9: где кончал перебор оригинала
+                ld      (vP9),hl
+                ret
+
 extcell:                                ; PM(C,R) = 0; HL = 2*(C+10R)
                 ld      a,(eng_sp)      ; SALVO PLUS: BZ(C,R)=3 — доказанная
                 or      a               ; пустая вода, туда не стреляем
@@ -454,22 +466,6 @@ extsc:
                 ld      (vBS),hl
                 ld      hl,(vC)         ; BX, BY = C, R
                 ld      (vBX),hl
-                ret
-extfin:
-                ld      hl,(vBX)        ; метка MO(BX*12 + BY + 13)
-                ld      b,l
-                ld      c,h
-                ld      e,h
-                ld      a,l
-                call    pidx
-                ld      de,MOBUF
-                add     hl,de
-                ld      a,(vST)
-                ld      (hl),a
-                call    stnext          ; TX(T) = BX, TY(T) = BY
-                jp      c,extshot
-                ld      hl,131          ; vP9: где кончал перебор оригинала
-                ld      (vP9),hl
                 ret
 
 ; обход C = 0..9 (внешний), R = 0..9 (внутренний): для клеток с PM(C,R) = 0
@@ -545,8 +541,7 @@ mgship:
                 ld      a,h
                 or      l
                 jp      nz,scanwt
-                inc     hl              ; 0 -> 1
-                jp      scanwt
+                inc     hl              ; 0 -> 1 (и сразу scanwt)
 
 ; scan в режиме 1 с весом HL (vWT), затем vMODE = 0
 scanwt:
@@ -868,13 +863,6 @@ psabs:
                 ex      de,hl
                 jp      sgt1            ; CY <=> |d| < BS
 
-; HL = ARR_MG + 2*HL (-> слово MG).  Портит BC.
-mgat:
-                add     hl,hl
-mgat1:
-                ld      bc,ARR_MG
-                add     hl,bc
-                ret
 
 ; ------------------------------------------------ MG = -1, затем счета клеток
 ; A = 0: живым клеткам дрожание (mgseed сэмплера)
@@ -964,7 +952,13 @@ mapptr:
                 ld      a,d
                 call    pidx
                 ld      a,l
-                jp      mgat1
+                db      0FEh            ; cp n: глотает add hl,hl ниже (A та же)
+; HL = ARR_MG + 2*HL (-> слово MG).  Портит BC.
+mgat:
+                add     hl,hl
+                ld      bc,ARR_MG
+                add     hl,bc
+                ret
 
 ; HL = индекс с полями для (vC,vR) = C*12 + R + 13.  Сохраняет BC.
 padidx:
@@ -1310,16 +1304,14 @@ jdfin:
 
 ; L / C -> A частное, E остаток
 divsm:
-                ld      b,0
-dv1:
+                ld      b,-1
                 ld      a,l
-                sub     c
-                jp      c,dv2
-                ld      l,a
+dv1:
                 inc     b
-                jp      dv1
-dv2:
-                ld      e,l
+                sub     c
+                jp      nc,dv1
+                add     a,c
+                ld      e,a
                 ld      a,b
                 ret
 
