@@ -17,10 +17,19 @@ KEY_REP1    equ 20          ; кадров до первого автоповт�
 KEY_REP2    equ 3           ; кадров между повторами
 KQ_SIZE     equ 16          ; буфер клавиш (степень двойки)
 
+; ВВ55 (порт 0): обычный режим PPI_OUT — A, B и C младшие выходы: порт B выдаёт индекс
+; палитры/бордюра и бит 4 (режим 512 = 0). На входе (PPI_KBD) порт B не выдаёт ничего — на
+; железе, MiSTer и в Emu80 индекс читается как FFh (палитра уходит в индекс 15, режим 512,
+; бордюр 15); vector06js направление порта не смотрит. Поэтому PPI_KBD — только на опрос
+; клавиатуры в начале ISR (кадровый бланк); запись режима обнуляет выходы, после неё порт A
+; (скролл) и B (бордюр) ставятся заново.
+PPI_OUT     equ 88h         ; A — выход, B — выход, C старшие — вход, C младшие — выход
+PPI_KBD     equ 8Ah         ; то же, но B — вход (столбцы клавиатуры)
+
 ; ---------------------------------------------------------------- старт железа
 ; Вызывать под DI. Портит всё.
 vec_init:
-            ld   a,8Ah                  ; ВВ55: A — выход, B — вход, C старшие — вход, C младшие — выход
+            ld   a,PPI_OUT
             out  (PPI_CW),a
             ld   a,0FFh
             out  (PPI_A),a              ; скролл в норму
@@ -31,8 +40,7 @@ vec_init:
             ld   hl,isr
             ld   (39h),hl
             call snd_init
-            call scr_clear_all
-            ret
+            jp   scr_clear_all
 
 ; ---------------------------------------------------------------- прерывание 50 Гц
 isr:
@@ -41,31 +49,46 @@ isr:
             push de
             push hl
             ; палитра -> цветогенератор (защёлкивается по кадру, льём каждый кадр)
-            ld   hl,vec_pal_live
+            ld   hl,vec_pal_live+15
             ld   c,15
 isr_pal:
             ld   a,c
             out  (PPI_B),a
-            ld   e,c
-            ld   d,0
-            push hl
-            add  hl,de
             ld   a,(hl)
-            pop  hl
+            dec  hl
             out  (PAL_PORT),a
             out  (PAL_PORT),a
             out  (PAL_PORT),a
             out  (PAL_PORT),a
             dec  c
             jp   p,isr_pal
+            ld   a,PPI_KBD              ; ряды клавиатуры — сразу за палитрой, пока бланк (~450 тактов
+            out  (PPI_CW),a             ; порт B на входе; разбор — kbd_isr, уже в режиме PPI_OUT)
+            ld   hl,kbd_rows
+            ld   a,0FEh                 ; маска ряда 0
+isr_kr:     out  (PPI_A),a
+            ld   b,a
+            in   a,(PPI_B)
+            ld   (hl),a
+            inc  hl
+            ld   a,b
+            rlca
+            jp   c,isr_kr               ; пока ноль не прошёл все 8 рядов
+            ld   a,PPI_OUT              ; порт B снова выход (запись режима обнулила выходы)
+            out  (PPI_CW),a
+            ld   a,0FFh
+            out  (PPI_A),a              ; скролл на место (после записи режима, иначе затрётся)
             ld   a,(vec_border)
-            out  (PPI_B),a              ; бордюр: индекс 0 (слот фона) или 8 (слот 4 экранов итога)
+            out  (PPI_B),a              ; бордюр: индекс 0 (слот фона) или 2*слот белого (экраны итога)
             ld   hl,(frame_cnt)
             inc  hl
             ld   (frame_cnt),hl
+            ld   hl,ai_left             ; счёт показа сообщения ИИ: до 0
+            dec  (hl)
+            jp   p,isr_ai
+            inc  (hl)
+isr_ai:
             call kbd_isr
-            ld   a,0FFh
-            out  (PPI_A),a              ; после опроса клавиатуры — скролл на место
             call snd_isr
             pop  hl
             pop  de
@@ -75,15 +98,17 @@ isr_pal:
             ret
 
 ; ---------------------------------------------------------------- палитра
-; HL = 16 байт палитры (индекс 0 = бордюр/фон). Копирует в vec_pal (текущая) и,
-; если экран не погашен, в vec_pal_live (то, что льёт ISR).
+; HL = 8 байт палитры 8-цветного режима (цвет слота k -> индексы 2k и 2k+1; слот 0 = бордюр/фон).
+; Копирует в vec_pal (текущая) и, если экран не погашен, в vec_pal_live (то, что льёт ISR).
 pal_set:
             ld   de,vec_pal
-            ld   b,16
+            ld   b,8
 ps_1:       ld   a,(hl)
             ld   (de),a
-            inc  hl
             inc  de
+            ld   (de),a
+            inc  de
+            inc  hl
             dec  b
             jp   nz,ps_1
             ld   a,(disp_off)
@@ -111,14 +136,8 @@ disp_on:
 pal_live:
             ld   hl,vec_pal
             ld   de,vec_pal_live
-            ld   b,16
-dn_1:       ld   a,(hl)
-            ld   (de),a
-            inc  hl
-            inc  de
-            dec  b
-            jp   nz,dn_1
-            ret
+            ld   bc,16
+            jp   memcpy
 
 ; ---------------------------------------------------------------- ожидание
 ; wait_frames: A = число кадров (1..255).
@@ -133,34 +152,34 @@ wf_1:       ei
 ; ---------------------------------------------------------------- клавиатура
 ; Опрос в ISR: первая нажатая клавиша с кодом -> буфер; удержание -> автоповтор
 ; (как буфер клавиатуры MSX, из которого читает INKEY$).
+; Ряды прочитаны в ISR в kbd_rows (порт B — вход только на это время).
 kbd_isr:
-            ld   hl,kbd_map
-            ld   b,0FEh                 ; маска ряда 0
-            ld   c,0                    ; найденный код
+            ld   hl,0                   ; H = найденный код, L = номер клавиши = ряд*8 + бит
+            ld   bc,kbd_rows
 ki_row:
-            ld   a,b
-            out  (PPI_A),a
-            in   a,(PPI_B)
+            ld   a,(bc)
             cpl                         ; 1 = нажата
             ld   e,8
 ki_bit:
             rra
             jp   nc,ki_nb
             ld   d,a
-            ld   a,c
+            ld   a,h
             or   a
             jp   nz,ki_nb0              ; уже нашли более раннюю
-            ld   a,(hl)
-            ld   c,a
+            ld   a,l
+            call kbd_code               ; (HL, BC, DE не трогает)
+            ld   h,a
 ki_nb0:     ld   a,d
-ki_nb:      inc  hl
+ki_nb:      inc  l
             dec  e
             jp   nz,ki_bit
-            ld   a,b
-            rlca
-            ld   b,a
-            jp   c,ki_row               ; пока ноль не прошёл все 8 рядов
-            ; C = код (0 — ничего). СС + '/' = '?', без СС тоже '?' (клавиша «/ ?»)
+            inc  bc
+            ld   a,l
+            cp   64
+            jp   c,ki_row               ; все 8 рядов
+            ; H = код (0 — ничего). СС + '/' = '?', без СС тоже '?' (клавиша «/ ?»)
+            ld   c,h
             ld   a,c
             or   a
             jp   nz,ki_key
@@ -221,40 +240,46 @@ ik_none:    xor  a
 
 ; ждать клавишу: A = код
 getkey:
-            call inkey
+            call ai_wait                ; сообщение ИИ провисело свои 60 кадров
+gk_1:       call inkey
             ret  nz
             ei
             halt
-            jp   getkey
+            jp   gk_1
 
-; матрица -> код: ряд 0..7, бит 0..7 (коды MSX: 28 ->, 29 <-, 30 вверх, 31 вниз)
-kbd_map:
-            db 9,0,13,0,29,30,28,31                     ; ряд 0: ТАБ ПС ВК ЗБ <- ^ -> v
-            db 0,0,0,0,0,0,0,0                          ; ряд 1: F-клавиши, АР2
-            db '0','1','2','3','4','5','6','7'          ; ряд 2
-            db '8','9',':',';',',','=','.','?'          ; ряд 3 (клавиша «/ ?» даёт '?')
-            db '@','A','B','C','D','E','F','G'          ; ряд 4
-            db 'H','I','J','K','L','M','N','O'          ; ряд 5
-            db 'P','Q','R','S','T','U','V','W'          ; ряд 6
-            db 'X','Y','Z','[',5Ch,']','^',' '          ; ряд 7
+; A = номер клавиши (ряд 0..7 * 8 + бит 0..7) -> A = код (MSX: 28 ->, 29 <-, 30 вверх, 31 вниз).
+; Прочие регистры сохраняет.
+; Ряд 0: ТАБ ПС ВК ЗБ <- ^ -> v (таблица); ряд 1 (F-клавиши, АР2) — нет кода; ряды 2..7 —
+; 20h + номер ('0'..'7', '8','9',':',';',',','=','.','?', '@','A'..'Z','[','\',']','^',' '),
+; кроме «,» (было бы '<'), «.» ('>') и пробела ('_').
+kbd_code:   cp   8
+            jp   c,kc_r0
+            cp   16
+            jp   c,kc_z
+            add  a,20h
+            cp   5Fh
+            jp   z,kc_sp
+            cp   3Ch
+            jp   z,kc_x
+            cp   3Eh
+            ret  nz
+kc_x:       sub  10h
+            ret
+kc_sp:      ld   a,' '
+            ret
+kc_z:       xor  a
+            ret
+kc_r0:      push hl
+            ld   hl,kbd_row0
+            rst  00h
+            ld   a,(hl)
+            pop  hl
+            ret
+kbd_row0:   db 9,0,13,0,29,30,28,31
 
 ; ---------------------------------------------------------------- экран
 ; очистить экран ($8000..$DFFF, 3 плоскости) нулями (слот 0 = цвет фона); $E000.. — память программы
-scr_clear_all:
-            di
-            ld   hl,0
-            add  hl,sp
-            ld   (sca_sp),hl
-            ld   sp,0E000h              ; первый push пишет $DFFE/$DFFF
-            ld   de,0
-            ld   b,192                  ; 192 * 64 push = 24 КБ
-sca_1:
-            REPT 64
-            push de
-            ENDR
-            dec  b
-            jp   nz,sca_1
-            ld   hl,(sca_sp)
-            ld   sp,hl
-            ei
-            ret
+scr_clear_all:                          ; (только на старте — скорость не важна)
+            ld   hl,8000h
+            ld   de,6000h
+            jp   memzero

@@ -4,6 +4,7 @@
 ; Образ .rom грузится с $0100 и стартует с $0100.
 ; ============================================================================
             DEVICE NOSLOT64K
+            include "macros.asm"
             IFDEF NOIMG
             DEFINE NOTITLE
             ENDIF
@@ -40,6 +41,10 @@ lz_1:       ld   (hl),0
             inc  hl
             dec  b
             jp   nz,lz_1
+            ld   hl,rst0_code           ; RST 0 = add_a_hl прямо в векторе (с nop,nop: слово по $0000 = 0)
+            ld   de,0
+            ld   bc,rst0_end-rst0_code
+            call memcpy
             ld   hl,rst_tab             ; векторы RST 1..6 -> частые подпрограммы
             ld   de,8
 rvs_1:       ld   a,(hl)
@@ -59,10 +64,12 @@ rvs_1:       ld   a,(hl)
             add  a,6
             ld   e,a
             jp   rvs_1
-rvs_2:       ld   hl,tiles_zx0           ; тайлы и глифы -> плоскость $E000, вертикальные — поворотом
-            ld   de,tiles_data
+rvs_2:       ld   hl,font_zx0            ; шрифт -> BSS
+            ld   de,font_data
             call dzx0
-            call rot_tiles
+            IFDEF LIBTEST
+            call tiles_load
+            ENDIF
             call vec_init
             ld   a,8
             ld   (gfx_pitch),a
@@ -74,8 +81,18 @@ rvs_2:       ld   hl,tiles_zx0           ; тайлы и глифы -> плос�
             jp   setup_main
             ENDIF
 
-rst_tab:    dw add_a_hl, gfx_pset, gfx_puts, gfx_fill, ms_set, ms_cat
+rst_tab:    dw rst_ldv, rst_cpv, rst_incv, rst_setv, rst_zerov, rst_stv
             db 0
+; RST 0: HL += A. Два nop в начале: байты $0000/$0001 = 0 (нулевой указатель на строку = "")
+rst0_code:  nop
+            nop
+            add  a,l
+            ld   l,a
+            ret  nc
+            inc  h
+            ret
+rst0_end:
+add_a_hl    equ 2
             IFNDEF NOSPLASH
             include "splash.asm"
             include "../build/data/splash_pal.inc"
@@ -90,7 +107,6 @@ rst_tab:    dw add_a_hl, gfx_pset, gfx_puts, gfx_fill, ms_set, ms_cat
             include "libtest.asm"
             ELSE
             include "page.asm"
-            include "setup.asm"
             include "game.asm"
             include "gdraw.asm"
             include "gai.asm"
@@ -107,14 +123,22 @@ rst_tab:    dw add_a_hl, gfx_pset, gfx_puts, gfx_fill, ms_set, ms_cat
 ; ---------------------------------------------------------------- данные
             include "../build/data/palettes.inc"
             include "../build/data/font.inc"
+            include "../build/data/dict.inc"
             include "../build/data/tiles.inc"
 tiles_zx0:  incbin "../build/data/tiles.zx0"
+font_zx0:   incbin "../build/data/font.zx0"
             IFNDEF NOIMG
             IFNDEF NOTITLE
 img_title:  incbin "../build/data/title.zx0"
             ENDIF
 img_defeat: incbin "../build/data/defeat.zx0"
 img_victory: incbin "../build/data/victory.zx0"
+            ENDIF
+            IFNDEF LIBTEST
+            IFNDEF OVL_PASS1
+ovl_menu_zx0: incbin "../build/ovl_menu.zx0"   ; оверлеи (последними: адреса выше не зависят от их размеров)
+ovl_end_zx0: incbin "../build/ovl_end.zx0"
+            ENDIF
             ENDIF
 
 image_end:
@@ -125,7 +149,27 @@ bss_start:
             include "bss.asm"
 bss_end:
             ASSERT bss_end <= 0FF00h            ; 256 Б на стек
-            ASSERT sMS-bKA <= 288               ; render_full сохраняет скаляры в ARR_MG
+            ASSERT bMI-bKA <= 288               ; render_full сохраняет скаляры в ARR_MG
+
+            IFNDEF LIBTEST
+            ; ---------------------------------------------------------------- оверлей меню
+            ; SETUP.BAS исполняется из области тайлов (в меню тайлы не рисуются; game_run
+            ; распаковывает их заново). build.sh: проход 1 (-DOVL_PASS1) пишет build/ovl_menu.bin,
+            ; salvador сжимает его в build/ovl_menu.zx0, проход 2 кладёт сжатое в образ.
+            org  OVL_BASE
+ovl_menu:
+            include "setup.asm"
+ovl_menu_end:
+            ASSERT ovl_menu_end <= OVL_END
+            SAVEBIN "build/ovl_menu.bin", ovl_menu, ovl_menu_end-ovl_menu
+            ; оверлей 2: помощь и конец партии — за оверлеем меню в том же буфере
+            org  ovl_menu_end
+ovl_end:
+            include "ovl_end.asm"
+ovl_end_end:
+            ASSERT ovl_end_end <= OVL_END
+            SAVEBIN "build/ovl_end.bin", ovl_end, ovl_end_end-ovl_end
+            ENDIF
 
             IFNDEF NOSPLASH
             ; образ 64 КБ: код с $0100, нули до $8000, экран заставки $8000..$FFFF

@@ -5,6 +5,8 @@ __pycache__/
 .DS_Store
 /engine/
 /game/
+/ref
+squeeze_base/
 /squeeze/
 /splash/
 /engsz/

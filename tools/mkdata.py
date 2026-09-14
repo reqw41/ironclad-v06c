@@ -54,23 +54,23 @@ def pick_slots(cnt, pal, n, forced):
         e = sum(w * min(cdist(pal[k], pal[c]) for k in S) for c, w in cnt.items())
         if best is None or e < best[0]: best = (e, S)
     return best[1]
-def cmap_of(slots, pal, avoid0=()):
+def cmap_of(slots, pal, avoid0=(), force={}):
     m = {}
     for c in range(1, 16):
         order = sorted(range(len(slots)), key=lambda i: cdist(pal[slots[i]], pal[c]))
         if c in avoid0 and order[0] == 0: order = order[1:]
-        m[c] = order[0]
+        m[c] = force.get(c, order[0])
     m[0] = 0
     return m
 def pal8(slots, pal):
-    out = []
-    for i in range(16):
-        k = i >> 1
-        out.append(vecbyte(pal[slots[k]]) if k < len(slots) else 0)
-    return out
+    """8 байт: цвет слота k (индексы Вектора 2k и 2k+1 — одного цвета, pal_set удваивает)."""
+    return [vecbyte(pal[slots[k]]) if k < len(slots) else 0 for k in range(8)]
 def mpal(p): return {i+1: c for i, c in enumerate(p)}
 ROT_PAIRS = [(4,7),(5,8),(6,9),(12,13),(14,15),(16,17),(18,19),(20,21)]
-GAME_SLOTS = [1, 2, 12, 10, 15, 8, 7, 9]    # фон, вода, серый, чёрный, белый, красный, жёлтый, зелёный
+# фон, вода, серый, чёрный, белый, красный, жёлтый, голубой (вариант «Д»: голубой 3 вместо
+# зелёного 9; зелёный 9 принудительно -> слот голубого, иначе ближайшим вышел бы серый)
+GAME_SLOTS = [1, 2, 12, 10, 15, 8, 7, 3]
+GAME_FORCE = {9: 7}
 
 def rgb_of(p, backdrop):
     return [tuple(v*255//7 for v in p[backdrop-1])] + [tuple(v*255//7 for v in c) for c in p]
@@ -139,7 +139,7 @@ def build_tiles():
     # в тайлах, что кладутся с TPSET (2..22), слот 0 = прозрачность: их цвета не должны в него попадать
     tp_cols = set(px[y][x] for t in range(2, NT) for y in range((t//16)*16, (t//16)*16+16)
                   for x in range((t%16)*16, (t%16)*16+16)) - {0}
-    cm = cmap_of(GAME_SLOTS, gp, avoid0=tp_cols)
+    cm = cmap_of(GAME_SLOTS, gp, avoid0=tp_cols, force=GAME_FORCE)
     assert all(cm[c] != 0 for c in tp_cols), tp_cols
     data = []
     for t in range(NT):
@@ -200,13 +200,135 @@ def build_tiles():
     png('tiles_check', sheet, rgb_of(PAL_GAME, 1), 3)
     return len(data), len(gl)
 
-# --------------------------------------------------------------------------- шрифт
+# Внутренняя кодировка текста (игра только на русском): 20h..40h — как ASCII (пробел, цифры,
+# знаки), буквы А..Я без Ё и Ъ — с 41h по алфавиту, Й — последней (5Fh): тогда 41h+i для
+# i = 0..9 — А Б В Г Д Е Ж З И К (столбцы русского морского боя), а буквы номеров залпов
+# CHR$(64+M) — А, Б, В ... Исходники пишут строки в UTF-8, в байты их переводит Lua-функция
+# U() в src/macros.asm по таблице ENC из build/data/dict.lua (её пишет build_text). Латиница
+# в строках — ошибка сборки. Ё пишется как Е.
+# Шрифт: 64 ячейки на коды 20h..5Fh (ячейка = код-20h), по 7 строк (8-ю gfx_putc кладёт нулём);
+# сжат ZX0 (font.zx0), распаковывается на старте в font_data (BSS).
+RU = font5x7.RU_ORDER
+ENC = {c: 0x41 + i for i, c in enumerate(RU)}
+ENC['Ё'] = ENC['Е']
+DEC = {v: k for k, v in ENC.items() if k != 'Ё'}
+def enc(s):
+    out = []
+    for ch in s:
+        if ch in ENC: out.append(ENC[ch])
+        elif 32 <= ord(ch) <= 0x40: out.append(ord(ch))
+        else: raise ValueError('знак вне шрифта: %r в строке %r' % (ch, s))
+    return ''.join(map(chr, out))
+# знаки, что строятся счётом: цифры, знак числа, разделители, все буквы (столбцы, номера залпов)
+FONT_DYN = set(' -/,():0123456789') | set(RU)
+TXT_RE = r'^\s*(?:[A-Za-z_]\w*:)?\s*(?:db|TXT|TXR)\s+(.*)$'
+def used_chars():
+    import glob, re
+    used = set(FONT_DYN)
+    for f in glob.glob(os.path.join(ROOT, 'src', '*.asm')) + [os.path.join(OUT, 'version.inc')]:
+        if '/engine/' in f or f.endswith('libtest.asm') or not os.path.exists(f): continue
+        for l in open(f, encoding='utf8'):
+            m = re.match(TXT_RE, l)
+            if m:
+                for t in re.findall(r'"([^"]*)"', m.group(1)): used |= set(t)
+    return used
 def build_font():
+    used = used_chars()
+    codes = {ord(enc(c)) for c in used}
+    assert all(32 <= c < 96 for c in codes), sorted(codes)
     data = []
-    for code in range(32, 128):
-        data += font5x7.rows(chr(code))
-    write('font.inc', '; сгенерировано tools/mkdata.py: шрифт 5x7 (tools/font5x7.py), коды 32..127, 8 байт на знак\nfont_data:\n' + db_lines(data) + '\n')
-    return len(data)
+    for i in range(64):
+        c = 32 + i
+        ch = DEC.get(c, chr(c))
+        r = font5x7.rows(ch) if c in codes else [0] * 8
+        assert r[7] == 0, ch
+        data += r[:7]
+    zx0('font', data)
+    write('font.inc', '; сгенерировано tools/mkdata.py: шрифт — коды 20h..5Fh (font_data)\n'
+          '; знаки: ' + ''.join(sorted(used, key=lambda c: ord(enc(c)))).replace(';', '') + '\n'
+          'FONT_SIZE equ %d\n' % len(data))
+    return bytes(data)
+
+# --------------------------------------------------------------------------- тексты
+# Строки TXT "..." в src/*.asm сжимаются словарём: байт >= 80h = слово номер (b-80h).
+# Словарь — частые куски (жадно по выигрышу, как BPE); разбор строки — оптимальный (ДП по
+# числу байтов), его же повторяет Lua-функция T() в src/macros.asm при сборке.
+# dict.lua — слова для T(); dict.inc — слова подряд, у последнего знака слова бит 7.
+TXT_DICT_FILES = os.environ.get('TXT_DICT_SKIP', '').split(',')   # эти файлы в выборе слов не участвуют
+def txt_strings():
+    import glob, re
+    out = []
+    for f in sorted(glob.glob(os.path.join(ROOT, 'src', '*.asm'))):
+        if os.path.basename(f) in TXT_DICT_FILES: continue
+        for l in open(f, encoding='utf8'):
+            m = re.match(r'^\s*(?:[A-Za-z_]\w*:)?\s*TXT\s+"([^"]*)"', l)
+            if m: out.append(enc(m.group(1)))
+    return out
+def txt_parse(s, words):
+    """ДП: минимум байтов; при равенстве — меньше слов словаря (детерминированно, как в Lua)."""
+    n = len(s); best = [(0, 0)] * (n + 1); choice = [None] * (n + 1)
+    for i in range(n - 1, -1, -1):
+        b = (best[i + 1][0] + 1, best[i + 1][1]); c = None
+        for k, w in enumerate(words):
+            if s.startswith(w, i):
+                cand = (best[i + len(w)][0] + 1, best[i + len(w)][1] + 1)
+                if cand < b: b, c = cand, k
+        best[i] = b; choice[i] = c
+    out = []; i = 0
+    while i < n:
+        c = choice[i]
+        if c is None: out.append(ord(s[i])); i += 1
+        else: out.append(0x80 + c); i += len(words[c])
+    return out
+def build_text():
+    strs = txt_strings()
+    words = []
+    cur = [list(t) for t in strs]
+    while len(words) < 128:
+        cnt = collections.Counter()
+        for seq in cur:
+            n = len(seq)
+            for i in range(n):
+                w = ''
+                for j in range(i, min(n, i + 12)):
+                    if not isinstance(seq[j], str): break
+                    w += seq[j]
+                    if len(w) >= 2: cnt[w] += 1
+        best = None
+        for w, c in cnt.items():
+            g = c * (len(w) - 1) - len(w)
+            if g > 0 and (best is None or (g, w) > best[:2]): best = (g, w)
+        if not best: break
+        w = best[1]; words.append(w); k = len(words) - 1
+        new = []
+        for seq in cur:
+            o = []; i = 0
+            while i < len(seq):
+                if all(isinstance(x, str) for x in seq[i:i+len(w)]) and ''.join(seq[i:i+len(w)]) == w:
+                    o.append(('W', k)); i += len(w)
+                else: o.append(seq[i]); i += 1
+            new.append(o)
+        cur = new
+    # убрать слова, что при оптимальном разборе не окупаются
+    def total(ws): return sum(len(txt_parse(t, ws)) + 1 for t in strs) + sum(len(w) for w in ws)
+    t = total(words)
+    changed = True
+    while changed:
+        changed = False
+        for w in list(words):
+            ws = [x for x in words if x != w]
+            tt = total(ws)
+            if tt <= t: words, t, changed = ws, tt, True
+    raw = sum(len(x) + 1 for x in strs)
+    lua = lambda w: w.replace('\\', '\\\\').replace('"', '\\"')
+    write('dict.lua', '-- сгенерировано tools/mkdata.py: слова словаря (во внутренней кодировке) и ENC\n'
+          'DICT = {\n' + ''.join('  "%s",\n' % lua(w) for w in words) + '}\n'
+          'ENC = {' + ', '.join('[%d]=%d' % (ord(c), v) for c, v in sorted(ENC.items(), key=lambda x: x[1])) + '}\n')
+    data = []
+    for w in words: data += [ord(ch) for ch in w[:-1]] + [ord(w[-1]) | 0x80]
+    write('dict.inc', '; сгенерировано tools/mkdata.py: словарь текстов (%d слов), последний знак слова | 80h\n'
+          'dict:\n' % len(words) + (db_lines(data) if data else '') + '\n')
+    print('тексты: %d строк, %d Б -> %d Б (словарь %d слов, %d Б)' % (len(strs), raw, t, len(words), len(data)))
 
 # --------------------------------------------------------------------------- картинки
 def vram_image(px, slotmap, planes):
@@ -244,7 +366,27 @@ def best_order(name, px, pal, slots, planes):
     json.dump(cache, open(cache_f, 'w'))
     return best[1]
 
-IMG_COLORS = {'title': 8, 'victory': int(os.environ.get('VICTORY_COLORS', '4')), 'defeat': 4}
+IMG_COLORS = {'title': 6, 'victory': 6, 'defeat': 6}
+
+def end_order(name, px, pal, others):
+    """Слоты картинки итога: 0 — цвет 5, цвета others + белый (1) — в слоты 1.. в порядке,
+    дающем самый короткий поток ZX0 (3 плоскости). Кэш — build/data/slotcache.json."""
+    import json, hashlib
+    cache_f = os.path.join(OUT, 'slotcache.json')
+    cache = json.load(open(cache_f)) if os.path.exists(cache_f) else {}
+    key = hashlib.md5(('end6w' + name + repr(others) + repr(px)).encode()).hexdigest()
+    if key in cache:
+        return cache[key]
+    best = None
+    for perm in itertools.permutations(others + [1]):
+        sl = [5] + list(perm)
+        cm = cmap_of(sl, pal)
+        n = zx0('_try', vram_planes(px, cm, 3))
+        if best is None or n < best[0]:
+            best = (n, sl)
+    cache[key] = best[1]
+    json.dump(cache, open(cache_f, 'w'))
+    return best[1]
 
 def vram_planes(px, slotmap, planes):
     """Плоскости картинки без полей: planes x 8 КБ, старший бит слота — в первой."""
@@ -276,45 +418,48 @@ def build_images():
     cm = cmap_of(sl, mp)
     res['title'] = zx0('title', vram_planes(t, cm, 3))
     pals['menu'] = (sl, cm)
-    # итог матча (4 цв.): данные — 2 плоскости $A000/$C000 (слоты 0..3, самый частый цвет = слот 0);
-    # слот 4 = цвет 1 палитры 9042 (белый бордюр MSX): плоскость $8000 код заливает в полях экрана
+    # итог матча (6 цв. + белый, решение владельца): данные — 3 плоскости $8000..$C000.
+    # Слот 0 = цвет 5 (фон картинки и полосы подписей); белый — цвет 1 палитры 9042 (бордюр и
+    # поля экрана, как COLOR 15,1,1 MSX; заголовок подписи) — свой слот, если его нет среди 6
+    # цветов картинки. Цвета (обязателен 2 — «TAB:»/«SPACE:») и белый — в слоты 1.., порядок —
+    # по размеру ZX0 (кэш). Слот белого код берёт из cmap (cmap_X+1): поля — его биты во всех
+    # плоскостях (end_margins), бордюр — индекс 2*слот.
     ep = mpal(PAL_END)
     for nm, f in (('victory', 'VICTORY.SC5'), ('defeat', 'DEFEAT.SC5')):
         px = load_sc5(f)
         # подписи (строки 168..203) нарисованы в картинке; полоса 162..211 — ровный фон 5,
         # подписи печатает программа (end_captions)
         line_bf(px, 0, 162, 255, 211, 5)
-        n = IMG_COLORS[nm]
+        if nm == 'victory':
+            # рамка автора — столбцы 0..2 и 253..255 цветом 5 в строках 0..161 — зеркалом соседних
+            for y in range(162):
+                for x in range(3): px[y][x] = px[y][5 - x]
+                for x in range(253, 256): px[y][x] = px[y][505 - x]
         cnt = collections.Counter(c for r in px for c in r)
-        top = cnt.most_common(1)[0][0]
-        sl = pick_slots(cnt, ep, n, (top, 2))     # 2 — цвет «TAB:»/«SPACE:» в подписях
-        sl = best_order(nm, px, ep, sl, 2 if n == 4 else 3)
+        six = pick_slots(cnt, ep, IMG_COLORS[nm], (5, 2))
+        others = [c for c in six if c not in (5, 1)]
+        sl = end_order(nm, px, ep, others)
         cm = cmap_of(sl, ep)
-        if n == 4:
-            res[nm] = zx0(nm, vram_planes(px, cm, 2))
-            sl = sl + [1]                         # слот 4 — бордюр
-            cm = dict(cm); cm[1] = 4              # белый (бордюр, заголовок подписи) — слот 4
-        else:
-            res[nm] = zx0(nm, vram_planes(px, cm, 3))
+        assert cm[5] == 0 and sl[cm[1]] == 1, (nm, sl)
+        res[nm] = zx0(nm, vram_planes(px, cm, 3))
         pals[nm] = (sl, cm)
     return res, pals
 
 def build_palettes(pals):
     gp, mp = mpal(PAL_GAME), mpal(PAL_MENU)
     txt = ['; сгенерировано tools/mkdata.py: палитры Вектора (BBGGGRRR) 8-цветного режима:',
-           '; индекс i -> слот i>>1; слот 0 = фон/бордюр. cmap_* — номер цвета MSX -> слот (для рисования)',
+           '; по байту на слот (индексы 2k, 2k+1 — слот k; pal_set удваивает); слот 0 = фон/бордюр.',
+           '; cmap_* — номер цвета MSX -> слот (для рисования)',
            'pal_game:', db_lines(pal8(GAME_SLOTS, gp)),
            'pal_menu:', db_lines(pal8(pals['menu'][0], mp)),
            'pal_victory:', db_lines(pal8(pals['victory'][0], mpal(PAL_END))),
            'pal_defeat:', db_lines(pal8(pals['defeat'][0], mpal(PAL_END))),
-           'cmap_game:', db_lines([CMAP_GAME[c] for c in range(16)]),
-           'cmap_menu:', db_lines([pals['menu'][1][c] for c in range(16)]),
-           'cmap_victory:', db_lines([pals['victory'][1][c] for c in range(16)]),
-           'cmap_defeat:', db_lines([pals['defeat'][1][c] for c in range(16)]),
-           'VICTORY_PLANES equ %d' % (3 if IMG_COLORS['victory'] == 8 else 2),
-           'DEFEAT_PLANES equ %d' % (3 if IMG_COLORS['defeat'] == 8 else 2),
-           '; 4-цветные: данные в $A000/$C000, бордюр — слот 4 (индекс 8), поля — плоскость $8000',
-           'BORDER_4C equ 8']
+           '; cmap_*: слот << 5 (биты 7,6,5 — плоскости $8000,$A000,$C000; col2bits берёт как есть)',
+           'cmap_game:', db_lines([CMAP_GAME[c] << 5 for c in range(16)]),
+           'cmap_menu:', db_lines([pals['menu'][1][c] << 5 for c in range(16)]),
+           'cmap_victory:', db_lines([pals['victory'][1][c] << 5 for c in range(16)]),
+           'cmap_defeat:', db_lines([pals['defeat'][1][c] << 5 for c in range(16)]),
+           '; картинки итога: данные во всех плоскостях; белый (бордюр, поля) — слот cmap_X[1]>>5']
     write('palettes.inc', '\n'.join(txt) + '\n')
     print('слоты: игра', GAME_SLOTS, 'меню', pals['menu'][0], 'победа', pals['victory'][0], 'поражение', pals['defeat'][0])
 
@@ -365,13 +510,15 @@ def build_splash():
 
 if __name__ == '__main__':
     os.makedirs(OUT, exist_ok=True)
+    ver = open(os.path.join(REF, 'VERSION')).read().strip()
+    write('version.inc', '        TXT "В.%s"\n' % ver)
+    build_text()
+    fb = build_font()
+    nf = len(fb)
     nt, ng = build_tiles()
-    nf = build_font()
     im, pals = build_images()
     build_palettes(pals)
     build_splash()
-    ver = open(os.path.join(REF, 'VERSION')).read().strip()
-    write('version.inc', '        db "V%s"\n' % ver)
     print('тайлы %d Б, глифы %d Б, шрифт %d Б' % (nt, ng, nf))
     for k, v in im.items():
         print('%-8s %6d Б' % (k, v))

@@ -137,7 +137,7 @@ while (frames < maxf) {
   } else {
     // расстановка (L1410 при FB=0 внутри 305) — Z; остальные ожидания — пробел
     const pc = ipc();
-    if (pc >= L.L1415a && pc < L.L1415a + 40 && rd(L.bSH) >= 1 && rd(L.bNP) < rd(L.bNK) && rd(L.bTE) === 0 && rd(L.bTP) === 0 && shots === 0) { tap("z"); }
+    if (pc >= L.L1415a && pc < L.L1415a + 40 && rd(L.bSH) >= 1 && rd(L.bNP) < rd(L.bNK) && rd(L.bTE) === 0 && rd(L.bTP) === 0 && shots === 0) { tap("a"); }   // А — авторасстановка (было Z)
     else { if (ipc() >= L.getkey && ipc() < L.getkey + 12) { const ret = retaddr(); if (ret >= L.L2260 && ret < L.L2260 + 8) { ends++; shot(out + "/end" + ends + ".png"); } }
       tap("space"); }
   }

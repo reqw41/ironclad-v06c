@@ -10,10 +10,7 @@
 ; Всё звучание ведёт ISR; основной код только заводит эффект — как фоновый PSG MSX.
 ; ============================================================================
 
-snd_init:
-            xor  a
-            ld   (sfx_t),a
-            ld   (mus_on),a
+snd_init:                               ; (sfx_t, mus_on — нули: lowbss обнулена на старте)
             ld   hl,0ACE1h
             ld   (sfx_rs),hl
 snd_mute:
@@ -63,21 +60,9 @@ sn_1:       ld   d,a
 ; PLAY: HL = мелодия (dw голос0, dw голос1). Шумовой эффект гасится.
 mus_start:
             di
-            ld   e,(hl)
-            inc  hl
-            ld   d,(hl)
-            inc  hl
-            ld   a,e
-            ld   (mus_p),a
-            ld   a,d
-            ld   (mus_p+1),a
-            ld   e,(hl)
-            inc  hl
-            ld   d,(hl)
-            ld   a,e
-            ld   (mus_p+2),a
-            ld   a,d
-            ld   (mus_p+3),a
+            ld   de,mus_p
+            ld   bc,4
+            call memcpy
             xor  a
             ld   (mus_cnt),a
             ld   (mus_cnt+1),a
@@ -136,26 +121,7 @@ sx_nx:      ld   a,(sx_ch)
 ; HL = делитель шума: base*(1 + r&3) + (r>>8 & 63)
 sx_rnddiv:
             ld   hl,(sfx_rs)
-            ld   a,l                    ; xorshift16 (7,9,8)
-            rrca
-            and  80h
-            ld   e,a
-            ld   a,h
-            rra
-            ld   a,l
-            rra
-            xor  h
-            ld   h,a
-            ld   a,e
-            xor  l
-            ld   l,a
-            ld   a,h
-            or   a
-            rra
-            xor  l
-            ld   l,a
-            xor  h
-            ld   h,a
+            call xs16                   ; xorshift16 (7,9,8)
             ld   (sfx_rs),hl
             ld   a,h
             and  63
@@ -196,7 +162,7 @@ vi_off:
 vi_cw:
             add  a,a
             ld   hl,vi_tab
-            rst  08h
+            rst  00h
             inc  hl
             ld   a,(hl)
             ld   (vd_op+1),a
@@ -224,7 +190,7 @@ mus_frame:
 mus_voice:
             ld   (mv_v),a
             ld   hl,mus_cnt
-            rst  08h
+            rst  00h
             ld   a,(hl)
             or   a
             jp   z,mv_fetch
@@ -237,7 +203,7 @@ mv_fetch:   push hl                     ; -> mus_cnt[v]
             ld   a,(mv_v)
             add  a,a
             ld   hl,mus_p
-            rst  08h               ; HL -> mus_p[v]
+            rst  00h               ; HL -> mus_p[v]
             ld   e,(hl)
             inc  hl
             ld   d,(hl)

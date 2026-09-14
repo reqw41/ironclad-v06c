@@ -188,7 +188,8 @@ function variantRun(v) {
     const { S, arg } = randomState(v, rng, e, true);
     callW(S, e, arg, 'random');
   }
-  // div16 напрямую: частное против точного деления
+  // div16 напрямую: частное против точного деления (делитель в DE;
+  // повторное вычитание — до 65535 шагов по 3 команды)
   let dbad = 0, dn = 0;
   const drng = new Rng(SEED + 99);
   for (let i = 0; i < (flag('fast') ? 200 : 3000); i++) {
@@ -197,9 +198,9 @@ function variantRun(v) {
     ib.mem.fill(0); ib.mem.set(mine.code, mine.org); ib.allowed.fill(1);
     const cpu = new (require('./cpu.js').I8080)(ib.memory, ib.io);
     ib.mem[0] = 0x76; cpu.sp = 0xEFFE; cpu.pc = il.div16;
-    cpu.regs[4] = hl >> 8; cpu.regs[5] = hl & 255; cpu.regs[0] = bc >> 8; cpu.regs[1] = bc & 255;
+    cpu.regs[4] = hl >> 8; cpu.regs[5] = hl & 255; cpu.regs[2] = bc >> 8; cpu.regs[3] = bc & 255;
     let n = 0;
-    while (cpu.pc !== 0 && n < 10000) { hits[cpu.pc]++; cpu.instruction(); n++; }
+    while (cpu.pc !== 0 && n < 250000) { hits[cpu.pc]++; cpu.instruction(); n++; }
     const q = (cpu.regs[4] << 8) | cpu.regs[5];
     dn++;
     if (q !== Math.floor(hl / bc)) { dbad++; if (dbad < 4) fails.push({ v, entry: 'div16', d: [`${hl}/${bc}=${q}`] }); }

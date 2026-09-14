@@ -9,6 +9,7 @@
 //   p ADDR=VAL     — записать байт (адрес или метка из .sld)
 //   m ADDR N       — напечатать N байт памяти
 //   until LABEL [N] — крутить до исполнения метки (не больше N кадров, по умолчанию 3000)
+//   border         — индекс бордюра в порту (io.BorderIndex) и его цвет из vec_pal_live
 // Клавиши: space enter tab left right up down a..z 0..9 slash shift(удерживать вместе: d shift).
 // Экран: байт = 0x8000 + плоскость*0x2000 + (столбец<<8) + строка памяти; строка 255 = верх кадра.
 "use strict";
@@ -106,6 +107,9 @@ for (const cmd of (SCRIPT || "w100;s build/shot.png").split(";").map(s => s.trim
     case "m": { const s = addr(a[1]), n = +(a[2] || 16); const out = [];
       for (let i = 0; i < n; i++) out.push(rd(s + i).toString(16).padStart(2, "0")); console.log(`${a[1]} (${s.toString(16)}): ${out.join(" ")}`); break; }
     case "jp": cpu.pc = addr(a[1]); break;
+    case "border": { const i = io.BorderIndex(), w = L.vec_pal_live !== undefined ? rd(L.vec_pal_live + i) : -1;
+      const rgb = [(w & 7) * 255 / 7 | 0, ((w >> 3) & 7) * 255 / 7 | 0, ((w >> 6) & 3) * 255 / 3 | 0].map(x => x.toString(16).padStart(2, "0")).join("");
+      console.log(`кадр ${frames}: бордюр индекс ${i}, цвет ${w} = #${rgb}`); break; }
     case "dump": { const b = Buffer.alloc(0x8000); for (let i = 0; i < 0x8000; i++) b[i] = rd(0x8000 + i); fs.writeFileSync(a[1], b); console.log(`кадр ${frames}: видеопамять -> ${a[1]}`); break; }
     case "pc": { const rw = a => rd(a) | (rd(a + 1) << 8); const nm = a => { let best = null, bv = -1; for (const k in L) if (L[k] <= a && L[k] > bv) { bv = L[k]; best = k; } return best + "+" + (a - bv); };
       const p = cpu.pc === 0x38 ? rw(cpu.sp) : cpu.pc; console.log(`кадр ${frames}: PC ${p.toString(16)} ${nm(p)}; стек: ${[0,2,4,6,8].map(i => nm(rw(cpu.sp + (cpu.pc === 0x38 ? 2 : 0) + i))).join(" ")}`); break; }

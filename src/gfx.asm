@@ -13,11 +13,8 @@ NPL         equ 3               ; плоскостей экрана
 col2bits:
             push hl
             ld   hl,(cur_cmap)
-            rst  08h
-            ld   a,(hl)
-            rrca
-            rrca
-            rrca
+            rst  00h
+            ld   a,(hl)                 ; таблица — уже слот<<5 (mkdata.py)
             pop  hl
             ret
 tmask       equ 0040h           ; маска прозрачности тайла: 32 байта в свободной памяти под $0100
@@ -194,30 +191,26 @@ rmask_tab:  db 80h,0C0h,0E0h,0F0h,0F8h,0FCh,0FEh,0FFh
 ; B=x1 C=y1 D=x2 E=y2 A=цвет
 gfx_box:
             ld   (gb_col),a
-            push bc
             push de
-            ld   a,(gb_col)
             ld   e,c                    ; верх: (x1,y1)-(x2,y1)
-            rst  20h
+            call gb_one
             pop  de
-            pop  bc
             push bc
-            push de
             ld   c,e                    ; низ: (x1,y2)-(x2,y2)
-            ld   a,(gb_col)
-            rst  20h
-            pop  de
+            call gb_one
             pop  bc
-            push bc
             push de
             ld   d,b                    ; лево: (x1,y1)-(x1,y2)
+            call gb_one
+            pop  de
+            ld   b,d                    ; право: (x2,y1)-(x2,y2)
+gb_one:     push bc
+            push de
             ld   a,(gb_col)
-            rst  20h
+            call gfx_fill
             pop  de
             pop  bc
-            ld   b,d                    ; право: (x2,y1)-(x2,y2)
-            ld   a,(gb_col)
-            jp   gfx_fill
+            ret
 
 ; ---------------------------------------------------------------- PSET (x,y),c
 ; B=x C=y A=цвет. Ставит и графический курсор (для PRINT#1).
@@ -249,7 +242,6 @@ gfx_pset:
             ld   l,a
             ld   a,(gp_col)
             ld   c,a
-            jp   put_bits
 
 ; ---------------------------------------------------------------- биты в 4 плоскости
 ; H = столбец (0..31), L = строка памяти, D = биты столбца, E = биты столбца+1,
@@ -315,40 +307,74 @@ sb_1:       ld   a,d
 ; Строка HL (0 в конце) с графического курсора (gfx_x, gfx_y): знак — цветом gfx_fg,
 ; остальное знакоместо 8x8 — цветом фона gfx_bg (COLOR fg,bg): так рисует SCREEN 5 MSX2,
 ; точка PSET перед PRINT на скриншотах оригинала не видна. Курсор +8 точек на знак.
+; Слова словаря (байт >= 80h, TXT) раскрываются. HL на выходе -> нуль строки.
 gfx_puts:
             ld   a,(hl)
             or   a
             ret  z
+            jp   m,gp_w
             push hl
             call gfx_putc
             pop  hl
             inc  hl
             jp   gfx_puts
+gp_w:       push hl
+            call dict_word
+gp_w1:      ld   a,(hl)
+            push hl
+            push af
+            and  7Fh
+            call gfx_putc
+            pop  af
+            pop  hl
+            inc  hl
+            or   a
+            jp   p,gp_w1
+            pop  hl
+            inc  hl
+            jp   gfx_puts
+
+; PRINT текста, лежащего прямо за вызовом (TXT); продолжение — за текстом
+putsi:      pop  hl
+            call gfx_puts
+            inc  hl
+            jp   (hl)
 
 ; знак A (быстрый путь: строки знака сдвигаются один раз, по плоскостям — 4 вида цикла)
 gfx_putc:
             sub  32
             ret  c
-            ld   l,a
+            cp   64                     ; коды 60h и выше (буквы залпов M >= 32) — пробел: строчных нет
+            jp   c,pc_c
+            xor  a
+pc_c:       ld   l,a
             ld   h,0
+            ld   d,h
+            ld   e,l
             add  hl,hl
+            add  hl,de
             add  hl,hl
-            add  hl,hl
+            add  hl,de                  ; *7
             ld   de,font_data
-            add  hl,de                  ; HL -> 8 строк знака
+            add  hl,de                  ; HL -> 7 строк знака (8-я — пустая)
             ld   a,(gfx_x)
             and  7
             ld   c,a                    ; сдвиг s
             ld   de,gc_rows
-            ld   b,8
-pc_sh:      ld   a,(gfx_bold)           ; жирно: строка | строка>>1 (штрих 2 точки)
-            or   a
+            ld   b,7
+pc_sh:      ld   a,(gfx_bold)           ; жирно: строка | (строка>>1 & ~строка<<1) — штрих 2 точки,
+            or   a                      ; но щель в 1 точку не заливается (Ш, Ж, Ф, Ю, Ы читаются)
             ld   a,(hl)
             jp   z,pc_nb
             push de
             ld   d,a
+            add  a,a
+            cpl
+            ld   e,a
+            ld   a,d
             or   a
             rra
+            and  e
             or   d
             pop  de
 pc_nb:      push hl
@@ -379,6 +405,10 @@ pc_s0:      ld   a,h
             inc  hl
             dec  b
             jp   nz,pc_sh
+            xor  a                      ; строка 7 — пустая
+            ld   (de),a
+            inc  de
+            ld   (de),a
             ld   hl,lmask_tab           ; маски знакоместа: ML = FF>>s, MR = ~ML
             ld   a,c
             call tab_a
@@ -577,7 +607,7 @@ gfx_glyph:
             add  hl,hl
             add  hl,hl
             add  hl,de                  ; *20
-            ld   de,glyph_data
+            ld   de,tiles_data+GLYPH_OFS
             add  hl,de
             ld   (gc_src),hl
             pop  de
@@ -754,6 +784,11 @@ tp_col:     ld   a,(bc)
             jp   nz,tp_pl
             ret
 
+; ---------------------------------------------------------------- тайлы и глифы -> tiles_data
+tiles_load: ld   hl,tiles_zx0
+            ld   de,tiles_data
+            call dzx0
+            ; fallthrough
 ; ---------------------------------------------------------------- поворот тайлов
 ; вертикальные тайлы кораблей = горизонтальные, повёрнутые на 90° по часовой:
 ; новая точка (строка r, столбец c) = старая (строка 15-c, столбец r); по плоскостям
@@ -792,7 +827,7 @@ rt_m2:      ld   c,a                    ; C = маска
             and  8
             add  a,a                    ; 0 или 16
             ld   hl,(rt_src)
-            rst  08h
+            rst  00h
             ld   de,15
             add  hl,de                  ; -> строка 15 (c = 0)
             ld   de,0                   ; D:E — новая строка (16 точек)
@@ -811,10 +846,10 @@ rt_c:       ld   a,(hl)
             jp   nz,rt_c
             ld   hl,(rt_dst)            ; левый байт -> столбец 0, правый -> столбец 1
             ld   a,(rt_r)
-            rst  08h
+            rst  00h
             ld   (hl),d
             ld   a,16
-            rst  08h
+            rst  00h
             ld   (hl),e
             ld   hl,rt_r
             inc  (hl)
@@ -835,5 +870,4 @@ rt_c:       ld   a,(hl)
             jp   rt_pair
 ; A = тайл -> DE = адрес его данных
 rt_addr:    ld   b,0
-            call tile_addr
-            ret
+            jp   tile_addr

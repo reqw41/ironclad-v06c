@@ -3,19 +3,98 @@
 ; Строки — байты с нулём в конце.
 ; ============================================================================
 
-; HL += A
-add_a_hl:
-            add  a,l
+; HL += A — add_a_hl, RST 0 (код в векторе $0000, ставит старт)
+
+; HL, DE = длина: обнулить
+memzero:    ld   (hl),0
+            inc  hl
+            dec  de
+            ld   a,d
+            or   e
+            jp   nz,memzero
+            ret
+
+; копировать BC байт HL -> DE
+memcpy:     ld   a,b
+            or   c
+            ret  z
+            ld   a,(hl)
+            ld   (de),a
+            inc  hl
+            inc  de
+            dec  bc
+            jp   memcpy
+
+; ---------------------------------------------------------------- страница переменных
+; LDV v (rst 08h / db low v): A = (v). STV v (rst 30h / db low v): (v) = A.
+; Ещё CPV, INCV, SETV, ZEROV — см. macros.asm.
+; v — в странице varpage. Прочие регистры и флаги сохраняются (как у ld a,(v) / ld (v),a).
+rst_ldv:    ex   (sp),hl
+            ld   a,(hl)
+            inc  hl
+            ex   (sp),hl
+            push hl
             ld   l,a
-            ret  nc
-            inc  h
+            ld   h,high varpage
+            ld   a,(hl)
+            pop  hl
+            ret
+; CPV v,K (rst 10h / db low v, K)
+rst_cpv:    ex   (sp),hl
+            ld   a,(hl)
+            inc  hl
+            push hl
+            ld   l,a
+            ld   h,high varpage
+            ld   a,(hl)
+            pop  hl
+            cp   (hl)
+            inc  hl
+            ex   (sp),hl
+            ret
+; INCV v (rst 18h / db low v): HL = v, inc (hl)
+rst_incv:   pop  hl
+            push hl
+            ld   l,(hl)
+            ld   h,high varpage
+            inc  (hl)
+            ex   (sp),hl
+            inc  hl
+            ex   (sp),hl
+            ret
+; SETV v,K (rst 20h / db low v, K)
+rst_setv:   ex   (sp),hl
+            push de
+            ld   e,(hl)
+            inc  hl
+            ld   a,(hl)
+            inc  hl
+            ld   d,high varpage
+            ld   (de),a
+            pop  de
+            ex   (sp),hl
+            ret
+; ZEROV v (rst 28h / db low v) -> STV с A = 0
+rst_zerov:  xor  a
+rst_stv:    ex   (sp),hl
+            push de
+            ld   e,(hl)
+            inc  hl
+            ld   d,high varpage
+            ld   (de),a
+            pop  de
+            ex   (sp),hl
             ret
 
 ; ---------------------------------------------------------------- RND
 ; HL = следующее 16-битное xorshift (7,9,8); rnd_seed не должен быть 0
 rnd16:
             ld   hl,(rnd_seed)
-            ld   a,l
+            call xs16
+            ld   (rnd_seed),hl
+            ret
+; HL = xorshift16(HL) (7,9,8); портит A, E
+xs16:       ld   a,l
             rrca
             and  80h
             ld   e,a                    ; (lo&1)<<7
@@ -35,7 +114,6 @@ rnd16:
             ld   l,a                    ; x ^= x>>9
             xor  h
             ld   h,a                    ; x ^= x<<8
-            ld   (rnd_seed),hl
             ret
 
 ; INT(RND(1)*N): A = N (1..255) -> A = 0..N-1
@@ -184,17 +262,46 @@ sd_1:       push de
             jp   nz,sd_1
             ex   de,hl                  ; HL -> цифры
             pop  de
-            jp   str_copy
 
-; копировать строку HL -> DE (с нулём); DE на выходе -> нуль
+; копировать строку HL -> DE (с нулём); слова словаря (байт >= 80h, TXT) раскрываются.
+; HL на выходе -> нуль источника, DE -> нуль приёмника
 str_copy:
             ld   a,(hl)
-            ld   (de),a
             or   a
+            jp   m,sc_w
+            ld   (de),a
             ret  z
             inc  hl
             inc  de
             jp   str_copy
+sc_w:       push hl
+            call dict_word
+sc_w1:      ld   a,(hl)
+            and  7Fh
+            ld   (de),a
+            inc  de
+            ld   a,(hl)
+            inc  hl
+            or   a
+            jp   p,sc_w1
+            pop  hl
+            inc  hl
+            jp   str_copy
+
+; A = байт-слово (>= 80h) -> HL = первый знак слова в dict (у последнего знака слова бит 7)
+dict_word:  ld   hl,dict
+            and  7Fh
+            ret  z
+            push bc
+            ld   b,a
+dw_1:       ld   a,(hl)
+            inc  hl
+            or   a
+            jp   p,dw_1
+            dec  b
+            jp   nz,dw_1
+            pop  bc
+            ret
 
 ; DE -> конец строки (на нуль)
 str_end:
@@ -204,24 +311,25 @@ str_end:
             inc  de
             jp   str_end
 
-; A = длина строки HL
+; A = длина строки HL (слова словаря раскрываются); HL на выходе -> нуль
 str_len:
             ld   b,0
 sl_1:       ld   a,(hl)
             or   a
+            jp   m,sl_w
             ld   a,b
             ret  z
             inc  hl
             inc  b
             jp   sl_1
-
-; сравнение строк HL и DE: Z = равны
-str_eq:
-            ld   a,(de)
-            cp   (hl)
-            ret  nz
-            or   a
-            ret  z
+sl_w:       push hl
+            call dict_word
+sl_w1:      inc  b
+            ld   a,(hl)
             inc  hl
-            inc  de
-            jp   str_eq
+            or   a
+            jp   p,sl_w1
+            pop  hl
+            inc  hl
+            jp   sl_1
+
