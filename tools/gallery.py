@@ -42,6 +42,7 @@ def variant(f, pal, n, forced, planes, blank_caps, title, tag):
     save(px, lambda c: vrgb(M.vecbyte(mp[sl[cm[c]]])), tag + '.png')
     card('На Векторе: картинка в памяти (цвета Вектора)', tag + '.png', '%s — %d цв.' % (title, n), '%.1f КБ после ZX0' % (size / 1024))
 variant('IRONCLAD.SC5', M.PAL_MENU, 8, (5, 1, 2, 3, 10), 3, False, 'Титул (окно меню рисует программа)', 'vec_title8')
+variant('IRONCLAD.SC5', M.PAL_MENU, 4, (5, 1, 3), 2, False, 'Титул (цвета меню: фон, белый, серый + 1)', 'vec_title4')
 variant('VICTORY.SC5', M.PAL_END, 4, None, 2, True, 'Победа (подписи печатает программа)', 'vec_victory4')
 variant('VICTORY.SC5', M.PAL_END, 8, None, 3, True, 'Победа', 'vec_victory8')
 variant('DEFEAT.SC5', M.PAL_END, 4, None, 2, True, 'Поражение (подписи печатает программа)', 'vec_defeat4')
