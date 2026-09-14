@@ -747,19 +747,8 @@ rf_2:       SETV bMY,192
             ld   de,bKA
             ld   bc,bMI-bKA
             call memcpy
-            ld   bc,0                   ; клетки, призрак, курсор, AT:
-rf_c:       push bc
-            call cell_redraw
-            pop  bc
-            inc  c
-            ld   a,c
-            cp   10
-            jp   nz,rf_c
-            ld   c,0
-            inc  b
-            ld   a,b
-            cp   10
-            jp   nz,rf_c
+            ld   hl,cell_redraw         ; клетки, призрак, курсор, AT:
+            call for_cells
             call gh_draw
             LDV  pg_vis
             or   a

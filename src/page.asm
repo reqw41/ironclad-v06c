@@ -474,19 +474,24 @@ ghc_c:      push bc
 ; все 100 клеток страницы A = тайл воды (1154: COPY(96,32)-(255,191) — фон сетки = 100 тайлов 0)
 cells_water:
             STV  cw_pg
-            ld   bc,0
-cw_1:       push bc
-            LDV  cw_pg
-            ld   d,0
-            call cell_op
+            ld   hl,cw_1
+; процедура HL для всех клеток: B = 0..9 (внешний), C = 0..9
+for_cells:  ld   bc,0
+fc_1:       push bc
+            push hl
+            call scn_c
+            pop  hl
             pop  bc
             inc  c
             ld   a,c
             cp   10
-            jp   nz,cw_1
+            jp   nz,fc_1
             ld   c,0
             inc  b
             ld   a,b
             cp   10
-            jp   nz,cw_1
+            jp   nz,fc_1
             ret
+cw_1:       LDV  cw_pg
+            ld   d,0
+            jp   cell_op

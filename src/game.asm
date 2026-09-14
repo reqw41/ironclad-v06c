@@ -696,17 +696,14 @@ L716:       CPV  bBD,1
             jp   nz,L718
             call L3840
             jp   L735
-L718:       CPV  bQS,1  ; 718..724 — только IRONCLAD.BAS
-            jp   nz,L718a
-            call L1940
-            call L910
-            jp   L720
-L718a:      CPV  bDL,1
-            jp   nz,L718b
-            call L1967
-            call L910
-            jp   L720
-L718b:      call L1810
+L718:       ld   hl,L1940               ; 718..724 — только IRONCLAD.BAS: QS=1 — 1940, DL=1 — 1967, иначе 1810
+            CPV  bQS,1
+            jp   z,L718c
+            ld   hl,L1967
+            CPV  bDL,1
+            jp   z,L718c
+            ld   hl,L1810
+L718c:      call scn_c
             call L910
 L720:       call tp_tt
             jp   nc,L735

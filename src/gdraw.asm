@@ -235,29 +235,19 @@ L1156:      CPV  bSD,1
             ret  z
 L1158:      SETV bN,1
 L1158a:     ZEROV bI
-L1160:      LDV  bN                 ; C=PX(N,I): R=PY(N,I)
+L1160:      LDV  bI                 ; C=PX(N,I): R=PY(N,I)
+            call x12
             ld   b,a
-            LDV  bI
-            add  a,a
-            add  a,a
-            ld   c,a
-            add  a,a
-            add  a,c
+            LDV  bN
             add  a,b
-            ld   hl,ARR_PX
-            rst  00h
-            ld   a,(hl)
+            call pxy_a
             STV  bC
-            ld   de,ARR_PY-ARR_PX
-            add  hl,de
-            ld   a,(hl)
+            ld   a,e
             STV  bR
             call L1105
 L1162:      LDV  bN
-            ld   hl,ARR_SZ
-            add  a,a
-            rst  00h
-            ld   b,(hl)
+            call sz_a
+            ld   b,c
             INCV bI
             ld   a,(hl)
             cp   b
@@ -320,11 +310,7 @@ L1216a:     LDV  bI
             ld   a,15
             call gfx_pset
             LDV  bI
-            call n_a
-            ld   de,sT
-            call cat3
-            ld   hl,sT
-            call gfx_puts
+            call pn3
 L1220:      call i_ph_sz                ; NH=PH(I): IF P=0 THEN NH=0: IF QH(I)>=SZ(I) THEN NH=5
             ld   a,b
             STV  bNH
@@ -355,6 +341,12 @@ L1255:      ret
 pfill:      ld   b,190
             ld   d,255
             jp   gfx_fill
+; PRINT LEFT$(N$(A),3)
+pn3:        call n_a
+            ld   de,sT
+            call cat3
+            ld   hl,sT
+            jp   gfx_puts
 ; A = 37+Y0+(A-1)*PZ
 y_i:        ld   d,a
             LDV  bPZ

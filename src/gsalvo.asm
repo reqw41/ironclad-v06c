@@ -511,11 +511,7 @@ pn_1:       LDV  bCL
             ld   a,e
             call gfx_pset
             pop  af
-            call n_a
-            ld   de,sT
-            call cat3
-            ld   hl,sT
-            jp   gfx_puts
+            jp   pn3
 
 ; 3888..3891 / 4163: FOR J=1 TO SZ(SH): P=PM(PX(SH,J-1),PY(SH,J-1)):
 ;   IF (P AND 3)<2 -> квадратик 9, иначе NV=P\4 -> номер красным. x = hr_x0 + (J-1)*8
