@@ -54,12 +54,12 @@ def pick_slots(cnt, pal, n, forced):
         e = sum(w * min(cdist(pal[k], pal[c]) for k in S) for c, w in cnt.items())
         if best is None or e < best[0]: best = (e, S)
     return best[1]
-def cmap_of(slots, pal, avoid0=()):
+def cmap_of(slots, pal, avoid0=(), force={}):
     m = {}
     for c in range(1, 16):
         order = sorted(range(len(slots)), key=lambda i: cdist(pal[slots[i]], pal[c]))
         if c in avoid0 and order[0] == 0: order = order[1:]
-        m[c] = order[0]
+        m[c] = force.get(c, order[0])
     m[0] = 0
     return m
 def pal8(slots, pal):
@@ -67,7 +67,10 @@ def pal8(slots, pal):
     return [vecbyte(pal[slots[k]]) if k < len(slots) else 0 for k in range(8)]
 def mpal(p): return {i+1: c for i, c in enumerate(p)}
 ROT_PAIRS = [(4,7),(5,8),(6,9),(12,13),(14,15),(16,17),(18,19),(20,21)]
-GAME_SLOTS = [1, 2, 12, 10, 15, 8, 7, 9]    # фон, вода, серый, чёрный, белый, красный, жёлтый, зелёный
+# фон, вода, серый, чёрный, белый, красный, жёлтый, голубой (вариант «Д»: голубой 3 вместо
+# зелёного 9; зелёный 9 принудительно -> слот голубого, иначе ближайшим вышел бы серый)
+GAME_SLOTS = [1, 2, 12, 10, 15, 8, 7, 3]
+GAME_FORCE = {9: 7}
 
 def rgb_of(p, backdrop):
     return [tuple(v*255//7 for v in p[backdrop-1])] + [tuple(v*255//7 for v in c) for c in p]
@@ -136,7 +139,7 @@ def build_tiles():
     # в тайлах, что кладутся с TPSET (2..22), слот 0 = прозрачность: их цвета не должны в него попадать
     tp_cols = set(px[y][x] for t in range(2, NT) for y in range((t//16)*16, (t//16)*16+16)
                   for x in range((t%16)*16, (t%16)*16+16)) - {0}
-    cm = cmap_of(GAME_SLOTS, gp, avoid0=tp_cols)
+    cm = cmap_of(GAME_SLOTS, gp, avoid0=tp_cols, force=GAME_FORCE)
     assert all(cm[c] != 0 for c in tp_cols), tp_cols
     data = []
     for t in range(NT):
