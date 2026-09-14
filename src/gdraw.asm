@@ -10,6 +10,7 @@ DLY_1500    equ 56          ; FOR I=1 TO 1500 — ~1.1 с
 ; A = страница, D = код: клетка (bC, bR)
 cr_op:      ld   hl,cell_op
             jp   cr_x
+cr_tp0:     xor  a                      ; страница 0
 cr_tp:      ld   hl,cell_tp
 cr_x:       push af
             LDV  bC
@@ -148,26 +149,22 @@ L1147:      ld   a,l                    ; M <= 128
             ld   a,d
             add  a,96
             ld   d,a
-            xor  a
-            jp   cr_tp
+            jp   cr_tp0
 L1148:      cp   33
             jp   c,L1149
             add  a,64-33                ; жёлтая цифра M-33
             ld   d,a
-            xor  a
-            jp   cr_tp
+            jp   cr_tp0
 L1149:      add  a,32-1                 ; белая цифра M-1
             ld   d,a
-            xor  a
-            jp   cr_tp
+            jp   cr_tp0
 
 ; 3950: IF M=-3 THEN буй (176,TR) ELSE (160,TR), TPSET, стр. 0
 L3950:      CPV  bM,-3
             ld   d,11
             jp   z,L3950a
             ld   d,10
-L3950a:     xor  a
-            jp   cr_tp
+L3950a:     jp   cr_tp0
 
 ; Q = CS(C,R)\16 -> A
 q_cs:       ld   bc,ARR_CS
@@ -976,12 +973,8 @@ cu_3:       CPV  bV2,10
 
 ; 1694: BZ()=0
 L1694:      ld   hl,ARR_BZ
-            ld   b,200
-L1694a:     ld   (hl),0
-            inc  hl
-            dec  b
-            jp   nz,L1694a
-            ret
+            ld   de,200
+            jp   memzero
 
 ; ---------------------------------------------------------------- 1706/1755: корабль потоплен
 L1706:      SETV bSD,1

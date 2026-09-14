@@ -103,13 +103,7 @@ L271a:      call L3884
 run_clear:
             ld   hl,game_vars
             ld   de,game_vars_end-game_vars
-rc_1:       xor  a
-            ld   (hl),a
-            inc  hl
-            dec  de
-            ld   a,d
-            or   e
-            jp   nz,rc_1
+            call memzero
             SETV pg_vis,2
             jp   rec_clear
 
@@ -124,11 +118,8 @@ rcl_1:      ld   (hl),0FFh
             or   e
             jp   nz,rcl_1
             ld   hl,at_rec
-            ld   b,16
-rcl_2:      ld   (hl),0
-            inc  hl
-            dec  b
-            jp   nz,rcl_2
+            ld   de,16
+            call memzero
             ZEROV gh_on
             ret
 
@@ -388,11 +379,8 @@ w10:
 ; ---------------------------------------------------------------- 410: расстановка противника
 L410:       call L1694
 L420:       ld   hl,ARR_CS              ; CS()=0
-            ld   b,200
-L420a:      ld   (hl),0
-            inc  hl
-            dec  b
-            jp   nz,L420a
+            ld   de,200
+            call memzero
 L430:       SETV bSH,1
             ld   hl,0
             ld   (bAT),hl
