@@ -128,7 +128,8 @@ img_victory: incbin "../build/data/victory.zx0"
             ENDIF
             IFNDEF LIBTEST
             IFNDEF OVL_PASS1
-ovl_menu_zx0: incbin "../build/ovl_menu.zx0"   ; оверлей меню (последним: адреса выше не зависят от его размера)
+ovl_menu_zx0: incbin "../build/ovl_menu.zx0"   ; оверлеи (последними: адреса выше не зависят от их размеров)
+ovl_end_zx0: incbin "../build/ovl_end.zx0"
             ENDIF
             ENDIF
 
@@ -153,6 +154,13 @@ ovl_menu:
 ovl_menu_end:
             ASSERT ovl_menu_end <= OVL_END
             SAVEBIN "build/ovl_menu.bin", ovl_menu, ovl_menu_end-ovl_menu
+            ; оверлей 2: помощь и конец партии — за оверлеем меню в том же буфере
+            org  ovl_menu_end
+ovl_end:
+            include "ovl_end.asm"
+ovl_end_end:
+            ASSERT ovl_end_end <= OVL_END
+            SAVEBIN "build/ovl_end.bin", ovl_end, ovl_end_end-ovl_end
             ENDIF
 
             SAVEBIN "build/ironclad.rom", 100h, image_end-100h

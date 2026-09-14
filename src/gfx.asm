@@ -604,7 +604,7 @@ gfx_glyph:
             add  hl,hl
             add  hl,hl
             add  hl,de                  ; *20
-            ld   de,glyph_data
+            ld   de,tiles_data+GLYPH_OFS
             add  hl,de
             ld   (gc_src),hl
             pop  de
