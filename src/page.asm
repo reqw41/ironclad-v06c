@@ -133,8 +133,7 @@ glyph_fill: db 15,7,8
 
 ; перерисовать клетку B=C, C=R страницы pg_vis из записи
 cell_redraw:
-            LDV  pg_vis
-            cp   2
+            CPV  pg_vis,2
             ret  nc
             push bc
             call cell_rec
@@ -155,13 +154,12 @@ cell_redraw:
             add  a,15
             ld   e,a
             ld   a,1
-            rst  20h
+            call gfx_fill
             jp   cd_done
 cd_t:       push bc
             call gfx_tile
             pop  bc
-            ld   a,3
-            STV  cd_n
+            SETV cd_n,3
 cd_l:       ld   hl,(cd_p)
             inc  hl
             ld   (cd_p),hl
@@ -229,8 +227,7 @@ cs_new:     ld   a,b
             STV  cur_x
             ld   a,c
             STV  cur_y
-            ld   a,1
-            STV  cur_on
+            SETV cur_on,1
             LDV  pg_vis
             or   a
             ret  nz
@@ -241,8 +238,7 @@ cur_hide:
             LDV  cur_on
             or   a
             ret  z
-            xor  a
-            STV  cur_on
+            ZEROV cur_on
             LDV  pg_vis
             or   a
             ret  nz
@@ -267,14 +263,12 @@ cur_hide:
 ; ---------------------------------------------------------------- призрак 1664-1668
 ; нарисовать по gh_* (страница 1)
 gh_draw:
-            LDV  pg_vis
-            cp   1
+            CPV  pg_vis,1
             ret  nz
             LDV  gh_on
             or   a
             ret  z
-            xor  a
-            STV  gh_i
+            ZEROV gh_i
             LDV  gh_rx
             ld   b,a
             LDV  gh_ry
@@ -319,11 +313,9 @@ gd_2:       LDV  gh_i
             add  a,c
             dec  a
             ld   e,a
-            LDV  gh_sy
-            cp   128
+            CPV  gh_sy,128
             jp   z,gd_red
-            LDV  gh_sx
-            cp   16
+            CPV  gh_sx,16
             jp   z,gd_red
             ld   a,9
             jp   gfx_box
@@ -335,10 +327,8 @@ gh_erase:
             LDV  gh_on
             or   a
             ret  z
-            xor  a
-            STV  gh_on
-            LDV  pg_vis
-            cp   1
+            ZEROV gh_on
+            CPV  pg_vis,1
             ret  nz
             jp   gh_cells
 
@@ -354,7 +344,7 @@ at_draw_vis:
             ld   bc,190*256+172
             ld   de,255*256+188
             ld   a,1
-            rst  20h
+            call gfx_fill
             call at_ptr
             ld   a,(hl)
             or   a
@@ -362,7 +352,7 @@ at_draw_vis:
             push hl
             ld   bc,192*256+174
             ld   a,9
-            rst  10h
+            call gfx_pset
             ld   a,15
             ld   (gfx_fg),a
             pop  hl
@@ -381,10 +371,10 @@ hdr_draw:
             ld   bc,24*256+4
             ld   de,119*256+11
             ld   a,1
-            rst  20h
+            call gfx_fill
             ld   bc,24*256+4
             ld   a,11
-            rst  10h
+            call gfx_pset
             ld   a,15
             ld   (gfx_fg),a
             ld   hl,s_enemy_waters

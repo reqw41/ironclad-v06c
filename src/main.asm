@@ -75,7 +75,7 @@ rvs_2:
             jp   setup_main
             ENDIF
 
-rst_tab:    dw rst_ldv, gfx_pset, gfx_puts, gfx_fill, ms_set, rst_stv
+rst_tab:    dw rst_ldv, rst_cpv, rst_incv, rst_setv, rst_zerov, rst_stv
             db 0
 ; RST 0: HL += A. Два nop в начале: байты $0000/$0001 = 0 (нулевой указатель на строку = "")
 rst0_code:  nop

@@ -7,8 +7,7 @@
 L3798:      LDV  bSJ
             or   a
             jp   z,L3800
-L3799:      xor  a                      ; FOR N=0 TO SJ-1: SH=SQ(N): GOSUB 3858: GOSUB 2622
-            STV  bN
+L3799:      ZEROV bN  ; FOR N=0 TO SJ-1: SH=SQ(N): GOSUB 3858: GOSUB 2622
 L3799a:     LDV  bN
             ld   hl,ARR_SQ
             rst  00h
@@ -16,16 +15,14 @@ L3799a:     LDV  bN
             STV  bSH
             call L3858
             call L2622
-            ld   hl,bN
-            inc  (hl)
+            INCV bN
             LDV  bSJ
             cp   (hl)
             jp   nz,L3799a
 L3800:      LDV  bSK                ; IF SK>0: FOR N=0 TO NF-1: P=GT(N): U=P\10: V=P MOD 10: GOSUB 3808
             or   a
             jp   z,L3801
-            xor  a
-            STV  bN
+            ZEROV bN
 L3800a:     LDV  bN
             ld   hl,ARR_GT
             rst  00h
@@ -36,8 +33,7 @@ L3800a:     LDV  bN
             ld   a,b
             STV  bV
             call L3808
-            ld   hl,bN
-            inc  (hl)
+            INCV bN
             LDV  bNF
             cp   (hl)
             jp   nz,L3800a
@@ -45,7 +41,7 @@ L3801:      LDV  bSL                ; NV=SL: GOSUB 3810
             STV  bNV
             call L3810
             ld   hl,s_hits              ; "HITS:"+STR$(SK)+"/"+MID$(STR$(NF),2)+" ["+S1$+"]"
-            rst  28h
+            call ms_set
             LDV  bSK
             ld   l,a
             ld   h,0
@@ -73,10 +69,9 @@ L3804:      LDV  bTT
             cp   b
             jp   nc,L3805
             ld   hl,s_press_space
-            rst  28h
+            call ms_set
             call L1315
-            xor  a
-            STV  bKQ
+            ZEROV bKQ
 L3805:      call inkey                  ; IF INKEY$<>"" THEN 3805
             jp   nz,L3805
             ret
@@ -148,8 +143,7 @@ L3808a:     ld   a,e
             ld   a,(hl)
             adc  a,0
             ld   (hl),a
-            ld   a,1
-            STV  bSD
+            SETV bSD,1
             LDV  bU
             STV  bC
             LDV  bV
@@ -168,19 +162,15 @@ L3810:      LDV  bNV
             ld   b,55
 L3810a:     add  a,b
             STV  sS1
-            xor  a
-            STV  sS1+1
+            ZEROV sS1+1
             ret
 
 ; 3820: панель — корабли противника (SALVO/BARRAGE; SALVOP -> 4158)
-L3820:      LDV  bNK
-            cp   8
+L3820:      CPV  bNK,8
             jp   nc,L4158
-            ld   a,1
-            STV  bI
+            SETV bI,1
 L3821:      LDV  bI                 ; LINE(190,37+(I-1)*PZ)-(255,44+(I-1)*10),1,BF
-            xor  a
-            STV  bY0
+            ZEROV bY0
             LDV  bI
             call y_i
             ld   c,a
@@ -197,37 +187,34 @@ L3821:      LDV  bI                 ; LINE(190,37+(I-1)*PZ)-(255,44+(I-1)*10),1,
             ld   b,190
             ld   d,255
             ld   a,1
-            rst  20h
+            call gfx_fill
 L3822:      LDV  bI                 ; SF: QH(I)>=SZ(I)
             ld   hl,ARR_QH
             rst  00h
             ld   b,(hl)
             call sz_i
-            ld   a,15
-            STV  bCL
+            SETV bCL,15
             ld   a,b
             cp   c
             jp   c,L3824
-            ld   a,8
-            STV  bCL
+            SETV bCL,8
 L3824:      LDV  bCL                ; COLOR CL: PSET(190,y): PRINT LEFT$(N$(I),3)
             ld   (gfx_fg),a
             LDV  bYP
             ld   c,a
             ld   b,190
             LDV  bCL
-            rst  10h
+            call gfx_pset
             LDV  bI
             call n_a
             ld   de,sT
             call cat3
             ld   hl,sT
-            rst  18h
+            call gfx_puts
 L3825:      ld   hl,ARR_QH              ; квадратики / номера залпов HS(I,J-1)
             ld   de,ARR_HS
             call hs_row
-            ld   hl,bI
-            inc  (hl)
+            INCV bI
             LDV  bZT
             cp   (hl)
             jp   nc,L3821
@@ -240,8 +227,7 @@ hs_row:     LDV  bI
             rst  00h
             ld   a,(hl)
             STV  hr_q               ; QH(I)
-            ld   a,1
-            STV  hr_j
+            SETV hr_j,1
 hr_1:       LDV  hr_j
             dec  a
             add  a,a
@@ -264,7 +250,7 @@ hr_1:       LDV  hr_j
             add  a,6
             ld   e,a
             ld   a,9
-            rst  20h
+            call gfx_fill
             jp   hr_n
 hr_hit:     LDV  hr_j               ; NV=HS(I,J-1): GOSUB 3810: COLOR 8: PSET(x,y): PRINT S1$
             dec  a
@@ -282,8 +268,7 @@ hr_hit:     LDV  hr_j               ; NV=HS(I,J-1): GOSUB 3810: COLOR 8: PSET(x,
             STV  bNV
             call L3810
             call red_s1
-hr_n:       ld   hl,hr_j
-            inc  (hl)
+hr_n:       INCV hr_j
             call sz_i
             LDV  hr_j
             dec  a
@@ -298,36 +283,31 @@ red_s1:     ld   a,8
             LDV  bYP
             ld   c,a
             ld   a,8
-            rst  10h
+            call gfx_pset
             ld   hl,sS1
-            rst  18h
+            call gfx_puts
             ld   a,15
             ld   (gfx_fg),a
             ret
 
 ; ---------------------------------------------------------------- 3840: залп противника
-L3840:      xor  a
-            STV  bEK
+L3840:      ZEROV bEK
             ld   (sES),a
-            ld   hl,bSN
-            inc  (hl)
+            INCV bSN
             call ms_clear
             call L1305
-            LDV  bFP
-            cp   1
+            CPV  bFP,1
             jp   nz,L3843
-            xor  a
-            STV  bFP
+            ZEROV bFP
             ld   hl,s_reviews
-            rst  28h
+            call ms_set
             call L1315
             call L4301
 L3843:      call L4000
             ld   hl,ARR_HK              ; FOR K=1 TO ZT: HK(K)=0
             ld   de,16
             call memzero
-L3844:      xor  a                      ; FOR NC=0 TO NS-1: BX=TX(NC): BY=TY(NC): GOSUB 910
-            STV  bNC
+L3844:      ZEROV bNC  ; FOR NC=0 TO NS-1: BX=TX(NC): BY=TY(NC): GOSUB 910
 L3844a:     LDV  bNC
             add  a,a
             ld   hl,ARR_TX
@@ -349,8 +329,7 @@ L3844a:     LDV  bNC
             LDV  bNS
             dec  a
             STV  bNC
-L3846:      ld   hl,bNC
-            inc  (hl)
+L3846:      INCV bNC
             LDV  bNS
             cp   (hl)
             jp   z,L3847
@@ -360,13 +339,12 @@ L3847:      LDV  bTT
             LDV  bTP
             cp   b
             jp   nc,L3853
-            ld   a,1
-            STV  bFP
+            SETV bFP,1
 L3853:      LDV  bSN                ; NV=SN: "ENEMY HITS:"+STR$(EK)+"/"+NS+" ["+S1$+"]"
             STV  bNV
             call L3810
             ld   hl,s_enemy_hits
-            rst  28h
+            call ms_set
             LDV  bEK
             ld   l,a
             ld   h,0
@@ -391,10 +369,9 @@ L3854:      call L1315
             cp   b
             ret  nc
 L3855:      ld   hl,s_press_space
-            rst  28h
+            call ms_set
             call L1305
-            xor  a
-            STV  bKQ
+            ZEROV bKQ
 L3856:      call inkey
             jp   nz,L3856
 L3857:      call getkey                 ; TAB — листать страницы (без 1473), пробел — дальше
@@ -428,25 +405,20 @@ L3870:      call cm_cxcy                ; CM(CX,CY)=SL
             ld   (hl),a
             inc  hl
             ld   (hl),0
-            ld   a,1
-            STV  bSD
+            SETV bSD,1
             call cr_cxcy
             call L1105
 L3872:      LDV  bSH
             or   a
             jp   nz,L3874
-            xor  a
-            STV  bHW
+            ZEROV bHW
             ret
-L3874:      ld   a,1
-            STV  bHW
+L3874:      SETV bHW,1
             call qh_sh                  ; QH(SH)=QH(SH)+1
             inc  (hl)
             ld   b,(hl)
-            ld   hl,bTE
-            inc  (hl)
-            ld   hl,bSK
-            inc  (hl)
+            INCV bTE
+            INCV bSK
             ld   a,b                    ; HS(SH,QH(SH)-1)=SL
             dec  a
             add  a,a
@@ -472,8 +444,7 @@ L3878:      LDV  bSJ                ; SJ=SJ+1: SQ(SJ-1)=SH
             rst  00h
             LDV  bSH
             ld   (hl),a
-            ld   hl,bSJ
-            inc  (hl)
+            INCV bSJ
             ret
 
 ; 3880: отмена выстрела залпа (U)
@@ -498,8 +469,7 @@ L3881:      dec  a
             ld   (hl),0
             inc  hl
             ld   (hl),0
-            ld   a,1
-            STV  bSD
+            SETV bSD,1
             call cr_cxcy
             call L1105
 L3882:      LDV  bSH
@@ -532,7 +502,7 @@ L3882:      LDV  bSH
             ld   hl,bSJ
             dec  (hl)
 L3883:      ld   hl,s_undo
-            rst  28h
+            call ms_set
             LDV  bCX
             add  a,65
             call ms_catc
@@ -543,8 +513,7 @@ L3883:      ld   hl,s_undo
             jp   L1473
 
 ; 3884: панель — свой корабль SH (SALVO/BARRAGE; SALVOP -> 4162)
-L3884:      LDV  bNK
-            cp   8
+L3884:      CPV  bNK,8
             jp   nc,L4162
             LDV  bSH                ; YP=107+(SH-1)*10
             dec  a
@@ -561,31 +530,28 @@ L3885:      ld   c,a                    ; LINE(190,YP)-(255,YP+7),1,BF
             ld   b,190
             ld   d,255
             ld   a,1
-            rst  20h
+            call gfx_fill
             call ph_sh                  ; SF: PH(SH)>=SZ(SH)
             ld   b,c
             call sz_sh
-            ld   a,15
-            STV  bCL
+            SETV bCL,15
             ld   a,b
             cp   c
             jp   c,L3887
-            ld   a,8
-            STV  bCL
+            SETV bCL,8
 L3887:      LDV  bCL
             ld   (gfx_fg),a
             LDV  bYP
             ld   c,a
             ld   b,190
             LDV  bCL
-            rst  10h
+            call gfx_pset
             call n_sh
             ld   de,sT
             call cat3
             ld   hl,sT
-            rst  18h
-            ld   a,216
-            STV  hr_x0
+            call gfx_puts
+            SETV hr_x0,216
             call pm_row
             ld   a,15
             ld   (gfx_fg),a
@@ -593,8 +559,7 @@ L3887:      LDV  bCL
 
 ; 3888..3891 / 4163: FOR J=1 TO SZ(SH): P=PM(PX(SH,J-1),PY(SH,J-1)):
 ;   IF (P AND 3)<2 -> квадратик 9, иначе NV=P\4 -> номер красным. x = hr_x0 + (J-1)*8
-pm_row:     ld   a,1
-            STV  hr_j
+pm_row:     SETV hr_j,1
 pr_1:       LDV  hr_j
             dec  a
             ld   b,a
@@ -634,7 +599,7 @@ pr_1:       LDV  hr_j
             add  a,6
             ld   e,a
             ld   a,9
-            rst  20h
+            call gfx_fill
             jp   pr_n
 pr_hit:     LDV  bP                 ; NV=P\4
             rrca
@@ -643,8 +608,7 @@ pr_hit:     LDV  bP                 ; NV=P\4
             STV  bNV
             call L3810
             call red_s1
-pr_n:       ld   hl,hr_j
-            inc  (hl)
+pr_n:       INCV hr_j
             call sz_sh
             LDV  hr_j
             dec  a
@@ -653,24 +617,19 @@ pr_n:       ld   hl,hr_j
             ret
 
 ; ---------------------------------------------------------------- 4000: ИИ залпа (BASIC-часть)
-L4000:      LDV  bSN
-            cp   3
+L4000:      CPV  bSN,3
             jp   c,L4093
-L4001:      xor  a                      ; KM=1, если есть раненый (0<PH<SZ) среди 1..ZT
-            STV  bKM
-            ld   a,1
-            STV  bK
+L4001:      ZEROV bKM  ; KM=1, если есть раненый (0<PH<SZ) среди 1..ZT
+            SETV bK,1
 L4001a:     call k_ph_sz                ; B = PH(K), C = SZ(K)
             ld   a,b
             or   a
             jp   z,L4002
             cp   c
             jp   nc,L4002
-            ld   a,1
-            STV  bKM
+            SETV bKM,1
             jp   L4002x
-L4002:      ld   hl,bK
-            inc  (hl)
+L4002:      INCV bK
             LDV  bZT
             cp   (hl)
             jp   nc,L4001a
@@ -678,24 +637,21 @@ L4002x:     LDV  bKM
             or   a
             jp   nz,L4002b
             ld   hl,s_probes
-            rst  28h
+            call ms_set
             call L1315
             jp   L4070
 L4002b:     ld   hl,s_closes
-            rst  28h
+            call ms_set
             call L1315
-L4003:      xor  a                      ; NA, KL, T5 = сумма CC(K)*SZ(K) живых K<=ZT
-            STV  bNA
+L4003:      ZEROV bNA  ; NA, KL, T5 = сумма CC(K)*SZ(K) живых K<=ZT
             ld   hl,0
             ld   (bT5),hl
-            ld   a,1
-            STV  bK
+            SETV bK,1
 L4003a:     call k_ph_sz
             ld   a,b
             cp   c
             jp   nc,L4004
-            ld   hl,bNA
-            inc  (hl)
+            INCV bNA
             LDV  bK
             STV  bKL
             ld   b,a
@@ -716,13 +672,11 @@ L4003a:     call k_ph_sz
             ld   hl,(bT5)
             add  hl,de
             ld   (bT5),hl
-L4004:      ld   hl,bK
-            inc  (hl)
+L4004:      INCV bK
             LDV  bNK
             cp   (hl)
             jp   nc,L4003a
-            LDV  bNA                ; IF NA=1 THEN IF PH(KL)>0 THEN POKE &HCFAB,KL
-            cp   1
+            CPV  bNA,1  ; IF NA=1 THEN IF PH(KL)>0 THEN POKE &HCFAB,KL
             jp   nz,L4005
             LDV  bKL
             ld   hl,ARR_PH
@@ -733,16 +687,13 @@ L4004:      ld   hl,bK
             jp   z,L4005
             LDV  bKL
             ld   (ENG_KL),a
-L4005:      LDV  cfg_fam            ; 4005..4009 — только SALVO/BARRAGE
-            cp   2
+L4005:      CPV  cfg_fam,2  ; 4005..4009 — только SALVO/BARRAGE
             jp   z,L4010
             ld   hl,0
             ld   (bT2),hl
             ld   (bT3),hl
-            xor  a
-            STV  bKM
-            ld   a,1
-            STV  bK
+            ZEROV bKM
+            SETV bK,1
 L4005a:     LDV  bK                 ; IF PD(K)=0 OR PH(K)=0 OR SZ(K)>3 OR SZ(K)<2 THEN 4009
             add  a,a
             ld   hl,ARR_PD
@@ -775,10 +726,8 @@ L4006:      call k_ph_sz                ; IF PH(K)>=SZ(K) THEN KM=KM+1
             ld   a,b
             cp   c
             jp   c,L4007
-            ld   hl,bKM
-            inc  (hl)
-L4007:      xor  a                      ; FOR T4=0 TO LK-1: U=X+T4*(1-O): V=Y+T4*O
-            STV  bT4
+            INCV bKM
+L4007:      ZEROV bT4  ; FOR T4=0 TO LK-1: U=X+T4*(1-O): V=Y+T4*O
 L4007a:     LDV  bO
             or   a
             LDV  bT4
@@ -809,20 +758,17 @@ L4007b:     LDV  bX
 L4007c:     ld   hl,(bT2)
             inc  hl
             ld   (bT2),hl
-L4008:      ld   hl,bT4
-            inc  (hl)
+L4008:      INCV bT4
             LDV  bLK
             cp   (hl)
             jp   nz,L4007a
-L4009:      ld   hl,bK
-            inc  (hl)
+L4009:      INCV bK
             LDV  bZT
             cp   (hl)
             jp   nc,L4005a
             xor  a                      ; POKE &HCFFA,0: IF KM>1 THEN IF T2*5>=T3*3 THEN POKE &HCFFA,1
             ld   (ENG_RK),a
-            LDV  bKM
-            cp   2
+            CPV  bKM,2
             jp   c,L4010
             ld   hl,(bT2)
             ld   de,5
@@ -837,10 +783,8 @@ L4009:      ld   hl,bK
             jp   c,L4010
             ld   a,1
             ld   (ENG_RK),a
-L4010:      xor  a                      ; E9=0: IF NA>1 THEN IF BL=0 THEN IF T5<=NF+NF THEN POKE &HCFAB,255: E9=1
-            STV  bE9
-            LDV  bNA
-            cp   2
+L4010:      ZEROV bE9  ; E9=0: IF NA>1 THEN IF BL=0 THEN IF T5<=NF+NF THEN POKE &HCFAB,255: E9=1
+            CPV  bNA,2
             jp   c,L4012
             LDV  bBL
             or   a
@@ -855,31 +799,24 @@ L4010:      xor  a                      ; E9=0: IF NA>1 THEN IF BL=0 THEN IF T5<
             jp   nc,L4012
 L4010a:     ld   a,255
             ld   (ENG_KL),a
-            ld   a,1
-            STV  bE9
-L4012:      LDV  cfg_fam
-            cp   2
+            SETV bE9,1
+L4012:      CPV  cfg_fam,2
             jp   z,L4013
-            LDV  bNA                ; SALVO/BARRAGE: IF NA=1 OR E9=1 THEN USR5 ELSE USR8
-            cp   1
+            CPV  bNA,1  ; SALVO/BARRAGE: IF NA=1 OR E9=1 THEN USR5 ELSE USR8
             jp   z,L4012a
-            LDV  bE9
-            cp   1
+            CPV  bE9,1
             jp   z,L4012a
             call eng_probesel
             jp   L4050
 L4012a:     call eng_sample
             jp   L4050
 L4013:      call eng_sample             ; SALVOP: T2=USR5(0)
-L4014:      LDV  bE9
-            cp   1
+L4014:      CPV  bE9,1
             jp   z,L4050
-            xor  a                      ; KL = раненый с наименьшим CC(K)>0; T5 = это CC
-            STV  bKL
+            ZEROV bKL  ; KL = раненый с наименьшим CC(K)>0; T5 = это CC
             ld   hl,32767
             ld   (bT5),hl
-            ld   a,1
-            STV  bK
+            SETV bK,1
 L4014a:     call k_ph_sz
             ld   a,b
             or   a
@@ -908,8 +845,7 @@ L4014a:     call k_ph_sz
             ld   (bT5),hl
             LDV  bK
             STV  bKL
-L4015:      ld   hl,bK
-            inc  (hl)
+L4015:      INCV bK
             LDV  bZT
             cp   (hl)
             jp   nc,L4014a
@@ -956,8 +892,7 @@ pd_decode:  LDV  bW
             LDV  bJ                 ; J < 200
             cp   c
             jp   nc,pdd_v
-            xor  a
-            STV  bO
+            ZEROV bO
             LDV  bJ
             call divb                   ; A = J\W, C = J MOD W
             STV  bY
@@ -966,15 +901,13 @@ pd_decode:  LDV  bW
             jp   pdd_e
 pdd_v:      sub  c
             STV  bJ
-            ld   a,1
-            STV  bO
+            SETV bO,1
             LDV  bJ
             call divb
             STV  bX
             ld   a,c
             STV  bY
-pdd_e:      xor  a                      ; X, Y — слова со знаком (здесь >= 0)
-            STV  bX+1
+pdd_e:      ZEROV bX+1  ; X, Y — слова со знаком (здесь >= 0)
             STV  bY+1
             STV  bJ+1
             ret
@@ -999,11 +932,9 @@ L4070:      ld   a,8
             ld   (ENG_NF),a
             xor  a                      ; POKE &HCF9A,-(R8=1 AND SN<14)
             ld   b,a
-            LDV  bR8
-            cp   1
+            CPV  bR8,1
             jp   nz,L4070a
-            LDV  bSN
-            cp   14
+            CPV  bSN,14
             jp   nc,L4070a
             ld   b,1
 L4070a:     ld   a,b
@@ -1014,10 +945,8 @@ L4071:      call eng_explore
             ret
 
 ; 4093: первые залпы — случайные клетки в шахматном порядке, не кучно
-L4093:      xor  a
-            STV  bT
-L4093a:     xor  a
-            STV  bT2
+L4093:      ZEROV bT
+L4093a:     ZEROV bT2
             STV  bT2+1
 L4094:      ld   hl,(bT2)
             inc  hl
@@ -1033,8 +962,7 @@ L4094:      ld   hl,(bT2)
             call pm_xy
             or   a
             jp   nz,L4094
-            LDV  bT2                ; ELSE IF T2<30 AND ((C+R+SN) AND 1)=1 THEN 4094
-            cp   30
+            CPV  bT2,30  ; ELSE IF T2<30 AND ((C+R+SN) AND 1)=1 THEN 4094
             jp   nc,L4094b
             LDV  bSN
             ld   b,a
@@ -1045,11 +973,9 @@ L4094:      ld   hl,(bT2)
             add  a,b
             and  1
             jp   nz,L4094
-L4094b:     LDV  bR8                ; ELSE IF R8=1 AND T2<25 AND не на краю THEN 4094
-            cp   1
+L4094b:     CPV  bR8,1  ; ELSE IF R8=1 AND T2<25 AND не на краю THEN 4094
             jp   nz,L4095
-            LDV  bT2
-            cp   25
+            CPV  bT2,25
             jp   nc,L4095
             LDV  bC
             or   a
@@ -1061,8 +987,7 @@ L4094b:     LDV  bR8                ; ELSE IF R8=1 AND T2<25 AND не на кр�
             jp   z,L4095
             cp   9
             jp   nz,L4094
-L4095:      xor  a                      ; CF=0: FOR J=0 TO T-1: IF |TX(J)-C|+|TY(J)-R|<3 THEN CF=1
-            STV  bCF
+L4095:      ZEROV bCF  ; CF=0: FOR J=0 TO T-1: IF |TX(J)-C|+|TY(J)-R|<3 THEN CF=1
             STV  bJ
             LDV  bT
             or   a
@@ -1085,19 +1010,15 @@ L4095a:     LDV  bJ
             add  a,b
             cp   3
             jp   nc,L4096a
-            ld   a,1
-            STV  bCF
+            SETV bCF,1
             jp   L4096
-L4096a:     ld   hl,bJ
-            inc  (hl)
+L4096a:     INCV bJ
             LDV  bT
             cp   (hl)
             jp   nz,L4095a
-L4096:      LDV  bCF                ; IF CF=1 AND T2<40 THEN 4094
-            cp   1
+L4096:      CPV  bCF,1  ; IF CF=1 AND T2<40 THEN 4094
             jp   nz,L4096b
-            LDV  bT2
-            cp   40
+            CPV  bT2,40
             jp   c,L4094
 L4096b:     LDV  bT                 ; TX(T)=C: TY(T)=R
             add  a,a
@@ -1115,8 +1036,7 @@ L4096b:     LDV  bT                 ; TX(T)=C: TY(T)=R
             ld   (hl),a
             inc  hl
             ld   (hl),0
-            ld   hl,bT
-            inc  (hl)
+            INCV bT
             LDV  bNF
             cp   (hl)
             jp   nz,L4093a
@@ -1131,8 +1051,7 @@ absa:       or   a
 ; 4097: начало партии для движка
 L4097:      ld   hl,0                   ; T=0: FOR K=1 TO ZT: OS(K)=T: LK=SZ(K): CT(K)=20*(11-LK): CC(K)=CT(K): T=T+CT(K): PD(K)=0
             ld   (bT),hl
-            ld   a,1
-            STV  bK
+            SETV bK,1
 L4097a:     LDV  bK
             add  a,a
             ld   hl,ARR_OS
@@ -1182,23 +1101,18 @@ L4097a:     LDV  bK
             ld   (hl),0
             inc  hl
             ld   (hl),0
-            ld   hl,bK
-            inc  (hl)
+            INCV bK
             LDV  bZT
             cp   (hl)
             jp   nc,L4097a
             call L4107
 L4098:      call eng_fainit             ; T2=USR7(0): SN=0: FP=0: R8=0
-            xor  a
-            STV  bSN
+            ZEROV bSN
             STV  bFP
             STV  bR8
-L4099:      xor  a                      ; RU(I) = мест кораблей через строку/столбец I
-            STV  bI
-L4099a:     xor  a
-            STV  bT
-            ld   a,1
-            STV  bK
+L4099:      ZEROV bI  ; RU(I) = мест кораблей через строку/столбец I
+L4099a:     ZEROV bT
+            SETV bK,1
 L4099b:     call k_ph_sz
             ld   a,10                   ; W=MIN(I,10-SZ)
             sub  c
@@ -1223,8 +1137,7 @@ L4101:      ld   b,a
             LDV  bT
             add  a,b
             STV  bT
-L4102:      ld   hl,bK
-            inc  (hl)
+L4102:      INCV bK
             LDV  bZT
             cp   (hl)
             jp   nc,L4099b
@@ -1233,8 +1146,7 @@ L4102:      ld   hl,bK
             rst  00h
             LDV  bT
             ld   (hl),a
-            ld   hl,bI
-            inc  (hl)
+            INCV bI
             ld   a,(hl)
             cp   10
             jp   c,L4099a
@@ -1276,12 +1188,9 @@ L4103:      ld   a,(SMEMG)
             STV  bT2
             cp   14
             ret  nc
-L4104:      xor  a
-            STV  bT3
-            ld   a,1
-            STV  bK
-L4104a:     xor  a
-            STV  bT
+L4104:      ZEROV bT3
+            SETV bK,1
+L4104a:     ZEROV bT
 L4104b:     LDV  bT                 ; U=PX(K,T): V=PY(K,T)
             add  a,a
             add  a,a
@@ -1306,16 +1215,13 @@ L4104b:     LDV  bT                 ; U=PX(K,T): V=PY(K,T)
             jp   z,L4104c
             cp   9
             jp   nz,L4105
-L4104c:     ld   hl,bT3
-            inc  (hl)
-L4105:      ld   hl,bT
-            inc  (hl)
+L4104c:     INCV bT3
+L4105:      INCV bT
             call k_ph_sz
             LDV  bT
             cp   c
             jp   c,L4104b
-            ld   hl,bK
-            inc  (hl)
+            INCV bK
             LDV  bNK
             cp   (hl)
             jp   nc,L4104a
@@ -1333,8 +1239,7 @@ L4107:      ld   a,(SMEMG)
             STV  bT2
             xor  a
             ld   (SMEMB),a
-            LDV  bT2
-            cp   2
+            CPV  bT2,2
             ret  c
 L4108:      ld   b,55
             cp   2
@@ -1369,36 +1274,27 @@ L4109:      ld   a,(SMEMR)              ; IF PEEK(&HDDF1)*100 > T3*TT*T2 THEN PO
 
 ; ---------------------------------------------------------------- 4156..4164: панель SALVO PLUS
 ; 4156: строка R9 и столбец X9 корабля I
-L4156:      LDV  bI
-            cp   5
+L4156:      CPV  bI,5
             jp   nc,L4156a
             dec  a
             STV  bR9
-            ld   a,216
-            STV  bX9
+            SETV bX9,216
             ret
 L4156a:     jp   nz,L4156b
-            ld   a,4
-            STV  bR9
-            ld   a,216
-            STV  bX9
+            SETV bR9,4
+            SETV bX9,216
             ret
 L4156b:     cp   6
             jp   nz,L4156c
-            ld   a,4
-            STV  bR9
-            ld   a,240
-            STV  bX9
+            SETV bR9,4
+            SETV bX9,240
             ret
 L4156c:     cp   7
             jp   nz,L4156d
-            ld   a,5
-            STV  bR9
-            ld   a,216
-            STV  bX9
+            SETV bR9,5
+            SETV bX9,216
             ret
-L4156d:     ld   a,6                    ; R9=6: X9=216+(I-8)*10
-            STV  bR9
+L4156d:     SETV bR9,6  ; R9=6: X9=216+(I-8)*10
             LDV  bI
             sub  8
             add  a,a
@@ -1413,7 +1309,7 @@ L4156d:     ld   a,6                    ; R9=6: X9=216+(I-8)*10
 L4158:      ld   bc,190*256+34
             ld   de,255*256+89
             ld   a,1
-            rst  20h
+            call gfx_fill
             ld   a,15
             ld   (gfx_fg),a
             ld   hl,panel_sp            ; RESTORE 9031: 12 подписей
@@ -1424,15 +1320,14 @@ L4158a:     push bc
             push hl
             ld   b,190
             ld   a,15
-            rst  10h
+            call gfx_pset
             pop  hl
-            rst  18h
+            call gfx_puts
             inc  hl
             pop  bc
             dec  b
             jp   nz,L4158a
-L4160:      ld   a,1
-            STV  bI
+L4160:      SETV bI,1
 L4160a:     call L4156
             LDV  bR9                ; YP=34+R9*8
             add  a,a
@@ -1443,8 +1338,7 @@ L4160a:     call L4156
             LDV  bX9
             STV  hr_x0
             call hs_row_sp
-            ld   hl,bI
-            inc  (hl)
+            INCV bI
             LDV  bNK
             cp   (hl)
             jp   nc,L4160a
@@ -1457,8 +1351,7 @@ hs_row_sp:  LDV  bI
             rst  00h
             ld   a,(hl)
             STV  hr_q
-            ld   a,1
-            STV  hr_j
+            SETV hr_j,1
 hsp_1:       LDV  hr_j
             dec  a
             add  a,a
@@ -1483,7 +1376,7 @@ hsp_1:       LDV  hr_j
             add  a,6
             ld   e,a
             ld   a,9
-            rst  20h
+            call gfx_fill
             jp   hsp_n
 hsp_hit:     LDV  hr_j               ; NV=HS(I,J-1)
             dec  a
@@ -1501,8 +1394,7 @@ hsp_hit:     LDV  hr_j               ; NV=HS(I,J-1)
             STV  bNV
             call L3810
             call red_s1
-hsp_n:       ld   hl,hr_j
-            inc  (hl)
+hsp_n:       INCV hr_j
             call sz_i
             LDV  hr_j
             dec  a
@@ -1539,7 +1431,7 @@ L4162:      LDV  bSH
             LDV  bYP
             ld   c,a
             ld   a,1
-            rst  20h
+            call gfx_fill
             LDV  bX9
             STV  hr_x0
             call pm_row
@@ -1559,10 +1451,8 @@ L4301:      LDV  bNS                ; T2=USR0(NS)
             ld   l,a
             ld   h,0
             call eng_fold
-L4320:      xor  a
-            STV  bFL
-            ld   a,1
-            STV  bK
+L4320:      ZEROV bFL
+            SETV bK,1
 L4320a:     LDV  bK                 ; IF PD(K)>0 OR CC(K)<>1 THEN 4329
             add  a,a
             ld   hl,ARR_PD
@@ -1635,8 +1525,7 @@ L4323:      ld   hl,(bT2)               ; PD(K)=T2+1: FL=1
             ld   (hl),e
             inc  hl
             ld   (hl),d
-            ld   a,1
-            STV  bFL
+            SETV bFL,1
             LDV  bX                 ; A1=X-1: B1=Y-1: A2/B2 по ориентации
             dec  a
             STV  bA1
@@ -1667,14 +1556,11 @@ L4324:      LDV  bA1                ; FOR U=A1 TO A2: FOR V=B1 TO B2
             STV  bU
 L4324a:     LDV  bB1
             STV  bV
-L4324b:     LDV  bU
-            cp   10
+L4324b:     CPV  bU,10
             jp   nc,L4328
-            LDV  bV
-            cp   10
+            CPV  bV,10
             jp   nc,L4328
-L4325:      ld   a,1                    ; FOR KN=1 TO ZT: IF KN<>K THEN USR1(KN*256+U*16+V)
-            STV  bKN
+L4325:      SETV bKN,1  ; FOR KN=1 TO ZT: IF KN<>K THEN USR1(KN*256+U*16+V)
 L4325a:     LDV  bK
             ld   b,a
             LDV  bKN
@@ -1691,8 +1577,7 @@ L4325a:     LDV  bK
             add  a,b
             ld   l,a
             call eng_kill1
-L4326:      ld   hl,bKN
-            inc  (hl)
+L4326:      INCV bKN
             LDV  bZT
             cp   (hl)
             jp   nc,L4325a
@@ -1746,32 +1631,26 @@ L4327:      LDV  bV                 ; IF PM(U,V)=0 AND BZ(U,V)<>3 THEN буй (1
             ld   (hl),3
             inc  hl
             ld   (hl),0
-            ld   a,176
-            STV  bQ
+            SETV bQ,176
             LDV  bU
             STV  bC
             LDV  bV
             STV  bR
-            xor  a
-            STV  bSD
+            ZEROV bSD
             call L1105
-L4328:      ld   hl,bV
-            inc  (hl)
+L4328:      INCV bV
             LDV  bB2
             cp   (hl)
             jp   p,L4324b
-            ld   hl,bU
-            inc  (hl)
+            INCV bU
             LDV  bA2
             cp   (hl)
             jp   p,L4324a
-L4329:      ld   hl,bK
-            inc  (hl)
+L4329:      INCV bK
             LDV  bZT
             cp   (hl)
             jp   nc,L4320a
-            LDV  bFL
-            cp   1
+            CPV  bFL,1
             jp   z,L4320
 L4336:      LDV  bBL                ; IF BL>0 THEN RETURN
             or   a
@@ -1805,10 +1684,8 @@ L4338b:     push bc
             ld   (hl),3
             inc  hl
             ld   (hl),0
-            ld   a,160
-            STV  bQ
-            xor  a
-            STV  bSD
+            SETV bQ,160
+            ZEROV bSD
             call L1105
 L4339:      pop  bc
             inc  b

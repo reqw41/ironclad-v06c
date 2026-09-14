@@ -198,21 +198,21 @@ gfx_box:
             push de
             ld   a,(gb_col)
             ld   e,c                    ; верх: (x1,y1)-(x2,y1)
-            rst  20h
+            call gfx_fill
             pop  de
             pop  bc
             push bc
             push de
             ld   c,e                    ; низ: (x1,y2)-(x2,y2)
             ld   a,(gb_col)
-            rst  20h
+            call gfx_fill
             pop  de
             pop  bc
             push bc
             push de
             ld   d,b                    ; лево: (x1,y1)-(x1,y2)
             ld   a,(gb_col)
-            rst  20h
+            call gfx_fill
             pop  de
             pop  bc
             ld   b,d                    ; право: (x2,y1)-(x2,y2)

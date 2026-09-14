@@ -7,8 +7,7 @@ S110:       ld   a,15                   ; SCREEN 5: COLOR 15,1,1
             ld   (gfx_fg),a
             ld   a,5                    ; 3406: COLOR 1,5,5 — фон текста 5
             ld   (gfx_bg),a
-S120:       ld   a,3                    ; RP=0: DL=3: ...
-            STV  bDL
+S120:       SETV bDL,3  ; RP=0: DL=3: ...
 S140:       call S3406
 S150:       call S3500
 S155:                                   ; панель загрузки (3800, 155) убрана по решению владельца
@@ -35,10 +34,8 @@ S164:       STV  cfg_BD
             STV  cfg_BO
             LDV  bSB
             STV  cfg_SB
-            ld   a,165
-            STV  cfg_magic
-            ld   a,195
-            STV  cfg_magic+1
+            SETV cfg_magic,165
+            SETV cfg_magic+1,195
 S166:       LDV  bBD                ; RUN BARRAGE/SALVOP/SALVO/IRONCLAD
             STV  cfg_fam
             jp   game_run
@@ -49,7 +46,7 @@ S2300:      call disp_blank
             ld   bc,0
             ld   de,255*256+211
             ld   a,5
-            rst  20h
+            call gfx_fill
             ld   a,1
             ld   (gfx_fg),a
             ld   a,5
@@ -58,7 +55,7 @@ S2300:      call disp_blank
             ld   (gfx_x),a
             ld   (gfx_y),a
             ld   hl,s_signing_off
-            rst  18h
+            call gfx_puts
             xor  a
             ld   (gfx_x),a
             ld   a,8
@@ -68,13 +65,13 @@ S2300:      call disp_blank
             xor  a
             ld   (gfx_x),a
             ld   hl,s_author
-            rst  18h
+            call gfx_puts
             xor  a
             ld   (gfx_x),a
             ld   a,24
             ld   (gfx_y),a
             ld   hl,s_ok
-            rst  18h
+            call gfx_puts
             call disp_on
             call L3330
             call getkey
@@ -96,17 +93,15 @@ S3406:      call disp_blank
             ld   bc,0                   ; без файла (ON ERROR GOTO 3424): пустая страница цветом 5
             ld   de,255*256+211
             ld   a,5
-            rst  20h
+            call gfx_fill
             ENDIF
-            ld   a,2
-            STV  pg_vis
+            SETV pg_vis,2
             jp   disp_on
 
 ; 3500: меню
 S3500:      ld   a,1                    ; COLOR 1: PF=5: PE=3: PK=1: PC=3
             ld   (gfx_fg),a
-            xor  a
-            STV  bMI
+            ZEROV bMI
             call S3600
             ld   hl,s_loading_ver       ; PSET(128-4*LEN(A$),200),1: PRINT A$
             call str_len
@@ -118,14 +113,13 @@ S3500:      ld   a,1                    ; COLOR 1: PF=5: PE=3: PK=1: PC=3
             ld   b,a
             ld   c,200
             ld   a,1
-            rst  10h
+            call gfx_pset
             ld   hl,s_loading_ver
-            rst  18h
+            call gfx_puts
             call S3520
 S3503:      call L3330
 S3504:      call S3540
-            LDV  bMG
-            cp   1
+            CPV  bMG,1
             ret  z
             call S3526
             jp   S3504
@@ -147,9 +141,9 @@ S3512:      push de
             sub  e
             ld   b,a
             ld   a,PK
-            rst  10h
+            call gfx_pset
             pop  hl
-            rst  18h
+            call gfx_puts
             ld   a,':'
             call gfx_putc
             pop  bc
@@ -157,7 +151,7 @@ S3512:      push de
             add  a,16
             ld   b,a
             ld   a,PC
-            rst  10h
+            call gfx_pset
             pop  hl
             jp   gfx_puts
 
@@ -170,7 +164,7 @@ PC          equ 3
 S3520:      ld   bc,34*256+150
             ld   de,222*256+210
             ld   a,PF
-            rst  20h
+            call gfx_fill
             ld   bc,34*256+150
             ld   de,222*256+210
             ld   a,PE
@@ -188,25 +182,20 @@ S3520:      ld   bc,34*256+150
 S3526:      ld   bc,38*256+156
             ld   de,218*256+192
             ld   a,PF
-            rst  20h
-            xor  a
-            STV  bI
-S3527:      ld   a,PC                   ; CL=PC: IF I=MI THEN CL=PK
-            STV  bCL
+            call gfx_fill
+            ZEROV bI
+S3527:      SETV bCL,PC  ; CL=PC: IF I=MI THEN CL=PK
             LDV  bMI
             ld   b,a
             LDV  bI
             cp   b
             jp   nz,S3528
-            ld   a,PK
-            STV  bCL
-S3528:      ld   a,160                  ; YR=160: IF I=1 THEN YR=182
-            STV  bYP
+            SETV bCL,PK
+S3528:      SETV bYP,160  ; YR=160: IF I=1 THEN YR=182
             LDV  bI
             or   a
             jp   z,S3530
-            ld   a,182
-            STV  bYP
+            SETV bYP,182
 S3530:      LDV  bMI                ; IF I=MI THEN LINE(40,YR-3)-(212,YR+10),PE,B
             ld   b,a
             LDV  bI
@@ -225,15 +214,14 @@ S3531:      LDV  bYP                ; PSET(44,YR),CL: PRINT MID$("RULESETMATCH",
             ld   c,a
             ld   b,44
             LDV  bCL
-            rst  10h
+            call gfx_pset
             ld   hl,s_ruleset
             LDV  bI
             or   a
             jp   z,S3531a
             ld   hl,s_match
-S3531a:     rst  18h
-            ld   hl,bI
-            inc  (hl)
+S3531a:     call gfx_puts
+            INCV bI
             ld   a,(hl)
             cp   2
             jp   c,S3527
@@ -257,15 +245,14 @@ S3533p:     push bc
             push hl
             ld   c,e
             ld   a,2
-            rst  10h
+            call gfx_pset
             pop  hl
-            rst  18h
+            call gfx_puts
             pop  bc                     ; X=105: X2=205: GOSUB 3590
 ; 3590: треугольники-стрелки: FOR I=0 TO 3: LINE(X+I,Y+3-I)-(X+I,Y+3+I),2: LINE(X2+3-I,...)
 S3590:      ld   a,c
             STV  bY0
-            xor  a
-            STV  bJ
+            ZEROV bJ
 S3590a:     LDV  bJ
             ld   b,a
             LDV  bY0
@@ -283,7 +270,7 @@ S3590a:     LDV  bJ
             push bc
             push de
             ld   a,2
-            rst  20h
+            call gfx_fill
             pop  de
             pop  bc
             LDV  bJ
@@ -293,17 +280,15 @@ S3590a:     LDV  bJ
             ld   b,a
             ld   d,a
             ld   a,2
-            rst  20h
-            ld   hl,bJ
-            inc  (hl)
+            call gfx_fill
+            INCV bJ
             ld   a,(hl)
             cp   4
             jp   c,S3590a
             ret
 
 ; 3540: клавиши меню
-S3540:      xor  a
-            STV  bMG
+S3540:      ZEROV bMG
             call getkey
             STV  bK_
 S3544:      cp   30
@@ -332,8 +317,7 @@ S3549:      call upcase
             call upcase
             cp   'Q'
             jp   z,S2300
-S3550:      LDV  bK_
-            cp   29
+S3550:      CPV  bK_,29
             jp   z,S3580
 S3551:      cp   '?'
             jp   nz,S3552
@@ -343,8 +327,7 @@ S3552:      cp   ' '
             jp   z,S3552a
             cp   13
             ret  nz
-S3552a:     ld   a,1
-            STV  bMG
+S3552a:     SETV bMG,1
             ret
 S3560:      LDV  bMI                ; вправо: RP+1 / BI+1 с переносом
             or   a
@@ -383,12 +366,12 @@ S3582a:     STV  bBI
 S3595:      ld   bc,38*256+192
             ld   de,218*256+208
             ld   a,PF
-            rst  20h
+            call gfx_fill
             ld   bc,44*256+196
             ld   a,PK
-            rst  10h
+            call gfx_pset
             ld   hl,s_exit_basic
-            rst  18h
+            call gfx_puts
             call getkey
             STV  bK_
             call S3520
@@ -428,13 +411,10 @@ S3600c:     push bc
             pop  bc
             dec  b
             jp   nz,S3600c
-S3602:      ld   a,3                    ; DL=3: IF RP=6 THEN DL=1
-            STV  bDL
-            LDV  bRP
-            cp   6
+S3602:      SETV bDL,3  ; DL=3: IF RP=6 THEN DL=1
+            CPV  bRP,6
             jp   nz,S3606
-            ld   a,1
-            STV  bDL
+            SETV bDL,1
 S3606:      LDV  bBI                ; BO, SB, BM$
             add  a,a
             add  a,a
@@ -455,12 +435,11 @@ S3606:      LDV  bBI                ; BO, SB, BM$
 
 ; 3700: таблица правил (страница 1)
 S3700:      call disp_blank
-            ld   a,2
-            STV  pg_vis
+            SETV pg_vis,2
             ld   bc,0
             ld   de,255*256+211
             ld   a,PF
-            rst  20h
+            call gfx_fill
             ld   bc,6*256+6
             ld   de,249*256+205
             ld   a,PE
@@ -475,13 +454,12 @@ S3702:      ld   a,(hl)                 ; x, y, текст (0 в x = конец)
             inc  hl
             push hl
             ld   a,PK
-            rst  10h
+            call gfx_pset
             pop  hl
-            rst  18h
+            call gfx_puts
             inc  hl
             jp   S3702
-S3704:      ld   a,44                   ; Y=44: 7 наборов
-            STV  bY0
+S3704:      SETV bY0,44  ; Y=44: 7 наборов
             ld   hl,rules_tab
             ld   b,7
 S3706:      push bc
@@ -525,8 +503,7 @@ S3706:      push bc
             pop  bc
             dec  b
             jp   nz,S3706
-S3708:      ld   a,128                  ; легенда
-            STV  bY0
+S3708:      SETV bY0,128  ; легенда
             ld   hl,rules_legend
             ld   b,6
 S3708a:     push bc
@@ -535,9 +512,9 @@ S3708a:     push bc
             LDV  bY0
             ld   c,a
             ld   a,PC
-            rst  10h
+            call gfx_pset
             pop  hl
-            rst  18h
+            call gfx_puts
             inc  hl
             LDV  bY0
             add  a,11
@@ -547,9 +524,9 @@ S3708a:     push bc
             jp   nz,S3708a
 S3720:      ld   bc,40*256+196
             ld   a,PK
-            rst  10h
+            call gfx_pset
             ld   hl,s_press_key_back
-            rst  18h
+            call gfx_puts
             call disp_on
 S3722:      call getkey
 S3724:      call S3406                  ; SET PAGE 0,0: титул с меню снова на экране
@@ -560,7 +537,7 @@ S3706p:     LDV  bY0
             ld   c,a
             push de
             ld   a,PC
-            rst  10h
+            call gfx_pset
             pop  hl
             jp   gfx_puts
 

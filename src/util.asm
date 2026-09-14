@@ -18,6 +18,7 @@ memcpy:     ld   a,b
 
 ; ---------------------------------------------------------------- страница переменных
 ; LDV v (rst 08h / db low v): A = (v). STV v (rst 30h / db low v): (v) = A.
+; Ещё CPV, INCV, SETV, ZEROV — см. macros.asm.
 ; v — в странице varpage. Прочие регистры и флаги сохраняются (как у ld a,(v) / ld (v),a).
 rst_ldv:    ex   (sp),hl
             ld   a,(hl)
@@ -29,6 +30,43 @@ rst_ldv:    ex   (sp),hl
             ld   a,(hl)
             pop  hl
             ret
+; CPV v,K (rst 10h / db low v, K)
+rst_cpv:    ex   (sp),hl
+            ld   a,(hl)
+            inc  hl
+            push hl
+            ld   l,a
+            ld   h,high varpage
+            ld   a,(hl)
+            pop  hl
+            cp   (hl)
+            inc  hl
+            ex   (sp),hl
+            ret
+; INCV v (rst 18h / db low v): HL = v, inc (hl)
+rst_incv:   pop  hl
+            push hl
+            ld   l,(hl)
+            ld   h,high varpage
+            inc  (hl)
+            ex   (sp),hl
+            inc  hl
+            ex   (sp),hl
+            ret
+; SETV v,K (rst 20h / db low v, K)
+rst_setv:   ex   (sp),hl
+            push de
+            ld   e,(hl)
+            inc  hl
+            ld   a,(hl)
+            inc  hl
+            ld   d,high varpage
+            ld   (de),a
+            pop  de
+            ex   (sp),hl
+            ret
+; ZEROV v (rst 28h / db low v) -> STV с A = 0
+rst_zerov:  xor  a
 rst_stv:    ex   (sp),hl
             push de
             ld   e,(hl)

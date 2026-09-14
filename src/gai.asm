@@ -130,8 +130,7 @@ L1812x:     ld   hl,10                  ; I, J после циклов
             ld   (bJ),hl
 L1814:      ld   hl,-1
             ld   (bNB),hl
-            xor  a
-            STV  bD
+            ZEROV bD
 L1814a:     LDV  bD                 ; U1=1-D: V1=D: A=HX: B=HY
             ld   b,a
             ld   a,1
@@ -207,8 +206,7 @@ L1818:      LDV  bA                 ; S=C-A+R-B+1: E1=0: U=A-U1: V=B-V1
             add  a,b
             inc  a
             STV  bS
-            xor  a
-            STV  bE1
+            ZEROV bE1
             LDV  bU1
             ld   b,a
             LDV  bA
@@ -225,20 +223,17 @@ L1819:      LDV  bU
             LDV  bV
             or   a
             jp   m,L1820
-            LDV  bE1
-            cp   4
+            CPV  bE1,4
             jp   nc,L1820
             LDV  bV
             ld   e,a
             LDV  bU
             call hitopen_xy
             jp   nz,L1820
-            ld   hl,bE1
-            inc  (hl)
+            INCV bE1
             call uv_minus
             jp   L1819
-L1820:      xor  a                      ; E2=0: U=C+U1: V=R+V1
-            STV  bE2
+L1820:      ZEROV bE2  ; E2=0: U=C+U1: V=R+V1
             LDV  bU1
             ld   b,a
             LDV  bC
@@ -249,22 +244,18 @@ L1820:      xor  a                      ; E2=0: U=C+U1: V=R+V1
             LDV  bR
             add  a,b
             STV  bV
-L1821:      LDV  bU
-            cp   10
+L1821:      CPV  bU,10
             jp   nc,L1822
-            LDV  bV
-            cp   10
+            CPV  bV,10
             jp   nc,L1822
-            LDV  bE2
-            cp   4
+            CPV  bE2,4
             jp   nc,L1822
             LDV  bV
             ld   e,a
             LDV  bU
             call hitopen_xy
             jp   nz,L1822
-            ld   hl,bE2
-            inc  (hl)
+            INCV bE2
             call uv_plus
             jp   L1821
 L1822:      LDV  bE1                ; IF E1=0 THEN 1830 ELSE X=A-U1: Y=B-V1
@@ -315,16 +306,14 @@ L1831:      LDV  bE2
             ld   c,a
             call hscore
 L1835:      call hs_take
-L1839:      ld   hl,bD
-            inc  (hl)
+L1839:      INCV bD
             ld   a,(hl)
             cp   2
             jp   c,L1814a
             LDV  bNB+1              ; IF NB>=0 THEN RETURN
             or   a
             ret  p
-L1840:      xor  a                      ; FOR D=0 TO 3: соседняя открытая клетка
-            STV  bD
+L1840:      ZEROV bD  ; FOR D=0 TO 3: соседняя открытая клетка
 L1840a:     call L1890
             LDV  bU1
             ld   b,a
@@ -336,11 +325,9 @@ L1840a:     call L1890
             LDV  bHY
             add  a,b
             call st_y
-            LDV  bX
-            cp   10
+            CPV  bX,10
             jp   nc,L1841               ; X<0 тоже сюда (как беззнаковое >= 10)
-            LDV  bY
-            cp   10
+            CPV  bY,10
             jp   nc,L1841
             ld   e,a
             LDV  bX
@@ -351,33 +338,27 @@ L1840a:     call L1890
             LDV  bY
             STV  bBY
             ret
-L1841:      ld   hl,bD
-            inc  (hl)
+L1841:      INCV bD
             ld   a,(hl)
             cp   4
             jp   c,L1840a
             ; сквозной проход в 1890 (как в оригинале: NEXT D, затем строка 1890 и RETURN)
-L1890:      xor  a                      ; U1,V1 по направлению D
-            STV  bU1
+L1890:      ZEROV bU1  ; U1,V1 по направлению D
             STV  bV1
             LDV  bD
             or   a
             jp   nz,L1890a
-            ld   a,-1
-            STV  bU1
+            SETV bU1,-1
             ret
 L1890a:     cp   1
             jp   nz,L1890b
-            ld   a,1
-            STV  bU1
+            SETV bU1,1
             ret
 L1890b:     cp   2
             jp   nz,L1890c
-            ld   a,-1
-            STV  bV1
+            SETV bV1,-1
             ret
-L1890c:     ld   a,1
-            STV  bV1
+L1890c:     SETV bV1,1
 L1891:      ret
 
 ; U=U-U1: V=V-V1 / U=U+U1: V=V+V1
@@ -408,8 +389,7 @@ uv_plus:    LDV  bU1
 ; где M=min(L,B) и T=max(L-C,1): если M>=T, то SC += M-T+1
 hscore:     ld   hl,0
             ld   (bSC),hl
-            ld   a,1
-            STV  bK
+            SETV bK,1
 hs_k:       LDV  bK
             ld   hl,ARR_PH
             add  a,a
@@ -473,15 +453,12 @@ hs_take:    ld   hl,(bSC)
 L1902:      LDV  bTD
             or   a
             jp   z,L1906
-            xor  a                      ; TD=0: GA(A,B) для A,B=0..4
-            STV  bTD
+            ZEROV bTD  ; TD=0: GA(A,B) для A,B=0..4
             STV  bA
-L1902a:     xor  a
-            STV  bB
+L1902a:     ZEROV bB
 L1902b:     ld   hl,0
             ld   (bT),hl
-            ld   a,1
-            STV  bK
+            SETV bK,1
 L1902c:     LDV  bK                 ; IF PH(K)>=SZ(K) THEN 1905
             ld   hl,ARR_PH
             add  a,a
@@ -517,8 +494,7 @@ L1904:      add  a,b                    ; IF X+Y-L+2>0 THEN T=T+X+Y-L+2
             ld   hl,(bT)
             rst  00h
             ld   (bT),hl
-L1905:      ld   hl,bK
-            inc  (hl)
+L1905:      INCV bK
             ld   a,(hl)
             cp   6
             jp   c,L1902c
@@ -528,20 +504,17 @@ L1905:      ld   hl,bK
             inc  hl
             LDV  bT+1
             ld   (hl),a
-            ld   hl,bB
-            inc  (hl)
+            INCV bB
             ld   a,(hl)
             cp   5
             jp   c,L1902b
-            ld   hl,bA
-            inc  (hl)
+            INCV bA
             ld   a,(hl)
             cp   5
             jp   c,L1902a
 L1906:      ld   hl,-1
             ld   (bNB),hl
-            ld   a,1
-            STV  bSM
+            SETV bSM,1
 L1906a:     ld   a,100                  ; P=INT(RND(1)*100): I=P\10: J=P MOD 10
             call rnd_n
             STV  bP
@@ -552,8 +525,7 @@ L1906b:     sub  10
             jp   L1906b
 L1906c:     add  a,10
             STV  bJ
-            xor  a
-            STV  bJ+1
+            ZEROV bJ+1
             STV  bI+1
             ld   a,b
             STV  bI
@@ -562,47 +534,39 @@ L1906c:     add  a,10
             LDV  bI
             call open_xy
             jp   nz,L1919
-L1907:      xor  a                      ; A = свободных влево (по X)
-            STV  bA
+L1907:      ZEROV bA  ; A = свободных влево (по X)
             LDV  bI
             dec  a
             STV  bU
 L1908:      LDV  bU
             or   a
             jp   m,L1909
-            LDV  bA
-            cp   4
+            CPV  bA,4
             jp   nc,L1909
             LDV  bJ
             ld   e,a
             LDV  bU
             call open_xy
             jp   nz,L1909
-            ld   hl,bA
-            inc  (hl)
+            INCV bA
             ld   hl,bU
             dec  (hl)
             jp   L1908
-L1909:      xor  a                      ; B = вправо
-            STV  bB
+L1909:      ZEROV bB  ; B = вправо
             LDV  bI
             inc  a
             STV  bU
-L1910:      LDV  bU
-            cp   10
+L1910:      CPV  bU,10
             jp   nc,L1911
-            LDV  bB
-            cp   4
+            CPV  bB,4
             jp   nc,L1911
             LDV  bJ
             ld   e,a
             LDV  bU
             call open_xy
             jp   nz,L1911
-            ld   hl,bB
-            inc  (hl)
-            ld   hl,bU
-            inc  (hl)
+            INCV bB
+            INCV bU
             jp   L1910
 L1911:      call ga_ab                  ; SC=GA(A,B): A=0: V=J-1
             ld   a,(hl)
@@ -610,47 +574,39 @@ L1911:      call ga_ab                  ; SC=GA(A,B): A=0: V=J-1
             ld   h,(hl)
             ld   l,a
             ld   (bSC),hl
-            xor  a
-            STV  bA
+            ZEROV bA
             LDV  bJ
             dec  a
             STV  bV
 L1912:      LDV  bV
             or   a
             jp   m,L1913
-            LDV  bA
-            cp   4
+            CPV  bA,4
             jp   nc,L1913
             LDV  bV
             ld   e,a
             LDV  bI
             call open_xy
             jp   nz,L1913
-            ld   hl,bA
-            inc  (hl)
+            INCV bA
             ld   hl,bV
             dec  (hl)
             jp   L1912
-L1913:      xor  a
-            STV  bB
+L1913:      ZEROV bB
             LDV  bJ
             inc  a
             STV  bV
-L1914:      LDV  bV
-            cp   10
+L1914:      CPV  bV,10
             jp   nc,L1915
-            LDV  bB
-            cp   4
+            CPV  bB,4
             jp   nc,L1915
             LDV  bV
             ld   e,a
             LDV  bI
             call open_xy
             jp   nz,L1915
-            ld   hl,bB
-            inc  (hl)
-            ld   hl,bV
-            inc  (hl)
+            INCV bB
+            INCV bV
             jp   L1914
 L1915:      call ga_ab                  ; SC=SC+GA(A,B)
             ld   e,(hl)
@@ -670,14 +626,12 @@ L1915:      call ga_ab                  ; SC=SC+GA(A,B)
             ld   (hl),3
             inc  hl
             ld   (hl),0
-            xor  a
-            STV  bSD
+            ZEROV bSD
             LDV  bI
             STV  bC
             LDV  bJ
             STV  bR
-            ld   a,160
-            STV  bQ
+            SETV bQ,160
             call L1105
             jp   L1919
 L1916:      ld   a,10
@@ -690,8 +644,7 @@ L1916:      ld   a,10
             STV  bBX
             LDV  bJ
             STV  bBY
-L1919:      ld   hl,bSM
-            inc  (hl)
+L1919:      INCV bSM
             ld   a,(hl)
             cp   21
             jp   c,L1906a
@@ -781,11 +734,9 @@ L1925b:     call buoy_xy
             ret
 ; IF 0<=X<=9 AND 0<=Y<=9 THEN IF PM(X,Y)=0 AND BZ(X,Y)<>3 THEN BZ(X,Y)=3: SD=0: C=X: R=Y: Q=176: GOSUB 1105
 ; (X, Y — младшие байты, со знаком)
-buoy_xy:    LDV  bX
-            cp   10
+buoy_xy:    CPV  bX,10
             ret  nc
-            LDV  bY
-            cp   10
+            CPV  bY,10
             ret  nc
             ld   e,a
             LDV  bX
@@ -799,19 +750,16 @@ buoy_xy:    LDV  bX
             ld   (hl),3
             inc  hl
             ld   (hl),0
-            xor  a
-            STV  bSD
+            ZEROV bSD
             LDV  bX
             STV  bC
             LDV  bY
             STV  bR
-            ld   a,176
-            STV  bQ
+            SETV bQ,176
             jp   L1105
 
 ; ---------------------------------------------------------------- 1930: буи вокруг потопленного
-L1930:      xor  a
-            STV  bI
+L1930:      ZEROV bI
 L1930a:     call pxy_off                ; PX(SH,I), PY(SH,I)
             ld   de,ARR_PX
             add  hl,de
@@ -846,8 +794,7 @@ L1930c:     call buoy_xy
             cp   b
             jp   m,L1930b
             jp   z,L1930b
-            ld   hl,bI
-            inc  (hl)
+            INCV bI
             call sz_sh
             LDV  bI
             cp   c
@@ -871,26 +818,22 @@ L1940:      ld   hl,(ARR_GB+(7+4*8)*2)  ; IF GB(7,4)=0 THEN GB(7,I)=6^I
             ld   (ARR_GB+(7+4*8)*2),hl
 L1941:      ld   hl,-1
             ld   (bNB),hl
-            xor  a
-            STV  bTM
+            ZEROV bTM
             STV  bI
-L1941a:     xor  a
-            STV  bJ
+L1941a:     ZEROV bJ
 L1941b:     LDV  bJ                 ; IF PM(I,J)<>0 THEN 1946
             ld   e,a
             LDV  bI
             call pm_xy
             or   a
             jp   nz,L1946
-L1942:      xor  a                      ; T=1, если по соседству попадание (PM>1)
-            STV  bT
+L1942:      ZEROV bT  ; T=1, если по соседству попадание (PM>1)
             LDV  bI
             or   a
             jp   z,L1943
             dec  a
             call nb_hit
-L1943:      LDV  bI
-            cp   9
+L1943:      CPV  bI,9
             jp   z,L1944
             inc  a
             call nb_hit
@@ -901,18 +844,15 @@ L1944:      LDV  bJ
             ld   e,a
             LDV  bI
             call nb_hit2
-L1945:      LDV  bJ
-            cp   9
+L1945:      CPV  bJ,9
             jp   z,L1946
             inc  a
             ld   e,a
             LDV  bI
             call nb_hit2
-L1946:      LDV  bT                 ; IF T=1 THEN T=0: TM=1: X=I: Y=J: GOSUB 1960: IF SC>NB ...
-            cp   1
+L1946:      CPV  bT,1  ; IF T=1 THEN T=0: TM=1: X=I: Y=J: GOSUB 1960: IF SC>NB ...
             jp   nz,L1947
-            xor  a
-            STV  bT
+            ZEROV bT
             inc  a
             STV  bTM
             LDV  bI
@@ -928,21 +868,17 @@ L1946:      LDV  bT                 ; IF T=1 THEN T=0: TM=1: X=I: Y=J: GOSUB 196
             STV  bBX
             LDV  bJ
             STV  bBY
-L1947:      ld   hl,bJ
-            inc  (hl)
+L1947:      INCV bJ
             ld   a,(hl)
             cp   10
             jp   c,L1941b
-            ld   hl,bI
-            inc  (hl)
+            INCV bI
             ld   a,(hl)
             cp   10
             jp   c,L1941a
-            LDV  bTM
-            cp   1
+            CPV  bTM,1
             ret  z
-L1948:      ld   a,1
-            STV  bSM
+L1948:      SETV bSM,1
 L1948a:     ld   a,100
             call rnd_n
             STV  bP
@@ -979,8 +915,7 @@ L1949:      call L1960
             STV  bBX
             LDV  bY
             STV  bBY
-L1950:      ld   hl,bSM
-            inc  (hl)
+L1950:      INCV bSM
             ld   a,(hl)
             cp   21
             jp   c,L1948a
@@ -1022,15 +957,13 @@ nb_hit:     ld   e,a
 nb_hit2:    call pm_xy
             cp   2
             ret  c
-            ld   a,1
-            STV  bT
+            SETV bT,1
             ret
 
 ; 1960: SC клетки (X,Y) по сериям попаданий (веса GB(7,n) = 6^n)
 L1960:      ld   hl,0
             ld   (bSC),hl
-            xor  a
-            STV  bD
+            ZEROV bD
 L1960a:     LDV  bD                 ; U1=1-D: V1=D: A=0: C=X-U1: R=Y-V1: GA(0,0)=0
             ld   b,a
             ld   a,1
@@ -1038,8 +971,7 @@ L1960a:     LDV  bD                 ; U1=1-D: V1=D: A=0: C=X-U1: R=Y-V1: GA(0,0)
             STV  bU1
             ld   a,b
             STV  bV1
-            xor  a
-            STV  bA
+            ZEROV bA
             ld   hl,0
             ld   (ARR_GA),hl
             LDV  bU1
@@ -1052,8 +984,7 @@ L1960a:     LDV  bD                 ; U1=1-D: V1=D: A=0: C=X-U1: R=Y-V1: GA(0,0)
             LDV  bY
             sub  b
             STV  bR
-L1961:      LDV  bA                 ; IF A<4 AND C>=0 AND R>=0 THEN IF PM(C,R)<>1 THEN ...
-            cp   4
+L1961:      CPV  bA,4  ; IF A<4 AND C>=0 AND R>=0 THEN IF PM(C,R)<>1 THEN ...
             jp   nc,L1962
             LDV  bC
             or   a
@@ -1083,8 +1014,7 @@ L1961a:     LDV  bA                 ; GA(0,A+1)=GA(0,A)+c
             ld   (hl),a
             inc  hl
             ld   (hl),0
-            ld   hl,bA
-            inc  (hl)
+            INCV bA
             LDV  bU1
             ld   b,a
             LDV  bC
@@ -1096,8 +1026,7 @@ L1961a:     LDV  bA                 ; GA(0,A+1)=GA(0,A)+c
             sub  b
             STV  bR
             jp   L1961
-L1962:      xor  a                      ; B=0: C=X+U1: R=Y+V1: GA(1,0)=0
-            STV  bB
+L1962:      ZEROV bB  ; B=0: C=X+U1: R=Y+V1: GA(1,0)=0
             ld   hl,0
             ld   (ARR_GA+2),hl
             LDV  bU1
@@ -1110,14 +1039,11 @@ L1962:      xor  a                      ; B=0: C=X+U1: R=Y+V1: GA(1,0)=0
             LDV  bY
             add  a,b
             STV  bR
-L1963:      LDV  bB
-            cp   4
+L1963:      CPV  bB,4
             jp   nc,L1964
-            LDV  bC
-            cp   10
+            CPV  bC,10
             jp   nc,L1964
-            LDV  bR
-            cp   10
+            CPV  bR,10
             jp   nc,L1964
             ld   e,a
             LDV  bC
@@ -1141,8 +1067,7 @@ L1963a:     LDV  bB                 ; GA(1,B+1)=GA(1,B)+c
             ld   (hl),a
             inc  hl
             ld   (hl),0
-            ld   hl,bB
-            inc  (hl)
+            INCV bB
             LDV  bU1
             ld   b,a
             LDV  bC
@@ -1154,16 +1079,14 @@ L1963a:     LDV  bB                 ; GA(1,B+1)=GA(1,B)+c
             add  a,b
             STV  bR
             jp   L1963
-L1964:      ld   a,1                    ; FOR K=1 TO 5: L=SZ(K): FOR M=0 TO L-1: N=L-1-M
-            STV  bK
+L1964:      SETV bK,1  ; FOR K=1 TO 5: L=SZ(K): FOR M=0 TO L-1: N=L-1-M
 L1964a:     LDV  bK
             ld   hl,ARR_SZ
             add  a,a
             rst  00h
             ld   a,(hl)
             STV  bL
-            xor  a
-            STV  bM
+            ZEROV bM
             STV  bM+1
 L1964b:     LDV  bM
             ld   b,a
@@ -1209,20 +1132,17 @@ L1964c:     ld   a,b                    ; GA(0,M)
             ld   hl,(bSC)
             add  hl,de
             ld   (bSC),hl
-L1965:      ld   hl,bM
-            inc  (hl)
+L1965:      INCV bM
             LDV  bL
             ld   b,a
             ld   a,(hl)
             cp   b
             jp   c,L1964b
-            ld   hl,bK
-            inc  (hl)
+            INCV bK
             ld   a,(hl)
             cp   6
             jp   c,L1964a
-            ld   hl,bD
-            inc  (hl)
+            INCV bD
             ld   a,(hl)
             cp   2
             jp   c,L1960a
@@ -1230,12 +1150,9 @@ L1965:      ld   hl,bM
             jp   sc_mul_rnd
 
 ; ---------------------------------------------------------------- 1967: ANKA (детский)
-L1967:      ld   a,1
-            STV  bHW
-            xor  a
-            STV  bI
-L1967a:     xor  a
-            STV  bJ
+L1967:      SETV bHW,1
+            ZEROV bI
+L1967a:     ZEROV bJ
 L1967b:     LDV  bJ                 ; IF (PM(I,J) AND 3)<>2 THEN 1972
             ld   e,a
             LDV  bI
@@ -1246,8 +1163,7 @@ L1967b:     LDV  bJ                 ; IF (PM(I,J) AND 3)<>2 THEN 1972
 L1968:      ld   a,4                    ; DA=INT(RND(1)*4): FOR T=0 TO 3: D=(DA+T) AND 3
             call rnd_n
             STV  bDA
-            xor  a
-            STV  bT
+            ZEROV bT
 L1968a:     LDV  bDA
             ld   b,a
             LDV  bT
@@ -1265,11 +1181,9 @@ L1968a:     LDV  bDA
             LDV  bJ
             add  a,b
             call st_y
-            LDV  bX                 ; вне поля -> 1971
-            cp   10
+            CPV  bX,10  ; вне поля -> 1971
             jp   nc,L1971
-            LDV  bY
-            cp   10
+            CPV  bY,10
             jp   nc,L1971
 L1969:      ld   e,a                    ; IF PM(X,Y)=0 THEN BX=X: BY=Y: HW=0: T=3: I=9: J=9
             LDV  bX
@@ -1280,25 +1194,19 @@ L1969:      ld   e,a                    ; IF PM(X,Y)=0 THEN BX=X: BY=Y: HW=0: T=
             STV  bBX
             LDV  bY
             STV  bBY
-            xor  a
-            STV  bHW
-            ld   a,3
-            STV  bT
-            ld   a,9
-            STV  bI
+            ZEROV bHW
+            SETV bT,3
+            SETV bI,9
             STV  bJ
-L1971:      ld   hl,bT
-            inc  (hl)
+L1971:      INCV bT
             ld   a,(hl)
             cp   4
             jp   c,L1968a
-L1972:      ld   hl,bJ
-            inc  (hl)
+L1972:      INCV bJ
             ld   a,(hl)
             cp   10
             jp   c,L1967b
-            ld   hl,bI
-            inc  (hl)
+            INCV bI
             ld   a,(hl)
             cp   10
             jp   c,L1967a

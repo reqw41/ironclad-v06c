@@ -5,8 +5,7 @@
 
 ; ---------------------------------------------------------------- 381/2062: корабль SH в PS, PX, PY
 ship_to_ps:
-            xor  a
-            STV  bI
+            ZEROV bI
 stp_1:      call tx_i                   ; B = TX(I), C = TY(I)
             push bc
             LDV  bI
@@ -34,26 +33,22 @@ stp_1:      call tx_i                   ; B = TX(I), C = TY(I)
             ld   (hl),d
             pop  bc
             call px_set
-            ld   hl,bI
-            inc  (hl)
+            INCV bI
             LDV  bTN
             cp   (hl)
             jp   nz,stp_1
             ret
 ; 383/2064: FOR I=0 TO TN-1: C=TX(I): R=TY(I): SD=0: GOSUB 1105
 ship_draw1:
-            xor  a
-            STV  bI
-sd1_1:      xor  a
-            STV  bSD
+            ZEROV bI
+sd1_1:      ZEROV bSD
             call tx_i
             ld   a,b
             STV  bC
             ld   a,c
             STV  bR
             call L1105
-            ld   hl,bI
-            inc  (hl)
+            INCV bI
             LDV  bTN
             cp   (hl)
             jp   nz,sd1_1
@@ -63,14 +58,13 @@ sd1_1:      xor  a
 L2010:      ld   hl,0
             ld   (bAT),hl
             ld   hl,s_placing
-            rst  28h
+            call ms_set
             call L1305
             LDV  bRW
             or   a
             jp   z,L2020
             call gh_erase
-            xor  a
-            STV  bRW
+            ZEROV bRW
 L2020:      ld   hl,(bAT)
             inc  hl
             ld   (bAT),hl
@@ -78,7 +72,7 @@ L2020:      ld   hl,(bAT)
             add  hl,de
             jp   nc,L2030
             ld   hl,s_no_room
-            rst  28h
+            call ms_set
             jp   L1305
 L2030:      call L3440
 L2040:      call L1615
@@ -88,36 +82,31 @@ L2050:      LDV  bLG
 L2060:      call L1652
 L2062:      call ship_to_ps
 L2064:      call L1683
-            ld   hl,bNP
-            inc  (hl)
+            INCV bNP
             call ship_draw1
-L2070:      ld   hl,bSH
-            inc  (hl)
+L2070:      INCV bSH
             ld   hl,0
             ld   (bAT),hl
             LDV  bNK
             ld   hl,bSH
             cp   (hl)
             jp   nc,L2020
-L2080:      xor  a
-            STV  bRW
+L2080:      ZEROV bRW
             STV  bSD
             call gh_forget
 L2085:      jp   L2635                  ; COPY стр.1 -> стр.2: записи клеток
 
 ; ---------------------------------------------------------------- 2108: отмена
-L2108:      LDV  bSH
-            cp   2
+L2108:      CPV  bSH,2
             jp   nc,L2110
             ld   hl,s_nothing_undo
-            rst  28h
+            call ms_set
             jp   L1305
 L2110:      ld   hl,bSH
             dec  (hl)
             ld   hl,bNP
             dec  (hl)
-L2112:      xor  a                      ; PS(PX(SH,I),PY(SH,I))=0
-            STV  bI
+L2112:      ZEROV bI  ; PS(PX(SH,I),PY(SH,I))=0
 L2112a:     call pxy_off
             ld   de,ARR_PX
             add  hl,de
@@ -130,26 +119,22 @@ L2112a:     call pxy_off
             ld   (hl),0
             inc  hl
             ld   (hl),0
-            ld   hl,bI
-            inc  (hl)
+            INCV bI
             call sz_sh
             LDV  bI
             cp   c
             jp   c,L2112a
 L2114:      call L1694
-L2115:      LDV  bSH
-            cp   2
+L2115:      CPV  bSH,2
             jp   c,L2124
 L2116:      LDV  bSH                ; FOR N=1 TO SH-1: TN=SZ(N): TX/TY = PX/PY(N,I): GOSUB 1683
             STV  rp_tmp+3
-            ld   a,1
-            STV  bN
+            SETV bN,1
 L2116a:     LDV  bN
             call sz_a
             ld   a,c
             STV  bTN
-            xor  a
-            STV  bI
+            ZEROV bI
 L2118:      LDV  bI                 ; TX(I)=PX(N,I): TY(I)=PY(N,I)
             add  a,a
             add  a,a
@@ -179,27 +164,23 @@ L2118:      LDV  bI                 ; TX(I)=PX(N,I): TY(I)=PY(N,I)
             ld   (hl),c
             inc  hl
             ld   (hl),0
-            ld   hl,bI
-            inc  (hl)
+            INCV bI
             LDV  bTN
             cp   (hl)
             jp   nz,L2118
 L2120:      call L1683
-L2122:      ld   hl,bN
-            inc  (hl)
+L2122:      INCV bN
             LDV  rp_tmp+3
             cp   (hl)
             jp   nz,L2116a
-L2124:      xor  a
-            STV  bRW
+L2124:      ZEROV bRW
             STV  bLS
             dec  a
             STV  bLO
             STV  bLX
             STV  bLY
             call gh_forget
-L2126:      xor  a
-            STV  bSD
+L2126:      ZEROV bSD
             call L1152
 L2128:                                  ; COPY стр.1 -> стр.2: записи клеток
 L2130:      LDV  bSH                ; CX=PX(SH,0): CY=PY(SH,0): OD=1: IF PX(SH,0)<>PX(SH,1) THEN OD=0
@@ -212,8 +193,7 @@ L2130:      LDV  bSH                ; CX=PX(SH,0): CY=PY(SH,0): OD=1: IF PX(SH,0
             add  hl,de
             ld   a,(hl)
             STV  bCY
-            ld   a,1
-            STV  bOD
+            SETV bOD,1
             LDV  bSH
             add  a,12
             ld   hl,ARR_PX
@@ -221,35 +201,27 @@ L2130:      LDV  bSH                ; CX=PX(SH,0): CY=PY(SH,0): OD=1: IF PX(SH,0
             ld   a,(hl)
             cp   b
             ret  z
-            xor  a
-            STV  bOD
+            ZEROV bOD
             ret
 
 ; ---------------------------------------------------------------- 2210: конец партии
-L2210:      xor  a
-            STV  bFB
-            LDV  bBD
-            cp   1
+L2210:      ZEROV bFB
+            CPV  bBD,1
             call z,L4103
 L2211:      call L3322
-            xor  a
-            STV  bDP
+            ZEROV bDP
             call page_show
-L2215:      xor  a                      ; FOR C=0 TO 9: FOR R=0 TO 9: IF CS(C,R)>0 THEN GOSUB 2220
-            STV  bC
-L2215a:     xor  a
-            STV  bR
+L2215:      ZEROV bC  ; FOR C=0 TO 9: FOR R=0 TO 9: IF CS(C,R)>0 THEN GOSUB 2220
+L2215a:     ZEROV bR
 L2215b:     ld   bc,ARR_CS
             call w10cr
             call hl_pos
             call nz,L2220
-            ld   hl,bR
-            inc  (hl)
+            INCV bR
             ld   a,(hl)
             cp   10
             jp   c,L2215b
-            ld   hl,bC
-            inc  (hl)
+            INCV bC
             ld   a,(hl)
             cp   10
             jp   c,L2215a
@@ -273,8 +245,7 @@ L2220:      ld   bc,ARR_CS              ; вскрыть корабль прот
             call ld_hl_de
             ex   de,hl
             ld   (bM),hl
-L2222:      LDV  bBD
-            cp   1
+L2222:      CPV  bBD,1
             jp   nz,L2225
             ld   a,h                    ; IF M>0 THEN GOSUB 1147
             or   a
@@ -292,18 +263,14 @@ L2225a:     ld   d,a
             xor  a
             jp   cr_tp
 L2235:      ld   hl,s_enemy_wins
-            ld   a,8
-            STV  bMC
-            LDV  bWN
-            cp   1
+            SETV bMC,8
+            CPV  bWN,1
             jp   nz,L2235a
             ld   hl,s_you_win
-            ld   a,9
-            STV  bMC
+            SETV bMC,9
 L2235a:     push hl
 L2236:      ld   hl,bGC                 ; IF WN=1 THEN GW=GW+1 ELSE GC=GC+1
-            LDV  bWN
-            cp   1
+            CPV  bWN,1
             jp   nz,L2236a
             ld   hl,bGW
 L2236a:     inc  (hl)
@@ -327,12 +294,10 @@ L2237a:     ld   a,b
 L2237b:     ex   de,hl
             pop  hl
             call str_copy
-L2238:      LDV  bSB
-            cp   1
+L2238:      CPV  bSB,1
             call z,L1396
 L2240:      call L1306
-L2246:      xor  a                      ; MD=(GW+GW>BO OR GC+GC>BO)
-            STV  bMD
+L2246:      ZEROV bMD  ; MD=(GW+GW>BO OR GC+GC>BO)
             LDV  bBO
             ld   b,a
             LDV  bGW
@@ -345,28 +310,22 @@ L2246a:     LDV  bGC
             cp   b
             jp   z,L2250
             jp   c,L2250
-L2246b:     ld   a,-1
-            STV  bMD
-L2250:      xor  a                      ; AF=0: IF MD THEN BLOAD картинки на страницу 2: AF=1
-            STV  bAF
+L2246b:     SETV bMD,-1
+L2250:      ZEROV bAF  ; AF=0: IF MD THEN BLOAD картинки на страницу 2: AF=1
             LDV  bMD
             or   a
             jp   z,L2251
             ld   a,DLY_LOAD             ; на MSX картинка грузится с диска, пока видна доска
             call wait_frames
             IFNDEF NOIMG
-            ld   a,1                    ; без файла картинки AF=0 (ON ERROR GOTO 2258)
-            STV  bAF
+            SETV bAF,1  ; без файла картинки AF=0 (ON ERROR GOTO 2258)
             ENDIF
-L2251:      LDV  bAF
-            cp   1
+L2251:      CPV  bAF,1
             jp   nz,L2251a
             call show_end_image         ; GOSUB 2508: VP=2: SET PAGE 2,2
-            ld   a,2
-            STV  bVP
+            SETV bVP,2
             jp   L2252
-L2251a:     xor  a
-            STV  bVP
+L2251a:     ZEROV bVP
             call page_show
 L2252:      call L3330
 L2260:      call getkey
@@ -393,10 +352,8 @@ L2267:      STV  bVP
             LDV  bAF
             or   a
             jp   nz,L2268
-            xor  a
-            STV  bVP
-L2268:      LDV  bVP
-            cp   2
+            ZEROV bVP
+L2268:      CPV  bVP,2
             jp   nz,L2268a
             call show_end_image
             jp   L2260
@@ -407,10 +364,9 @@ L2268a:     call disp_blank
             call disp_on
             jp   L2260
 L2254:      ld   hl,s_loading_next
-            rst  28h
+            call ms_set
             call L1315
-            ld   hl,bGN
-            inc  (hl)
+            INCV bGN
             LDV  bFS
             xor  1
             STV  bFS
@@ -434,7 +390,7 @@ L2256:      ld   hl,ARR_PH              ; PH, QH, HS = 0
             call memzero
 L2257:      jp   L221
 L2270:      ld   hl,s_loading_menu
-            rst  28h
+            call ms_set
             call L1315
             jp   setup_run              ; RUN "SETUP.BAS"
 
@@ -445,11 +401,9 @@ DLY_LOAD    equ 50                      ; ~1 с: картинка победы �
 ; (слот 4 = белый бордюр MSX), бордюр Вектора — индекс 8.
 show_end_image:
             call disp_blank
-            ld   a,2
-            STV  pg_vis
+            SETV pg_vis,2
             IFNDEF NOIMG
-            LDV  bWN
-            cp   1
+            CPV  bWN,1
             jp   z,sei_v
             ld   hl,img_defeat
             ld   de,pal_defeat
@@ -481,8 +435,7 @@ sei_2:      ld   (vec_border),a
 end_captions:
             ld   hl,cmap_defeat
             ld   de,cap_defeat
-            LDV  bWN
-            cp   1
+            CPV  bWN,1
             jp   nz,ec_1
             ld   hl,cmap_victory
             ld   de,cap_victory
@@ -530,7 +483,7 @@ ecl_1:      ld   (gfx_pitch),a
             ld   a,c
             ld   (gfx_y),a
             pop  hl
-            rst  18h                    ; gfx_puts
+            call gfx_puts ; gfx_puts
             inc  hl
             ex   de,hl
             ret
@@ -570,21 +523,19 @@ memzero:    ld   (hl),0
 
 ; ---------------------------------------------------------------- 2350: выход в меню
 L2350:      ld   hl,s_terminate
-            rst  28h
+            call ms_set
             call L1305
-            xor  a
-            STV  bAB
+            ZEROV bAB
 L2352:      call getkey
             STV  bK_
 L2354:      call upcase
             cp   'Q'
             jp   nz,L2356
-            ld   a,1
-            STV  bAB
+            SETV bAB,1
 L2356:      call ms_clear
             jp   L1305
 L2360:      ld   hl,s_loading_menu
-            rst  28h
+            call ms_set
             call L1315
             jp   setup_run
 
@@ -618,8 +569,7 @@ L2645:      ld   a,6
 
 ; ---------------------------------------------------------------- 3322/3330
 L3322:      jp   cur_hide               ; PUT SPRITE 0,(0,200),0 на странице 0
-L3330:      xor  a                      ; KQ$="": выбрать буфер клавиш
-            STV  bKQ
+L3330:      ZEROV bKQ  ; KQ$="": выбрать буфер клавиш
 L3330a:     call inkey
             jp   nz,L3330a
             ret
@@ -656,8 +606,7 @@ L3441:      ld   a,10
             ret
 
 ; 3460/3470: AL = кораблей на плаву (своих: PH(I)<SZ(I); противника: QH(I)<SZ(I))
-L3460:      xor  a
-            STV  bAL
+L3460:      ZEROV bAL
             inc  a
             STV  bI
 L3460a:     LDV  bI
@@ -669,16 +618,13 @@ L3460a:     LDV  bI
             ld   a,b
             cp   c
             jp   nc,L3462
-            ld   hl,bAL
-            inc  (hl)
-L3462:      ld   hl,bI
-            inc  (hl)
+            INCV bAL
+L3462:      INCV bI
             LDV  bNK
             cp   (hl)
             jp   nc,L3460a
             ret
-L3470:      xor  a
-            STV  bAL
+L3470:      ZEROV bAL
             inc  a
             STV  bI
 L3470a:     LDV  bI
@@ -689,18 +635,15 @@ L3470a:     LDV  bI
             ld   a,b
             cp   c
             jp   nc,L3472
-            ld   hl,bAL
-            inc  (hl)
-L3472:      ld   hl,bI
-            inc  (hl)
+            INCV bAL
+L3472:      INCV bI
             LDV  bNK
             cp   (hl)
             jp   nc,L3470a
             ret
 
 ; ---------------------------------------------------------------- 3900: помощь по клавишам (страница 2)
-L3900:      ld   a,2
-            STV  pg_vis
+L3900:      SETV pg_vis,2
             call cls1
             ld   bc,6*256+6
             ld   de,249*256+205
@@ -708,13 +651,12 @@ L3900:      ld   a,2
             call gfx_box
             ld   bc,104*256+14
             ld   a,15
-            rst  10h
+            call gfx_pset
             ld   a,15
             ld   (gfx_fg),a
             ld   hl,s_keys
-            rst  18h
-L3901:      ld   a,36                   ; колонка 110 (в оригинале — в CX, см. docs)
-            STV  hk_y
+            call gfx_puts
+L3901:      SETV hk_y,36  ; колонка 110 (в оригинале — в CX, см. docs)
             ld   hl,keys_tab
 L3903:      ld   a,(hl)
             cp   '!'
@@ -731,9 +673,9 @@ L3905:      push hl
             LDV  hk_y
             ld   c,a
             ld   a,15
-            rst  10h
+            call gfx_pset
             pop  hl
-            rst  18h
+            call gfx_puts
             inc  hl
             push hl
             ld   a,':'
@@ -742,9 +684,9 @@ L3905:      push hl
             ld   c,a
             ld   b,126
             ld   a,5
-            rst  10h
+            call gfx_pset
             pop  hl
-            rst  18h
+            call gfx_puts
             inc  hl
             LDV  hk_y
             add  a,18
@@ -752,9 +694,9 @@ L3905:      push hl
             jp   L3903
 L3910:      ld   bc,40*256+190
             ld   a,11
-            rst  10h
+            call gfx_pset
             ld   hl,s_press_key_back
-            rst  18h
+            call gfx_puts
 L3920:      call getkey
             STV  bK_
 L3922:      LDV  bDP
@@ -787,8 +729,7 @@ L3942:      call cm_cxcy
             inc  hl
             ld   (hl),-1
             jp   L3946
-L3942a:     LDV  bM+1
-            cp   0FFh
+L3942a:     CPV  bM+1,0FFh
             jp   nz,L3943
             ld   a,b
             cp   -3
@@ -798,8 +739,7 @@ L3942a:     LDV  bM+1
 L3943:      LDV  cfg_fam
             or   a
             jp   z,L3944
-            LDV  bM+1               ; сборки BD: -4 -> 0, 1..64 -> +64, 65..128 -> -64
-            cp   0FFh
+            CPV  bM+1,0FFh  ; сборки BD: -4 -> 0, 1..64 -> +64, 65..128 -> -64
             jp   nz,L3943a
             ld   a,b
             cp   -4
@@ -816,8 +756,7 @@ L3943b:     cp   129
             sub  64
             ld   (hl),a
             jp   L3946
-L3944:      LDV  bM+1               ; IRONCLAD.BAS: -4 -> 0, иначе ничего
-            cp   0FFh
+L3944:      CPV  bM+1,0FFh  ; IRONCLAD.BAS: -4 -> 0, иначе ничего
             ret  nz
             ld   a,b
             cp   -4
@@ -825,14 +764,13 @@ L3944:      LDV  bM+1               ; IRONCLAD.BAS: -4 -> 0, иначе ниче
 L3943z:     ld   (hl),0
             inc  hl
             ld   (hl),0
-L3946:      ld   a,1
-            STV  bSD
+L3946:      SETV bSD,1
             call cr_cxcy
             jp   L1105
 
 ; 3960: MS$="PLACE "+N$(SH)+SPACE$(19-LEN(N$(SH)))+"?:HELP": ... подсказка клавиш
 L3960:      ld   hl,s_place
-            rst  28h
+            call ms_set
             call n_sh
             push hl
             call ms_cat
@@ -855,7 +793,7 @@ L3960b:     ld   hl,s_help
             call ms_cat
             call L1305
             ld   hl,s_place_keys
-            rst  28h
+            call ms_set
             jp   L1315
 
 ; ---------------------------------------------------------------- перерисовка страницы (порт)
@@ -871,48 +809,39 @@ render_full:
             call hdr_draw
             LDV  sl_n               ; строка счёта 1396 — как была напечатана
             push af
-            xor  a
-            STV  sl_n
+            ZEROV sl_n
             LDV  bSB
             push af
-            xor  a
-            STV  bSB
+            ZEROV bSB
             call L1355s
             pop  af
             STV  bSB
             pop  af
             STV  sl_n
-            LDV  bSB
-            cp   1
+            CPV  bSB,1
             jp   nz,rf_1
             LDV  sl_n
             or   a
             jp   z,rf_1
             ld   hl,sl_v1
             call sl_print
-            LDV  sl_n
-            cp   2
+            CPV  sl_n,2
             jp   c,rf_1
             ld   hl,sl_v2
             call sl_print
 rf_1:       call L1206
-            LDV  bBD
-            cp   1
+            CPV  bBD,1
             jp   nz,rf_2
             call L3820
-            ld   a,1
-            STV  bSH
+            SETV bSH,1
 rf_sh:      call L3884
-            ld   hl,bSH
-            inc  (hl)
+            INCV bSH
             LDV  bNK
             cp   (hl)
             jp   nc,rf_sh
-rf_2:       ld   a,192
-            STV  bMY
+rf_2:       SETV bMY,192
             call msg_draw_my
-            ld   a,202
-            STV  bMY
+            SETV bMY,202
             call msg_draw_my
             ld   hl,ARR_MG
             ld   de,bKA
