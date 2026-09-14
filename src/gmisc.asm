@@ -551,8 +551,7 @@ L3900:      SETV pg_vis,2
             ld   bc,104*256+14
             ld   a,15
             call gfx_pset
-            ld   a,15
-            ld   (gfx_fg),a
+            call fg15
             call putsi
             TXT  "KEYS"
 L3901:      SETV hk_y,36  ; колонка 110 (в оригинале — в CX, см. docs)
@@ -618,11 +617,10 @@ L3942:      call cm_cxcy
             dec  hl
             ex   de,hl
             ld   (bM),hl
+            ld   b,l
+            ld   a,h
+            or   l
             ex   de,hl
-            LDV  bM
-            ld   b,a
-            LDV  bM+1
-            or   b
             jp   nz,L3942a
             ld   (hl),-3                ; M=0 -> -3
             inc  hl

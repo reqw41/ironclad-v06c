@@ -61,8 +61,7 @@ L250:       SETV bDP,1  ; DP=1: экран погашен, палитра, чи�
             call disp_blank
             SETV pg_vis,1
             call L2505
-            ld   a,15                   ; COLOR 15,1,1
-            ld   (gfx_fg),a
+            call fg15                   ; COLOR 15,1,1
             ld   a,1
             ld   (gfx_bg),a
             call cls1

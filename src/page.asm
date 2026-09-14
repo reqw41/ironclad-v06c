@@ -341,8 +341,7 @@ at_draw_vis:
             ld   bc,192*256+174
             ld   a,9
             call gfx_pset
-            ld   a,15
-            ld   (gfx_fg),a
+            call fg15
             pop  hl
             jp   gfx_puts
 ; HL = &at_rec[pg_vis]
@@ -364,8 +363,7 @@ hdr_draw:
             ld   bc,24*256+4
             ld   a,11
             call gfx_pset
-            ld   a,15
-            ld   (gfx_fg),a
+            call fg15
             ld   hl,s_enemy_waters
             LDV  pg_vis
             or   a

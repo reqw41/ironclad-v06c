@@ -282,8 +282,7 @@ L1212:      LDV  bCL                ; COLOR CL: PSET(192,23+Y0): PRINT "ENEMY"/"
             jp   z,L1212a
             ld   hl,s_yours
 L1212a:     call gfx_puts
-L1215:      ld   a,15
-            ld   (gfx_fg),a
+L1215:      call fg15
             CPV  bBD,1
             jp   z,L1231
 L1216:      SETV bI,1  ; FOR I=1 TO NK
@@ -797,6 +796,7 @@ L1656a:     LDV  bOD                ; GT(I)=4+OD*3: IF S=5 THEN GT(I)=14+OD
             ld   b,a
             add  a,a
             add  a,b
+            ld   e,a                    ; E = 3*OD
             add  a,4
             ld   c,a
             CPV  bS,5
@@ -814,9 +814,7 @@ L1657:      CPV  bI,1  ; IF I=1 AND S>2 THEN GT(I)=12+OD
 L1658:      LDV  bI                 ; IF I=0 THEN 5+OD*3 ELSE IF I=S-1 AND S<>5 THEN 6+OD*3
             or   a
             jp   nz,L1658a
-            ld   a,b
-            add  a,a
-            add  a,b
+            ld   a,e
             add  a,5
             ld   c,a
             jp   L1659
@@ -828,9 +826,7 @@ L1658a:     LDV  bS
             jp   nz,L1659
             CPV  bS,5
             jp   z,L1659
-            ld   a,b
-            add  a,a
-            add  a,b
+            ld   a,e
             add  a,6
             ld   c,a
 L1659:      CPV  bS,1  ; IF S=1 THEN 22 ELSE IF SH=4 AND S=3 THEN 16+OD+2*I
@@ -850,12 +846,12 @@ L1660:      LDV  bI
             ld   hl,ARR_GT
             rst  00h
             ld   (hl),c
-            LDV  bI
-            inc  a
-            STV  bI
-            ld   hl,bS
+            INCV bI                     ; NEXT I: пока I < S
+            LDV  bS
             cp   (hl)
-            jp   c,L1656a
+            jp   z,L1660a
+            jp   nc,L1656a
+L1660a:
             LDV  bS
             STV  bTN
             ret
