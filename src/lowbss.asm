@@ -14,6 +14,7 @@ rt_src:     ds 2
 rt_dst:     ds 2
 rt_pl:      ds 1
 rt_r:       ds 1
+kbd_rows:   ds 8        ; ряды клавиатуры 0..7, прочитанные в ISR (0 = нажата)
 kbd_last:   ds 1
 kbd_rep:    ds 1
 kq_head:    ds 1
