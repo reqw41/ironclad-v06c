@@ -359,6 +359,13 @@ L1890:      LDV  bD                 ; U1,V1 по направлению D (D=4 �
 L1891:      ret
 t1890:      db -1,0, 1,0, 0,-1, 0,1, 0,1
 
+; X=D+U1: Y=E+V1 (слова со знаком)
+xy_uv:      LDV  bU1
+            add  a,d
+            call st_x
+            LDV  bV1
+            add  a,e
+            jp   st_y
 ; U1=1-D: V1=D
 uv_d:       LDV  bD
             ld   b,a
