@@ -315,8 +315,7 @@ S3550:      CPV  bK_,29
             jp   z,S3580
 S3551:      cp   '?'
             jp   nz,S3552
-            call S3700
-            ret
+            jp   S3700
 S3552:      cp   ' '
             jp   z,S3552a
             cp   13
@@ -749,8 +748,7 @@ L172:       ld   hl,(frame_cnt)         ; R=RND(-PEEK(&HFC9E)-1): зерно о�
             or   1
             ld   l,a
             ld   (rnd_seed),hl
-            call rnd16
-            ret
+            jp   rnd16
 
 ; 9020..9030: флоты (имя, размер)
 ships_std:  dw sh_carrier

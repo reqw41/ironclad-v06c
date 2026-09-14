@@ -104,7 +104,6 @@ run_clear:
             ld   de,game_vars_end-game_vars
             call memzero
             SETV pg_vis,2
-            jp   rec_clear
 
 ; все записи клеток обеих страниц = пусто, поля AT: пусты
 rec_clear:
@@ -239,8 +238,7 @@ L386:       INCV bSH
             jp   nc,L310
 L390:       call ms_clear
             call L1305
-            call L1315
-            ret
+            jp   L1315
 
 ; B = TX(I), C = TY(I)
 tx_i:       LDV  bI
@@ -760,8 +758,7 @@ L890:       call ms_seti
             call n_sh
             call ms_cat
             call L1305
-            call L1270
-            ret
+            jp   L1270
 
 ; HL = &CS(CX,CY)
 cs_cxcy:

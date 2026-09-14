@@ -31,8 +31,7 @@ vec_init:
             ld   hl,isr
             ld   (39h),hl
             call snd_init
-            call scr_clear_all
-            ret
+            jp   scr_clear_all
 
 ; ---------------------------------------------------------------- прерывание 50 Гц
 isr:

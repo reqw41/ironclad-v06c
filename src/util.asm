@@ -262,7 +262,6 @@ sd_1:       push de
             jp   nz,sd_1
             ex   de,hl                  ; HL -> цифры
             pop  de
-            jp   str_copy
 
 ; копировать строку HL -> DE (с нулём); слова словаря (байт >= 80h, TXT) раскрываются.
 ; HL на выходе -> нуль источника, DE -> нуль приёмника
@@ -334,13 +333,3 @@ sl_w1:      inc  b
             inc  hl
             jp   sl_1
 
-; сравнение строк HL и DE: Z = равны
-str_eq:
-            ld   a,(de)
-            cp   (hl)
-            ret  nz
-            or   a
-            ret  z
-            inc  hl
-            inc  de
-            jp   str_eq
