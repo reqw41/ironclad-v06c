@@ -274,11 +274,10 @@ L1206:      ld   bc,190*256+16          ; LINE(190,16)-(255,160),1,BF
             ld   a,1
             call gfx_fill
             ZEROV bP
-L1208:      LDV  bP                 ; Y0=70*P: CL=8+P
-            or   a
-            ld   a,0
-            jp   z,L1208a
-            ld   a,70
+L1208:      LDV  bP                 ; Y0=70*P (P=0/1): CL=8+P
+            rrca
+            sbc  a,a
+            and  70
 L1208a:     STV  bY0
             LDV  bP
             add  a,8
@@ -287,18 +286,14 @@ L1208a:     STV  bY0
             add  a,20
             ld   c,a
             ld   e,a
-            ld   b,190
-            ld   d,255
             LDV  bCL
-            call gfx_fill
+            call pfill
             LDV  bY0                ; LINE(190,33+Y0)-(255,33+Y0),CL
             add  a,33
             ld   c,a
             ld   e,a
-            ld   b,190
-            ld   d,255
             LDV  bCL
-            call gfx_fill
+            call pfill
 L1212:      LDV  bCL                ; COLOR CL: PSET(192,23+Y0): PRINT "ENEMY"/"YOURS"
             ld   (gfx_fg),a
             LDV  bY0
@@ -356,6 +351,10 @@ L1231:      INCV bP
             jp   c,L1208
 L1255:      ret
 
+; LINE(190,C)-(255,E),A,BF — полоса панели флотов
+pfill:      ld   b,190
+            ld   d,255
+            jp   gfx_fill
 ; A = 37+Y0+(A-1)*PZ
 y_i:        ld   d,a
             LDV  bPZ
@@ -676,30 +675,25 @@ L1441:      LDV  bK_
             jp   nz,L1444
 L1441a:     SETV bAC,1
             ret
-L1444:      call upcase
-            cp   'R'
-            ld   b,2
-            jp   z,L1449a
-            cp   'X'
-            ld   b,7
-            jp   z,L1449a
-            cp   'Q'
-            ld   b,3
-            jp   z,L1449a
-            cp   'Z'
-            ld   b,4
-            jp   z,L1449a
-            cp   'U'
-            ld   b,5
-            jp   z,L1449a
+L1444:      call upcase                 ; R -> AC=2, X -> 7, Q -> 3, Z -> 4, U -> 5
+            ld   hl,t1444-1
+L1444a:     inc  hl
+            ld   b,(hl)
+            inc  b
+            dec  b
+            jp   z,L1451
+            inc  hl
+            cp   b
+            jp   nz,L1444a
+            ld   a,(hl)
+            STV  bAC
+            ret
 L1451:      cp   '?'
             jp   nz,L1415
             call L3900
             ZEROV bAC
             ret
-L1449a:     ld   a,b
-            STV  bAC
-            ret
+t1444:      db   'R',2,'X',7,'Q',3,'Z',4,'U',5,0
 upcase:     cp   'a'
             ret  c
             cp   'z'+1

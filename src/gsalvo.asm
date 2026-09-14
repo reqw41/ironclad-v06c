@@ -189,10 +189,8 @@ L3821:      LDV  bI                 ; LINE(190,37+(I-1)*PZ)-(255,44+(I-1)*10),1,
             add  a,b
             add  a,44
             ld   e,a
-            ld   b,190
-            ld   d,255
             ld   a,1
-            call gfx_fill
+            call pfill
 L3822:      call i_qh_sz                ; SF: QH(I)>=SZ(I)
             LDV  bI
             call pn_draw
@@ -486,10 +484,8 @@ L3884:      CPV  bNK,8
 L3885:      ld   c,a                    ; LINE(190,YP)-(255,YP+7),1,BF
             add  a,7
             ld   e,a
-            ld   b,190
-            ld   d,255
             ld   a,1
-            call gfx_fill
+            call pfill
             call ph_sh                  ; SF: PH(SH)>=SZ(SH)
             ld   b,c
             call sz_sh
