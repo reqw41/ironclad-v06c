@@ -244,13 +244,18 @@ def vram_planes(px, slotmap, planes):
 def build_images():
     res = {}
     pals = {}
-    # титул (8 цв., плоскости $8000..$C000): SETUP 3422 сразу стирает окно меню LINE(34,150)-(222,210),5,BF.
+    # титул (6 цв., плоскости $8000..$C000): SETUP 3422 сразу стирает окно меню LINE(34,150)-(222,210),5,BF.
     # Слот 0 = цвет 5 (фон меню и бордюр), обязательны цвета интерфейса меню 1, 2, 3 и 10 (подпись автора)
     t = load_sc5('IRONCLAD.SC5')
     line_bf(t, 34, 150, 222, 210, 5)
     mp = mpal(PAL_MENU)
     cnt = collections.Counter(c for r in t for c in r)
-    sl = pick_slots(cnt, mp, 8, (5, 1, 2, 3, 10))
+    # 6 цветов (решение владельца): цвета меню 5, 1, 3, огонь 11 и ещё два по картинке;
+    # самые редкие — в слоты 4, 5 (старший бит слота, плоскость $8000 почти пустая — лучше жмётся)
+    sl = pick_slots(cnt, mp, 6, (5, 1, 3, 11))
+    cm0 = cmap_of(sl, mp)
+    use = collections.Counter(cm0[c] for r in t for c in r)
+    sl = [sl[0]] + [sl[i] for i in sorted(range(1, len(sl)), key=lambda i: -use[i])]
     cm = cmap_of(sl, mp)
     res['title'] = zx0('title', vram_planes(t, cm, 3))
     pals['menu'] = (sl, cm)
