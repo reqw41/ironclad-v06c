@@ -37,9 +37,9 @@ def variant(f, pal, n, forced, planes, blank_caps, title, tag):
     mp = M.mpal(pal); cnt = collections.Counter(c for r in px for c in r)
     top = cnt.most_common(1)[0][0]
     sl = M.pick_slots(cnt, mp, n, forced if forced else (top, 2))
-    if n == 5:                                   # самый редкий цвет — в слот 4 (старший бит)
+    if n in (5, 6):                              # самые редкие цвета — в слоты 4.. (старший бит)
         cmt = M.cmap_of(sl, mp); use = collections.Counter(cmt[c] for r in px for c in r)
-        order = sorted(range(1, 5), key=lambda i: -use[i])
+        order = sorted(range(1, n), key=lambda i: -use[i])
         sl = [sl[0]] + [sl[i] for i in order]
     cm = M.cmap_of(sl, mp)
     size = zsize(M.vram_planes(px, cm, planes))
@@ -48,6 +48,8 @@ def variant(f, pal, n, forced, planes, blank_caps, title, tag):
 variant('IRONCLAD.SC5', M.PAL_MENU, 8, (5, 1, 2, 3, 10), 3, False, 'Титул (окно меню рисует программа)', 'vec_title8')
 variant('IRONCLAD.SC5', M.PAL_MENU, 4, (5, 1, 3), 2, False, 'Титул (цвета меню: фон, белый, серый + 1)', 'vec_title4')
 variant('IRONCLAD.SC5', M.PAL_MENU, 5, (5, 1, 3), 3, False, 'Титул (цвета меню: фон, белый, серый + 2)', 'vec_title5')
+variant('IRONCLAD.SC5', M.PAL_MENU, 5, (5, 1, 3, 11), 3, False, 'Титул (фон, белый, серый, огонь + 1)', 'vec_title5f')
+variant('IRONCLAD.SC5', M.PAL_MENU, 6, (5, 1, 3, 11), 3, False, 'Титул (фон, белый, серый, огонь + 2)', 'vec_title6f')
 variant('VICTORY.SC5', M.PAL_END, 4, None, 2, True, 'Победа (подписи печатает программа)', 'vec_victory4')
 variant('VICTORY.SC5', M.PAL_END, 8, None, 3, True, 'Победа', 'vec_victory8')
 variant('VICTORY.SC5', M.PAL_END, 5, None, 3, True, 'Победа', 'vec_victory5')
