@@ -348,7 +348,8 @@ at_draw_vis:
 ; HL = &at_rec[pg_vis]
 at_ptr:
             LDV  pg_vis
-            add  a,a
+; HL = &at_rec[A]
+at_ptr_a:   add  a,a
             add  a,a
             add  a,a
             ld   hl,at_rec

@@ -701,11 +701,7 @@ L1473:      LDV  bCX                ; CO$=CHR$(65+CX)+MID$(STR$(CY+1),2)
             ld   de,sCO
             call mk_coord
             LDV  bDP                ; запись AT: страницы DP
-            add  a,a
-            add  a,a
-            add  a,a
-            ld   hl,at_rec
-            rst  00h
+            call at_ptr_a
             ld   (hl),0
 L1475:      LDV  bFB                ; IF (FB=0 AND DP<>1) OR (FB=1 AND DP<>0) THEN пусто
             ld   b,a

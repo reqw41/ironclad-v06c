@@ -41,17 +41,13 @@ isr:
             push de
             push hl
             ; палитра -> цветогенератор (защёлкивается по кадру, льём каждый кадр)
-            ld   hl,vec_pal_live
+            ld   hl,vec_pal_live+15
             ld   c,15
 isr_pal:
             ld   a,c
             out  (PPI_B),a
-            ld   e,c
-            ld   d,0
-            push hl
-            add  hl,de
             ld   a,(hl)
-            pop  hl
+            dec  hl
             out  (PAL_PORT),a
             out  (PAL_PORT),a
             out  (PAL_PORT),a
