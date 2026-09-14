@@ -6,6 +6,8 @@
             DEVICE NOSLOT64K
 
 STACK_TOP   equ 8000h
+LOWBSS      equ 0060h
+            include "lowbss.asm"
 
             org  100h
 start:
@@ -21,6 +23,12 @@ bz_1:       xor  a
             ld   a,d
             or   e
             jp   nz,bz_1
+            ld   hl,LOWBSS              ; и переменные под $0100
+            ld   b,100h-LOWBSS
+lz_1:       ld   (hl),0
+            inc  hl
+            dec  b
+            jp   nz,lz_1
             call vec_init
             ld   hl,1
             ld   (rnd_seed),hl
@@ -71,6 +79,7 @@ bss_start:
             include "bss.asm"
 bss_end:
             ASSERT bss_end <= STACK_TOP - 256
+            ASSERT sMS-bKA <= 288               ; render_full сохраняет скаляры в ARR_MG
 
             SAVEBIN "build/ironclad.rom", 100h, image_end-100h
             DISPLAY "образ: ", /D, image_end-100h, " Б; BSS: ", /D, bss_end-bss_start, " Б; свободно под стек: ", /D, STACK_TOP-bss_end

@@ -340,38 +340,7 @@ gh_erase:
             ld   a,(pg_vis)
             cp   1
             ret  nz
-            ld   a,(gh_rx)
-            sub  GX
-            rrca
-            rrca
-            rrca
-            rrca
-            and  0Fh
-            ld   b,a
-            ld   a,(gh_ry)
-            sub  GY
-            rrca
-            rrca
-            rrca
-            rrca
-            and  0Fh
-            ld   c,a
-            ld   a,(gh_s)
-            ld   (gh_i),a
-ge_1:       push bc
-            call cell_redraw
-            pop  bc
-            ld   a,(gh_od)
-            or   a
-            jp   nz,ge_v
-            inc  b
-            jp   ge_2
-ge_v:       inc  c
-ge_2:       ld   a,(gh_i)
-            dec  a
-            ld   (gh_i),a
-            jp   nz,ge_1
-            ret
+            jp   gh_cells
 
 ; ---------------------------------------------------------------- поле AT: (1473)
 ; нарисовать at_rec[bDP] (если эта страница на экране)
@@ -440,27 +409,121 @@ page_show:
             ld   (pg_vis),a
             jp   nc,render_full
             call hdr_draw
+            ; клетки: только те, чьи слои на двух страницах различаются
+            ld   hl,cellrec
+            ld   de,cellrec+400
             ld   bc,0
 ps_c:       push bc
+            ld   b,4
+            push hl
+            push de
+ps_cmp:     ld   a,(de)
+            cp   (hl)
+            jp   nz,ps_diff
+            inc  hl
+            inc  de
+            dec  b
+            jp   nz,ps_cmp
+            pop  de
+            pop  hl
+            pop  bc
+            jp   ps_next
+ps_diff:    pop  de
+            pop  hl
+            pop  bc
+            push hl
+            push de
+            push bc
+            ld   a,c                    ; индекс = C + 10R -> (C,R)
+            ld   c,0
+ps_d10:     cp   10
+            jp   c,ps_d11
+            sub  10
+            inc  c
+            jp   ps_d10
+ps_d11:     ld   b,a
             call cell_redraw
             pop  bc
+            pop  de
+            pop  hl
+ps_next:    ld   a,4
+            call add_a_hl
+            ex   de,hl
+            ld   a,4
+            call add_a_hl
+            ex   de,hl
             inc  c
             ld   a,c
-            cp   10
-            jp   nz,ps_c
-            ld   c,0
-            inc  b
-            ld   a,b
-            cp   10
-            jp   nz,ps_c
-            call gh_draw
+            cp   100
+            jp   c,ps_c
+            ; оверлеи прежней страницы: клетки под ними перерисовать новой страницей
             ld   a,(pg_vis)
             or   a
-            jp   nz,ps_n
-            ld   a,(cur_on)
+            jp   z,ps_0
+            ld   a,(cur_on)             ; ушли со страницы 0: клетка под курсором
+            or   a
+            jp   z,ps_n
+            ld   a,(cur_x)
+            sub  GX
+            rrca
+            rrca
+            rrca
+            rrca
+            and  0Fh
+            ld   b,a
+            ld   a,(cur_y)
+            sub  GY
+            rrca
+            rrca
+            rrca
+            rrca
+            and  0Fh
+            ld   c,a
+            call cell_redraw
+            call gh_draw
+            jp   ps_n
+ps_0:       ld   a,(gh_on)              ; ушли со страницы 1: клетки под призраком
+            or   a
+            jp   z,ps_0c
+            call gh_cells
+ps_0c:      ld   a,(cur_on)
             or   a
             call nz,cur_draw
 ps_n:       jp   at_draw_vis
+
+; перерисовать клетки под призраком из записей страницы pg_vis
+gh_cells:   ld   a,(gh_rx)
+            sub  GX
+            rrca
+            rrca
+            rrca
+            rrca
+            and  0Fh
+            ld   b,a
+            ld   a,(gh_ry)
+            sub  GY
+            rrca
+            rrca
+            rrca
+            rrca
+            and  0Fh
+            ld   c,a
+            ld   a,(gh_s)
+            ld   (gh_i),a
+ghc_1:      push bc
+            call cell_redraw
+            pop  bc
+            ld   a,(gh_od)
+            or   a
+            jp   nz,ghc_v
+            inc  b
+            jp   ghc_2
+ghc_v:      inc  c
+ghc_2:      ld   a,(gh_i)
+            dec  a
+            ld   (gh_i),a
+            jp   nz,ghc_1
+            ret
 
 ; все 100 клеток страницы A = тайл воды (1154: COPY(96,32)-(255,191) — фон сетки = 100 тайлов 0)
 cells_water:

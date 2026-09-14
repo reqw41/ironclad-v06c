@@ -187,13 +187,12 @@ bB1: ds 1
 bA2: ds 1
 bB2: ds 1
 ; строки (0 в конце)
-sMS: ds 72      ; MS$
+sMS: ds 64      ; MS$
 sCO: ds 4       ; CO$
 sCE: ds 4       ; CE$
-sA:  ds 40      ; A$
-sSS: ds 72      ; SS$
-sES: ds 72      ; ES$
-sT:  ds 72      ; рабочий буфер склейки
+sSS: ds 52      ; SS$ (до 11 кораблей по 4 знака)
+sES: ds 52      ; ES$
+sT:  ds 20      ; рабочий буфер склейки
 ; массивы движка (int16, раскладка MSX-BASIC)
 ARR_MG: ds 144*2
 ARR_CC: ds 8*2
@@ -258,7 +257,6 @@ hr_x:       ds 1
 hr_x0:      ds 1
 hk_y:       ds 1
 sm_k:       ds 1
-rf_save:    ds 300
 bMI:        ds 1
 bMG:        ds 1
 bBI:        ds 1

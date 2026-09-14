@@ -762,7 +762,7 @@ L3960b:     ld   hl,s_help
 render_full:
             call disp_blank
             ld   hl,bKA                 ; переменные BASIC не должны меняться
-            ld   de,rf_save
+            ld   de,ARR_MG              ; MG — рабочий массив движка, вне хода противника свободен
             ld   bc,sMS-bKA
             call memcpy
             call cls1
@@ -812,7 +812,7 @@ rf_2:       ld   a,192
             ld   a,202
             ld   (bMY),a
             call msg_draw_my
-            ld   hl,rf_save
+            ld   hl,ARR_MG
             ld   de,bKA
             ld   bc,sMS-bKA
             call memcpy

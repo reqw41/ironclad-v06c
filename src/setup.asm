@@ -408,12 +408,19 @@ S3600b:     ld   (bRT),hl
             ex   de,hl
             ld   (sRN),hl
             ex   de,hl
-            ld   de,bTU                 ; TU,AM,XS,SV,FL,QS,BD
+            ld   de,rt_vars             ; TU,AM,XS,SV,FL,QS,BD — по своим переменным
             ld   b,7
-S3600c:     ld   a,(hl)
-            ld   (de),a
-            inc  hl
+S3600c:     push bc
+            ld   a,(de)
+            ld   c,a
             inc  de
+            ld   a,(de)
+            ld   b,a
+            inc  de
+            ld   a,(hl)
+            ld   (bc),a
+            inc  hl
+            pop  bc
             dec  b
             jp   nz,S3600c
 S3602:      ld   a,3                    ; DL=3: IF RP=6 THEN DL=1
@@ -641,6 +648,7 @@ qd_3:       pop  bc
             jp   c,qd_1
             ret
 
+rt_vars:    dw bTU,bAM,bXS,bSV,bFL,bQS,bBD
 ; 9100: наборы правил: RN$, TU,AM,XS,SV,FL,QS,BD, S1$,S2$,S3$
 RT_SIZE     equ 15
 rules_tab:  dw rs_salvo
