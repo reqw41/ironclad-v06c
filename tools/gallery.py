@@ -37,16 +37,23 @@ def variant(f, pal, n, forced, planes, blank_caps, title, tag):
     mp = M.mpal(pal); cnt = collections.Counter(c for r in px for c in r)
     top = cnt.most_common(1)[0][0]
     sl = M.pick_slots(cnt, mp, n, forced if forced else (top, 2))
+    if n == 5:                                   # самый редкий цвет — в слот 4 (старший бит)
+        cmt = M.cmap_of(sl, mp); use = collections.Counter(cmt[c] for r in px for c in r)
+        order = sorted(range(1, 5), key=lambda i: -use[i])
+        sl = [sl[0]] + [sl[i] for i in order]
     cm = M.cmap_of(sl, mp)
     size = zsize(M.vram_planes(px, cm, planes))
     save(px, lambda c: vrgb(M.vecbyte(mp[sl[cm[c]]])), tag + '.png')
     card('На Векторе: картинка в памяти (цвета Вектора)', tag + '.png', '%s — %d цв.' % (title, n), '%.1f КБ после ZX0' % (size / 1024))
 variant('IRONCLAD.SC5', M.PAL_MENU, 8, (5, 1, 2, 3, 10), 3, False, 'Титул (окно меню рисует программа)', 'vec_title8')
 variant('IRONCLAD.SC5', M.PAL_MENU, 4, (5, 1, 3), 2, False, 'Титул (цвета меню: фон, белый, серый + 1)', 'vec_title4')
+variant('IRONCLAD.SC5', M.PAL_MENU, 5, (5, 1, 3), 3, False, 'Титул (цвета меню: фон, белый, серый + 2)', 'vec_title5')
 variant('VICTORY.SC5', M.PAL_END, 4, None, 2, True, 'Победа (подписи печатает программа)', 'vec_victory4')
 variant('VICTORY.SC5', M.PAL_END, 8, None, 3, True, 'Победа', 'vec_victory8')
+variant('VICTORY.SC5', M.PAL_END, 5, None, 3, True, 'Победа', 'vec_victory5')
 variant('DEFEAT.SC5', M.PAL_END, 4, None, 2, True, 'Поражение (подписи печатает программа)', 'vec_defeat4')
 variant('DEFEAT.SC5', M.PAL_END, 8, None, 3, True, 'Поражение', 'vec_defeat8')
+variant('DEFEAT.SC5', M.PAL_END, 5, None, 3, True, 'Поражение', 'vec_defeat5')
 # кадры стенда, если есть
 for fn, t, n in (('build/sp_splash.png', 'Загрузочная заставка (заглушка, 16 цв.)', 'кадр стенда, образ 64 КБ'),
                  ('build/end_cap1.png', 'Экран победы в игре', 'кадр стенда: картинка 4 цв. + подписи'),
