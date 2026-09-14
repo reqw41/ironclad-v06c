@@ -20,6 +20,10 @@ LOWBSS      equ 0060h
             org  100h
 start:
             di
+            IFNDEF NOSPLASH
+            ld   sp,0060h               ; временный стек под $0100: $E000.. — заставка
+            call splash_show
+            ENDIF
             ld   sp,STACK_TOP
             ; обнулить BSS
             ld   hl,bss_start
@@ -89,6 +93,10 @@ rst0_code:  nop
             ret
 rst0_end:
 add_a_hl    equ 2
+            IFNDEF NOSPLASH
+            include "splash.asm"
+            include "../build/data/splash_pal.inc"
+            ENDIF
             include "vec.asm"
             include "gfx.asm"
             include "snd.asm"
@@ -163,5 +171,13 @@ ovl_end_end:
             SAVEBIN "build/ovl_end.bin", ovl_end, ovl_end_end-ovl_end
             ENDIF
 
+            IFNDEF NOSPLASH
+            ; образ 64 КБ: код с $0100, нули до $8000, экран заставки $8000..$FFFF
+            ; (записывается поверх нулей BSS в памяти ассемблера — в образ BSS не попадает)
+            org  8000h
+            incbin "../build/data/splash.bin"
+            SAVEBIN "build/ironclad.rom", 100h, 0FF00h
+            ELSE
             SAVEBIN "build/ironclad.rom", 100h, image_end-100h
+            ENDIF
             DISPLAY "образ: ", /D, image_end-100h, " Б (свободно до $8000: ", /D, 8000h-image_end, "); BSS: ", /D, bss_end-bss_start, " Б (свободно в $E000: ", /D, 10000h-bss_end, ")"

@@ -334,6 +334,26 @@ def vram_image(px, slotmap, planes):
                 v[p*0x2000 + col*256 + row] = b
     return v
 
+def best_order(name, px, pal, slots, planes):
+    """Порядок слотов 1..n-1 (слот 0 — фон — на месте), дающий самый короткий поток ZX0.
+    Цвета картинки те же, меняется только номер слота каждого цвета. Кэш — build/data/slotcache.json."""
+    import json, hashlib
+    cache_f = os.path.join(OUT, 'slotcache.json')
+    cache = json.load(open(cache_f)) if os.path.exists(cache_f) else {}
+    key = hashlib.md5((name + repr(slots) + repr(planes) + repr(px)).encode()).hexdigest()
+    if key in cache:
+        return cache[key]
+    best = None
+    for perm in itertools.permutations(range(1, len(slots))):
+        sl = [slots[0]] + [slots[i] for i in perm]
+        cm = cmap_of(sl, pal)
+        n = zx0('_try', vram_planes(px, cm, planes))
+        if best is None or n < best[0]:
+            best = (n, sl)
+    cache[key] = best[1]
+    json.dump(cache, open(cache_f, 'w'))
+    return best[1]
+
 IMG_COLORS = {'title': 8, 'victory': int(os.environ.get('VICTORY_COLORS', '4')), 'defeat': 4}
 
 def vram_planes(px, slotmap, planes):
@@ -354,13 +374,15 @@ def vram_planes(px, slotmap, planes):
 def build_images():
     res = {}
     pals = {}
-    # титул (8 цв., плоскости $8000..$C000): SETUP 3422 сразу стирает окно меню LINE(34,150)-(222,210),5,BF.
+    # титул (6 цв., плоскости $8000..$C000): SETUP 3422 сразу стирает окно меню LINE(34,150)-(222,210),5,BF.
     # Слот 0 = цвет 5 (фон меню и бордюр), обязательны цвета интерфейса меню 1, 2, 3 и 10 (подпись автора)
     t = load_sc5('IRONCLAD.SC5')
     line_bf(t, 34, 150, 222, 210, 5)
     mp = mpal(PAL_MENU)
     cnt = collections.Counter(c for r in t for c in r)
-    sl = pick_slots(cnt, mp, 8, (5, 1, 2, 3, 10))
+    # 6 цветов (решение владельца): цвета меню 5, 1, 3, огонь 11 и ещё два по картинке;
+    # самые редкие — в слоты 4, 5 (старший бит слота, плоскость $8000 почти пустая — лучше жмётся)
+    sl = best_order('title', t, mp, pick_slots(cnt, mp, 6, (5, 1, 3, 11)), 3)
     cm = cmap_of(sl, mp)
     res['title'] = zx0('title', vram_planes(t, cm, 3))
     pals['menu'] = (sl, cm)
@@ -376,6 +398,7 @@ def build_images():
         cnt = collections.Counter(c for r in px for c in r)
         top = cnt.most_common(1)[0][0]
         sl = pick_slots(cnt, ep, n, (top, 2))     # 2 — цвет «TAB:»/«SPACE:» в подписях
+        sl = best_order(nm, px, ep, sl, 2 if n == 4 else 3)
         cm = cmap_of(sl, ep)
         if n == 4:
             res[nm] = zx0(nm, vram_planes(px, cm, 2))
@@ -407,6 +430,51 @@ def build_palettes(pals):
     write('palettes.inc', '\n'.join(txt) + '\n')
     print('слоты: игра', GAME_SLOTS, 'меню', pals['menu'][0], 'победа', pals['victory'][0], 'поражение', pals['defeat'][0])
 
+# --------------------------------------------------------------------------- загрузочная заставка
+def build_splash():
+    """Экран 256x256 в 16 цветах, 4 плоскости = 32 КБ, лежит в образе .rom по адресам $8000..$FFFF
+    и виден прямо во время загрузки. Источник — data/splash.png (256x256, индексированный, 16 цветов:
+    индекс PNG = номер цвета Вектора, палитра PNG переводится в BBGGGRRR). Пока его нет — заглушка:
+    титул MSX (256x212 по центру, поля — цвет 5, QR закрашен цветом 5), палитра 3430."""
+    src = os.path.join(ROOT, 'data', 'splash.png')
+    v = bytearray(0x8000)
+    if os.path.exists(src):
+        im = Image.open(src)
+        assert im.size == (256, 256) and im.mode == 'P', 'splash.png: нужен индексированный 256x256'
+        pal = im.getpalette()[:48]
+        vp = []
+        for i in range(16):
+            r, g, b = pal[i*3:i*3+3]
+            vp.append(((round(b*3/255)) << 6) | (round(g*7/255) << 3) | round(r*7/255))
+        px = [[im.getpixel((x, y)) for x in range(256)] for y in range(256)]
+        assert max(max(r) for r in px) < 16, 'в splash.png больше 16 цветов'
+        rows = lambda row: px[255-row]
+        what = 'data/splash.png'
+    else:
+        t = load_sc5('IRONCLAD.SC5')
+        # QR (36,152)-(93,209) убран: на его место — зеркальная копия правой стороны
+        # (картинка почти симметрична относительно линкора)
+        for y in range(152, 210):
+            for x in range(36, 94):
+                t[y][x] = t[y][255 - x]
+        vp = pal16(PAL_MENU, 5)
+        def rows(row):
+            y = 255 - TOP - row
+            return t[y] if 0 <= y < 212 else [0]*256
+        what = 'заглушка из IRONCLAD.SC5'
+    for p in range(4):
+        for col in range(32):
+            for row in range(256):
+                line = rows(row)
+                b = 0
+                for i in range(8):
+                    if (line[col*8+i] >> (3-p)) & 1:
+                        b |= 0x80 >> i
+                v[p*0x2000 + col*256 + row] = b
+    open(os.path.join(OUT, 'splash.bin'), 'wb').write(v)
+    write('splash_pal.inc', '; палитра загрузочной заставки (%s)\nsplash_pal:\n' % what + db_lines(vp) + '\n')
+    print('заставка:', what)
+
 if __name__ == '__main__':
     os.makedirs(OUT, exist_ok=True)
     ver = open(os.path.join(REF, 'VERSION')).read().strip()
@@ -417,6 +485,7 @@ if __name__ == '__main__':
     nt, ng = build_tiles()
     im, pals = build_images()
     build_palettes(pals)
+    build_splash()
     print('тайлы %d Б, глифы %d Б, шрифт %d Б' % (nt, ng, nf))
     for k, v in im.items():
         print('%-8s %6d Б' % (k, v))
