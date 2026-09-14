@@ -2,11 +2,7 @@
 ; setup.asm — перевод ref/ironclad-msx/SETUP.BAS (меню). Метка Snnnn = строка nnnn.
 ; ============================================================================
 
-; «RUN "SETUP.BAS"»
-setup_main:
-setup_run:
-            ld   sp,STACK_TOP
-            call run_clear
+; Оверлей: исполняется с OVL_BASE (см. main.asm), вход — S110 (из setup_run, game.asm).
 S110:       ld   a,15                   ; SCREEN 5: COLOR 15,1,1
             ld   (gfx_fg),a
             ld   a,5                    ; 3406: COLOR 1,5,5 — фон текста 5

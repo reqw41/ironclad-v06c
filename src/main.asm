@@ -60,10 +60,10 @@ rvs_1:       ld   a,(hl)
             add  a,6
             ld   e,a
             jp   rvs_1
-rvs_2:       ld   hl,tiles_zx0           ; тайлы и глифы -> плоскость $E000, вертикальные — поворотом
-            ld   de,tiles_data
-            call dzx0
-            call rot_tiles
+rvs_2:
+            IFDEF LIBTEST
+            call tiles_load
+            ENDIF
             call vec_init
             ld   a,8
             ld   (gfx_pitch),a
@@ -97,7 +97,6 @@ add_a_hl    equ 2
             include "libtest.asm"
             ELSE
             include "page.asm"
-            include "setup.asm"
             include "game.asm"
             include "gdraw.asm"
             include "gai.asm"
@@ -123,6 +122,11 @@ img_title:  incbin "../build/data/title.zx0"
 img_defeat: incbin "../build/data/defeat.zx0"
 img_victory: incbin "../build/data/victory.zx0"
             ENDIF
+            IFNDEF LIBTEST
+            IFNDEF OVL_PASS1
+ovl_menu_zx0: incbin "../build/ovl_menu.zx0"   ; оверлей меню (последним: адреса выше не зависят от его размера)
+            ENDIF
+            ENDIF
 
 image_end:
             ASSERT image_end <= 8000h
@@ -133,6 +137,19 @@ bss_start:
 bss_end:
             ASSERT bss_end <= 0FF00h            ; 256 Б на стек
             ASSERT bMI-bKA <= 288               ; render_full сохраняет скаляры в ARR_MG
+
+            IFNDEF LIBTEST
+            ; ---------------------------------------------------------------- оверлей меню
+            ; SETUP.BAS исполняется из области тайлов (в меню тайлы не рисуются; game_run
+            ; распаковывает их заново). build.sh: проход 1 (-DOVL_PASS1) пишет build/ovl_menu.bin,
+            ; salvador сжимает его в build/ovl_menu.zx0, проход 2 кладёт сжатое в образ.
+            org  OVL_BASE
+ovl_menu:
+            include "setup.asm"
+ovl_menu_end:
+            ASSERT ovl_menu_end <= OVL_END
+            SAVEBIN "build/ovl_menu.bin", ovl_menu, ovl_menu_end-ovl_menu
+            ENDIF
 
             SAVEBIN "build/ironclad.rom", 100h, image_end-100h
             DISPLAY "образ: ", /D, image_end-100h, " Б (свободно до $8000: ", /D, 8000h-image_end, "); BSS: ", /D, bss_end-bss_start, " Б (свободно в $E000: ", /D, 10000h-bss_end, ")"
