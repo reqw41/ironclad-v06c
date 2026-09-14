@@ -113,29 +113,18 @@ L1811:      LDV  bHY                ; IF PM(HX,HY)=2 THEN 1814 ELSE найти �
 L1814:      ld   hl,-1
             ld   (bNB),hl
             ZEROV bD
-L1814a:     LDV  bD                 ; U1=1-D: V1=D: A=HX: B=HY
-            ld   b,a
-            ld   a,1
-            sub  b
-            STV  bU1
-            ld   a,b
-            STV  bV1
+L1814a:     call uv_d                   ; U1=1-D: V1=D: A=HX: B=HY
             LDV  bHX
             STV  bA
             LDV  bHY
             STV  bB
-L1815:      LDV  bU1                ; назад по линии попаданий
-            ld   c,a
-            LDV  bA
-            sub  c
+L1815:      call ab_m                   ; назад по линии попаданий: (A-U1, B-V1)
+            ld   a,d
+            or   a
             jp   m,L1816
-            ld   d,a
-            LDV  bV1
-            ld   c,a
-            LDV  bB
-            sub  c
+            ld   a,e
+            or   a
             jp   m,L1816
-            ld   e,a
             push de
             ld   a,d
             call pm_xy
@@ -151,20 +140,13 @@ L1816:      LDV  bHX
             STV  bC
             LDV  bHY
             STV  bR
-L1817:      LDV  bU1                ; вперёд
-            ld   c,a
-            LDV  bC
-            add  a,c
+L1817:      call cr_p                   ; вперёд: (C+U1, R+V1)
+            ld   a,d
             cp   10
             jp   nc,L1818
-            ld   d,a
-            LDV  bV1
-            ld   c,a
-            LDV  bR
-            add  a,c
+            ld   a,e
             cp   10
             jp   nc,L1818
-            ld   e,a
             push de
             ld   a,d
             call pm_xy
@@ -189,15 +171,10 @@ L1818:      LDV  bA                 ; S=C-A+R-B+1: E1=0: U=A-U1: V=B-V1
             inc  a
             STV  bS
             ZEROV bE1
-            LDV  bU1
-            ld   b,a
-            LDV  bA
-            sub  b
+            call ab_m
+            ld   a,d
             STV  bU
-            LDV  bV1
-            ld   b,a
-            LDV  bB
-            sub  b
+            ld   a,e
             STV  bV
 L1819:      LDV  bU
             or   a
@@ -216,15 +193,10 @@ L1819:      LDV  bU
             call uv_minus
             jp   L1819
 L1820:      ZEROV bE2  ; E2=0: U=C+U1: V=R+V1
-            LDV  bU1
-            ld   b,a
-            LDV  bC
-            add  a,b
+            call cr_p
+            ld   a,d
             STV  bU
-            LDV  bV1
-            ld   b,a
-            LDV  bR
-            add  a,b
+            ld   a,e
             STV  bV
 L1821:      CPV  bU,10
             jp   nc,L1822
@@ -243,20 +215,8 @@ L1821:      CPV  bU,10
 L1822:      LDV  bE1                ; IF E1=0 THEN 1830 ELSE X=A-U1: Y=B-V1
             or   a
             jp   z,L1830
-            LDV  bU1
-            ld   b,a
-            LDV  bA
-            sub  b
-            call st_x
-            LDV  bV1
-            ld   b,a
-            LDV  bB
-            sub  b
-            call st_y
-            LDV  bY
-            ld   e,a
-            LDV  bX
-            call open_xy
+            call ab_m
+            call st_xy_de
             jp   nz,L1830
 L1823:      LDV  bE1                ; счёт мест: M<=E1, T=L-E2
             ld   b,a
@@ -267,20 +227,8 @@ L1827:      call hs_take
 L1830:      LDV  bE2
             or   a
             jp   z,L1839
-            LDV  bU1
-            ld   b,a
-            LDV  bC
-            add  a,b
-            call st_x
-            LDV  bV1
-            ld   b,a
-            LDV  bR
-            add  a,b
-            call st_y
-            LDV  bY
-            ld   e,a
-            LDV  bX
-            call open_xy
+            call cr_p
+            call st_xy_de
             jp   nz,L1839
 L1831:      LDV  bE2
             ld   b,a
@@ -416,6 +364,45 @@ L1890:      LDV  bD                 ; U1,V1 по направлению D (D=4 �
 L1891:      ret
 t1890:      db -1,0, 1,0, 0,-1, 0,1, 0,1
 
+; U1=1-D: V1=D
+uv_d:       LDV  bD
+            ld   b,a
+            ld   a,1
+            sub  b
+            STV  bU1
+            ld   a,b
+            STV  bV1
+            ret
+; D = A-U1, E = B-V1 / D = C+U1, E = R+V1 (портят C)
+ab_m:       LDV  bU1
+            ld   c,a
+            LDV  bA
+            sub  c
+            ld   d,a
+            LDV  bV1
+            ld   c,a
+            LDV  bB
+            sub  c
+            ld   e,a
+            ret
+cr_p:       LDV  bU1
+            ld   c,a
+            LDV  bC
+            add  a,c
+            ld   d,a
+            LDV  bV1
+            ld   c,a
+            LDV  bR
+            add  a,c
+            ld   e,a
+            ret
+; X=D: Y=E (слова со знаком); Z, если открытая вода
+st_xy_de:   ld   a,d
+            call st_x
+            ld   a,e
+            call st_y
+            ld   a,d
+            jp   open_xy
 ; U=U-U1: V=V-V1 / U=U+U1: V=V+V1
 uv_minus:   LDV  bU1
             ld   b,a
@@ -888,13 +875,7 @@ nb_hit2:    call pm_xy
 L1960:      ld   hl,0
             ld   (bSC),hl
             ZEROV bD
-L1960a:     LDV  bD                 ; U1=1-D: V1=D: A=0: C=X-U1: R=Y-V1: GA(0,0)=0
-            ld   b,a
-            ld   a,1
-            sub  b
-            STV  bU1
-            ld   a,b
-            STV  bV1
+L1960a:     call uv_d                   ; U1=1-D: V1=D: A=0: C=X-U1: R=Y-V1: GA(0,0)=0
             ZEROV bA
             ld   hl,0
             ld   (ARR_GA),hl
