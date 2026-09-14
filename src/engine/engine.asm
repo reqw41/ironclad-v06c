@@ -29,14 +29,15 @@
 ; USR6 (samp1) в оригинале никем не вызывался — выброшен.
 ;
 ; Регистры и флаги на входе/выходе не сохраняются (как и в оригинале).
-; Стек — 18 байт с адресом возврата.  Прерывания не запрещаются, код не
+; Стек — 24 байта с адресом возврата.  Прерывания не запрещаются, код не
 ; самомодифицируется.
 ; Идиомы замены: djnz -> dec b/jp nz (dec b ставит Z, но не трогает CY;
 ; djnz не трогал ничего — после каждой замены проверено, что за циклом флаги
 ; не читаются); jr -> jp; sbc hl,rr -> вычитание через A; ld rr,(nn) для
 ; BC/DE -> через HL и ex de,hl; ldir -> fill4.
-; Где счёт переделан ради скорости (scan, kill1, pickn, pldraw, div16) —
-; итоговое состояние то же, что у оригинала; см. docs/ENGINE.md.
+; Код ужат по размеру ценой скорости (скорость хода не требуется).  Где счёт
+; отличается от оригинала (scan, kill1, общие переборы fork/forcr/p9best,
+; метка соседей в place) — итоговое состояние то же; см. docs/ENGINE.md.
 ; Гейт: node tools/engine_diff/run.js (сверка с Z80-оригиналом).
 ; ============================================================================
 
@@ -48,17 +49,30 @@ NSH_CL          equ     5               ; кораблей в SALVO / BARRAGE
 NSH_SP          equ     7               ; кораблей в SALVO PLUS
 
 ; ---------------------------------------------------------------- пролог
-; vNS1 = NSHIPS+1 по флагу eng_sp (заменяет константу NSHIPS оригинала)
-setup:
-                ld      a,(eng_sp)
-                or      a
-                ld      a,NSH_CL+1
-                jp      z,setup1
-                ld      a,NSH_SP+1
-setup1:
-                ld      (vNS1),a
+; A = NSHIPS по флагу eng_sp (заменяет константу NSHIPS оригинала)
+nsh:
+                ld      a,(eng_sp)      ; 0 / 1
+                add     a,a
+                add     a,NSH_CL        ; 5 / 7
+                ret
+                ASSERT  NSH_SP == NSH_CL+2
+
+; карта выстрелов живёт в первых 144 байтах MG; её чистят только fold и kill1
+; (заодно vMODE = 0).  Сохраняет HL; A = 0.
+clrmap:
+                push    hl
+                ld      hl,ARR_MG
+                call    clr144
+                ld      (vMODE),a
+                pop     hl
                 ret
 
+; плоскость меток MO
+clrmo:
+                ld      hl,MOBUF
+clr144:
+                ld      b,144/4
+                xor     a
 ; HL = адрес, B = число байт / 4 (0 = 1024), A = значение.  Сохраняет C, DE.
 fill4:
                 ld      (hl),a
@@ -73,235 +87,49 @@ fill4:
                 jp      nz,fill4
                 ret
 
-; карта выстрелов живёт в первых 144 байтах MG; её чистят только fold и kill1
-clrmap:
-                ld      hl,ARR_MG
-                ld      b,144/4
-                xor     a
-                jp      fill4
-
-; плоскость меток MO
-clrmo:
-                ld      hl,MOBUF
-                ld      b,144/4
-                xor     a
-                jp      fill4
-
 ; ST = ST + 1 с переносом: 0 значит «не помечено», при переполнении плоскость
 ; стирается и счёт начинается с 1
 bumpst:
-                ld      a,(vST)
-                inc     a
-                jp      nz,bst1
-                call    clrmo
-                ld      a,1
-bst1:
-                ld      (vST),a
+                ld      hl,vST
+                inc     (hl)
+                ret     nz
+                call    clrmo           ; HL -> vST (он сразу за MO)
+                inc     (hl)
                 ret
 
-; ---------------------------------------------------------------- USR0: fold
-@eng_fold:
-                push    hl
-                call    setup
-                call    clrmap
-                xor     a
-                ld      (vMODE),a
-                pop     hl
-                ld      a,l             ; NS
-                and     0Fh
-                ret     z
-                ld      b,a
-                ld      c,0
-fmark:
-                push    bc
-                ld      a,c
-                ld      hl,ARR_TX
-                call    getel
-                push    af
-                ld      a,c
-                ld      hl,ARR_TY
-                call    getel
-                ld      e,a
-                pop     af
-                ld      d,a
-                call    mapptr
-                ld      (hl),1
-                pop     bc
-                inc     c
-                dec     b
-                jp      nz,fmark
-
+; для K = 1..NSHIPS (vK) зовёт обработчик (DE); в конце vK = NSHIPS+1
+fork:
                 ld      a,1
                 ld      (vK),a
-fship:
-                ld      a,(vK)
-                ld      hl,ARR_HK
-                call    getel
-                ld      (vH),a
-                call    scan
+fk1:
+                push    de
+                call    jpde
+                pop     de
                 ld      hl,vK
                 inc     (hl)
-                ld      a,(hl)
-                inc     hl              ; vNS1
-                cp      (hl)
-                jp      c,fship
+                call    nsh
+                cp      (hl)            ; NC = vK <= NSHIPS (продолжать)
+                jp      nc,fk1
                 ret
 
 ; ------------------------------------------------- USR1: снять покрытие клетки
 ; Оригинал ставил в карту выстрелов одну клетку и гнал scan по всем 20W
 ; кандидатам корабля KN с H=0 — погибал каждый живой, покрывающий клетку.
-; Здесь сразу только покрывающие: не больше LK поперёк и LK вниз, в том же
-; порядке (поперёк по X, затем вниз по Y).  Итог тот же, включая vFAP =
-; FA(OS+20W), vSTEP = 1, vLK, vW, карту в MG и vIDX: оригинал писал его для
-; КАЖДОГО живого кандидата перед проверкой, так что это индекс последнего
-; живого кандидата корабля в порядке scan (klast).
+; Здесь cand (тот же режим 0, та же карта) зовётся только для живых из двух
+; строк FA, где лежат все покрывающие: поперёк — строка Y = y0 (W штук),
+; вниз — столбец X = x0 (W штук); непокрывающих отсеет сумма карты.  Итог
+; тот же, включая vFAP = FA(OS+20W), vSTEP = 1, vLK, vW, карту в MG и vIDX:
+; оригинал писал его для КАЖДОГО живого кандидата перед проверкой, так что
+; это индекс последнего живого кандидата корабля в порядке scan (klast).
 @eng_kill1:
-                push    hl
                 call    clrmap
-                xor     a
-                ld      (vMODE),a
                 ld      (vH),a
-                pop     hl
+                push    hl
                 ld      a,h
                 ld      (vK),a
-                ld      a,l
-                rrca
-                rrca
-                rrca
-                rrca
-                and     0Fh
-                ld      d,a             ; U
-                ld      a,l
-                and     0Fh
-                ld      e,a             ; V
-                push    de
-                call    mapptr
-                ld      (hl),1          ; карта, как у оригинала
-                ld      a,(vK)
-                ld      hl,ARR_SZ
-                call    getel
-                ld      (vLK),a
+                ld      a,20            ; klast: последний живой из 20W
+                call    famw            ; HL -> FA(OS+20W), A = 20W
                 ld      b,a
-                ld      a,11
-                sub     b
-                ld      (vW),a
-                ld      a,(vK)
-                ld      hl,ARR_CC
-                call    elptr
-                ld      (vKCC),hl       ; -> CC(K)
-                ld      a,(vK)
-                ld      hl,ARR_OS
-                call    getel16
-                ld      hl,FABUF
-                add     hl,de
-                ld      (vKFA),hl       ; -> FA(OS(K))
-                ld      a,(vW)          ; vFAP = FA(OS + 20W): где scan кончал
-                add     a,a
-                add     a,a
-                ld      b,a
-                add     a,a
-                add     a,a
-                add     a,b
-                ld      e,a
-                ld      d,0
-                add     hl,de
-                ld      (vFAP),hl
-                call    klast
-                ld      hl,1
-                ld      (vSTEP),hl
-                pop     de              ; клетка карты (U+1)*12 + (V+1) —
-                ld      a,e             ; строка/столбец с полями
-                inc     a
-                ld      c,a
-                ld      a,d
-                inc     a
-                ld      b,a
-                ld      a,c
-                cp      12
-                jp      c,k1a
-                sub     12              ; V+1 >= 12: индекс ушёл в соседний столбец
-                ld      c,a
-                inc     b
-k1a:
-                ld      a,c
-                dec     a
-                cp      10
-                ret     nc              ; клетка поля — кандидаты её не покрывают
-                ld      (vKY),a         ; y0
-                ld      e,a
-                ld      a,b
-                dec     a
-                cp      10
-                ret     nc
-                ld      (vKX),a         ; x0
-                ld      d,a
-; --- поперёк: Y = y0, X от max(0, x0-LK+1) до min(x0, W-1)
-                call    krange          ; C = от, D = сколько
-                ld      a,(vW)
-                ld      b,a
-                ld      a,(vKY)
-                call    mul8            ; y0*W
-                add     a,c
-                call    kfa             ; HL -> FA(OS + y0*W + X)
-                ld      a,c             ; индекс: 12X + y0 + 13
-                add     a,a
-                add     a,c
-                add     a,a
-                add     a,a
-                ld      b,a
-                ld      a,(vKY)
-                add     a,b
-                add     a,13
-                ld      e,a
-                ld      c,12
-k1ac:
-                call    kc
-                inc     hl
-                ld      a,e
-                add     a,12
-                ld      e,a
-                dec     d
-                jp      nz,k1ac
-; --- вниз: X = x0, Y от max(0, y0-LK+1) до min(y0, W-1)
-                ld      a,(vKY)
-                ld      d,a
-                call    krange
-                ld      a,(vW)
-                ld      b,a
-                ld      a,(vKX)
-                add     a,10
-                call    mul8            ; (10 + x0)*W
-                add     a,c
-                call    kfa             ; HL -> FA(OS + 10W + x0*W + Y)
-                ld      a,(vKX)         ; индекс: 12*x0 + Y + 13
-                ld      b,a
-                add     a,a
-                add     a,b
-                add     a,a
-                add     a,a
-                add     a,c
-                add     a,13
-                ld      e,a
-                ld      c,1
-k1dc:
-                call    kc
-                inc     hl
-                inc     e
-                dec     d
-                jp      nz,k1dc
-                ret
-
-; HL = FA(OS+20W) -> vIDX = индекс первой клетки последнего живого
-; кандидата (нет живых — vIDX не меняется)
-klast:
-                ld      a,(vW)
-                add     a,a
-                add     a,a
-                ld      b,a
-                add     a,a
-                add     a,a
-                add     a,b
-                ld      b,a             ; 20W
 kl1:
                 dec     hl
                 ld      a,(hl)
@@ -309,242 +137,210 @@ kl1:
                 jp      nz,klhit
                 dec     b
                 jp      nz,kl1
-                ret
-klhit:
-                ld      a,b
-                dec     a
-                ld      l,a             ; j
-                ld      a,(vW)
-                ld      c,a
-                add     a,a
-                add     a,a
-                add     a,c
-                add     a,a
-                ld      b,a             ; 10W
-                ld      a,l
-                cp      b
-                jp      c,klac
-                sub     b               ; вниз: X = j'/W, Y = j' mod W
-                ld      l,a
-                call    divsm
+                ld      hl,(vIDX)       ; живых нет — vIDX не меняется
                 jp      klset
-klac:
-                call    divsm           ; поперёк: Y = j/W, X = j mod W
-                ld      d,a
-                ld      a,e
-                ld      e,d
-klset:
-                call    pidx            ; HL = 12X + Y + 13
-                ld      (vIDX),hl
-                ret
-
-; D = координата клетки по оси корабля -> C = max(0, D-LK+1),
-; D = min(D, W-1) - C + 1 (не меньше 1 при W >= 1)
-krange:
-                ld      a,(vLK)
-                ld      b,a
-                ld      a,d
-                inc     a
-                sub     b
-                jp      nc,kr1
-                xor     a
-kr1:
-                ld      c,a
-                ld      a,(vW)
-                dec     a
-                cp      d
-                jp      c,kr2           ; W-1 < D
-                ld      a,d
-kr2:
-                sub     c
-                inc     a
-                ld      d,a
-                ret
-
-; A = A * B (произведение < 256).  Сохраняет BC, HL.
-mul8:
-                ld      e,a
-                xor     a
-                inc     e
-m8l:
-                dec     e
-                ret     z
-                add     a,b
-                jp      m8l
-
-; HL = vKFA + A
-kfa:
-                ld      hl,(vKFA)
-                add     a,l
-                ld      l,a
-                ret     nc
-                inc     h
-                ret
-
-; HL -> FA кандидата, E = индекс первой клетки, C = шаг.  Живого убивает
-; (как cand оригинала): FA = 0, CC(K)-1, MC клеток -1.
-; Сохраняет C, DE, HL.
-kc:
-                ld      a,(hl)
-                or      a
-                ret     z
-                ld      (hl),0
-                push    hl
-                push    de
-                ld      d,0
-                ld      hl,(vKCC)
-                ld      a,(hl)
-                sub     1
-                ld      (hl),a
-                inc     hl
-                ld      a,(hl)
-                sbc     a,0
-                ld      (hl),a
-                ld      hl,MCBUF
-                add     hl,de
-                ld      e,c             ; DE = шаг
-                ld      a,(vLK)
-                ld      b,a
-kcmc:
-                dec     (hl)
-                add     hl,de
+klhit:
                 dec     b
-                jp      nz,kcmc
-                pop     de
+                ld      a,b             ; j
+                call    jdec            ; HL = индекс первой клетки
+klset:
+                ex      (sp),hl         ; HL = аргумент, в стеке — индекс для vIDX
+                ld      a,l
+                and     0Fh
+                ld      e,a             ; V
+                ld      a,l
+                rrca
+                rrca
+                rrca
+                rrca
+                and     0Fh
+                ld      d,a             ; U
+                call    mapptr          ; A = (U+1)*12 + (V+1), HL -> карта
+                ld      (hl),1          ; карта, как у оригинала
+                ld      l,a
+                ld      c,12
+                call    divsm           ; A = x0+1, E = y0+1 (V+1 >= 12 — соседний столбец)
+                dec     a
+                cp      10
+                jp      nc,k1end        ; клетка поля — кандидаты её не покрывают
+                ld      b,a             ; x0
+                ld      a,e
+                dec     a
+                cp      10
+                jp      nc,k1end
+                push    bc
+                call    krow            ; поперёк: строка FA номер y0
+                pop     bc
+                ld      a,b
+                add     a,10
+                call    krow            ; вниз: строка FA номер 10 + x0
+k1end:
                 pop     hl
+                ld      (vIDX),hl
+                ld      hl,1
+                ld      (vSTEP),hl
+                ld      a,20
+                call    famw
+                ld      (vFAP),hl       ; где scan кончал
+                ret
+
+; kill1: A = m — номер строки FA корабля (W кандидатов подряд); её живые ->
+; cand.  Портит всё.
+krow:
+                call    famw            ; HL -> FA(OS + m*W), A = j первого
+                push    hl
+                call    jdec            ; HL = индекс, B = шаг
+                ld      e,l
+                ld      a,b
+                pop     hl
+                ld      c,1
+                jp      shrows
+
+; A = m -> HL -> FA(OS(K) + m*W), A = m*W (байт); ставит vLK, vW.
+famw:
+                ld      b,a
+                call    shipset         ; HL -> FA(OS(K)); BC сохранён
+                ld      a,(vW)          ; W >= 1: m*W = m, сложенное W раз
+                ld      c,a
+                xor     a
+fm1:
+                add     a,b
+                dec     c
+                jp      nz,fm1
+                ld      e,a
+                ld      d,0
+                add     hl,de
+                ret
+
+; корабль vK: vLK = SZ(K), vW = 11 - LK; DE = OS(K), HL -> FA(OS(K)).
+; Сохраняет BC.
+shipset:
+                ld      hl,ARR_SZ
+                call    kel
+                ld      (vLK),a
+                cpl
+                add     a,12            ; 11 - LK
+                ld      (vW),a
+                ld      hl,ARR_OS
+                call    kel16
+                ld      hl,FABUF
+                add     hl,de
                 ret
 
 ; -------------------------------------------------- USR3: NF лучших клеток
 ; Добивание: vKL = корабль (или 255 = все) — его живые клетки получают вес
 ; 2000 до выбора; vKL обнуляется.
 @eng_pickn:
-                call    setup
                 ld      a,(vKL)
                 or      a
                 jp      z,pknorm
-                ld      b,a
-                ld      a,1
-                ld      (vMODE),a
-                ld      hl,2000
-                ld      (vWT),hl
-                ld      a,b
-                cp      255
-                jp      nz,pkone
-                ld      a,1
-pkall:
-                ld      (vK),a
-                push    af
-                call    scan
-                pop     af
+                ld      b,a             ; корабли от B до C
+                ld      c,a
                 inc     a
-                ld      hl,vNS1
-                cp      (hl)
-                jp      c,pkall
-                jp      pkdone
-pkone:
+                jp      nz,pkl          ; не 255: один
+                ld      b,1             ; 255: все
+                call    nsh
+                ld      c,a
+pkl:
+                ld      a,b
                 ld      (vK),a
-                call    scan
-pkdone:
-                xor     a
-                ld      (vMODE),a
-                ld      (vKL),a
-pknorm:
-                xor     a
-                ld      (vT),a
-; Клетки P9 = 13..130: указатель в HL, лучший счёт BS в BC; vBS, vP9 = 131
-; и vBXW (при каждом новом лучшем) пишутся, как у оригинала.
-pnshot:
-                ld      bc,-1           ; BS = -1
-                ld      hl,ARR_MG+2*13
-pncell:
-                ld      e,(hl)
-                inc     hl
-                ld      d,(hl)          ; DE = MG(P9)
-                inc     hl
-                ld      a,b             ; MG(P9) > BS (со знаком)?
-                xor     d
-                jp      m,pndiff
-                ld      a,c             ; знаки равны: беззнаково
-                sub     e
+                push    bc
+                ld      hl,2000
+                call    scanwt
+                pop     bc
                 ld      a,b
-                sbc     a,d
-                jp      nc,pnnext       ; равные: остаётся более ранняя
-                jp      pnnew
-pndiff:
-                ld      a,d             ; знаки разные: больше, если MG >= 0
-                or      a
-                jp      m,pnnext
-pnnew:
-                ld      b,d
-                ld      c,e
-                push    hl
-                ld      de,-(ARR_MG+2)  ; BXW = (HL-2 - ARR_MG)/2
-                add     hl,de
-                ld      a,h
-                or      a
-                rra
-                ld      h,a
-                ld      a,l
-                rra
-                ld      l,a
-                ld      (vBXW),hl
-                pop     hl
-pnnext:
-                ld      a,l             ; 118 слов < 256 байт: младший байт
-                cp      low (ARR_MG+2*131)  ; адреса конца однозначен
-                jp      nz,pncell
-                ld      h,b
-                ld      l,c
-                ld      (vBS),hl
-                ld      hl,131
-                ld      (vP9),hl
-
-                ld      hl,(vBXW)       ; BX -> столбец и строка
-                ld      b,0
-                ld      de,-12
-pndiv:
-                add     hl,de           ; CY <=> HL >= 12 (до вычитания)
-                jp      nc,pndone
                 inc     b
-                jp      pndiv
-pndone:
-                ld      de,12
-                add     hl,de           ; остаток
-                dec     b               ; B = X
-                ld      a,l
-                dec     a
-                ld      c,a             ; C = Y
-                ld      a,(vT)
-                ld      hl,ARR_TX
-                call    elptr
-                ld      (hl),b          ; со знаком: клетка поля даёт -1
-                inc     hl
-                ld      a,b
-                rla
-                sbc     a,a
-                ld      (hl),a
-                ld      a,(vT)
-                ld      hl,ARR_TY
-                call    elptr
-                ld      (hl),c
-                inc     hl
-                ld      a,c
-                rla
-                sbc     a,a
-                ld      (hl),a
+                cp      c
+                jp      nz,pkl
+                xor     a
+                ld      (vKL),a
+pknorm:                                 ; A = 0 (и после jp z — vKL = 0)
+                ld      (vT),a
+; клетки P9 = 13..130: наибольший MG (со знаком; из равных — более ранняя)
+pnshot:
+                ld      de,pnh
+                call    p9best
                 ld      hl,(vBXW)       ; MG(BX) = -9
-                add     hl,hl
-                ld      de,ARR_MG
-                add     hl,de
+                call    mgat
                 ld      (hl),-9
                 inc     hl
                 ld      (hl),-1
+                ld      a,(vBXW)        ; BX (<= 130) -> столбец и строка
+                ld      l,a
+                ld      c,12
+                call    divsm           ; A = X+1, E = Y+1
+                dec     a
+                ld      b,a             ; X (клетка поля даёт -1)
+                dec     e
+                ld      c,e             ; Y
+                call    stnext
+                jp      c,pnshot
+                ret
+
+; pickn: HL -> MG(P9) -> CY = MG(P9) > BS (со знаком), HL = MG(P9)
+pnh:
+                ld      e,(hl)
+                inc     hl
+                ld      d,(hl)
+                ld      hl,(vBS)
+                call    sgt
+                ex      de,hl
+                ret
+
+; Лучшая клетка P9 = 13..130, как в циклах pickn/probesel оригинала: BS = -1,
+; для каждой P9 зовётся обработчик (DE) с HL -> MG(P9); он возвращает CY =
+; «лучше», HL = счёт — тогда BS = счёт, BXW = P9.  В конце vP9 = 131.
+p9best:
+                ld      hl,-1
+                ld      (vBS),hl
+                ld      hl,13
+p9cell:
+                ld      (vP9),hl
+                push    de
+                call    mgat
+                call    jpde
+                pop     de
+                jp      nc,p9next
+                ld      (vBS),hl
+                ld      hl,(vP9)
+                ld      (vBXW),hl
+p9next:
+                ld      hl,(vP9)
+                inc     hl
+                ld      a,l
+                cp      131
+                jp      nz,p9cell
+                ld      (vP9),hl
+                ret
+jpde:
+                push    de
+                ret
+
+; TX(T) = B, TY(T) = C (слова со знаком); T += 1; CY = T < NF
+stnext:
+                ld      a,b
+                ld      hl,ARR_TX
+                call    st1
+                ld      a,c
+                ld      hl,ARR_TY
+                call    st1
                 ld      hl,vT
                 inc     (hl)
                 ld      a,(hl)
                 ld      hl,vNF
                 cp      (hl)
-                jp      c,pnshot
+                ret
+; HL[vT] = A со знаком.  Сохраняет BC.
+st1:
+                push    af
+                ld      a,(vT)
+                call    elptr
+                pop     af
+                ld      (hl),a
+                inc     hl
+                rla
+                sbc     a,a
+                ld      (hl),a
                 ret
 
 ; CY = 1, если DE > HL (16 бит со знаком).  Портит A.
@@ -556,6 +352,43 @@ sgt:
                 rla                     ; CY = знак DE
                 ccf                     ; DE >= 0 > HL
                 ret
+
+; probesel: HL -> MG(P9) -> CY = клетка в игре, покрыта (n = MO(P9) > 0) и
+; |2n - CC| < BS (без знака); HL = |2n - CC|
+psh:
+                inc     hl
+                ld      a,(hl)
+                rla
+                ccf
+                ret     nc              ; клетка вне игры
+                ld      hl,(vP9)
+                ld      de,MOBUF
+                add     hl,de
+                ld      a,(hl)
+                or      a
+                ret     z               ; NC
+                add     a,a             ; 2n (в байте, как в оригинале)
+                ld      e,a
+                ld      d,0
+                ld      hl,(vCCK)
+                ld      a,l             ; HL = CC - 2n
+                sub     e
+                ld      l,a
+                ld      a,h
+                sbc     a,d
+                ld      h,a
+                jp      nc,psabs
+                xor     a               ; |2n - CC| = 0 - HL
+                sub     l
+                ld      l,a
+                sbc     a,a
+                sub     h
+                ld      h,a
+psabs:
+                ex      de,hl
+                ld      hl,(vBS)
+                ex      de,hl
+                                        ; CY <=> |d| < BS — sgt1 (ниже)
 sgt1:
                 ld      a,l
                 sub     e
@@ -573,18 +406,25 @@ sgt1:
 extshot:
                 ld      hl,-1
                 ld      (vBS),hl
-                xor     a
-                ld      (vC),a
-extcol:
-                xor     a
-                ld      (vR),a
-                ld      e,a
-                ld      a,(vC)          ; P9 = C*12 + 13
+                ld      de,extcell
+                call    forcr
+                ld      hl,(vBX)        ; метка MO(BX*12 + BY + 13)
+                ld      b,l
+                ld      c,h
+                ld      e,h
+                ld      a,l
                 call    pidx
+                ld      de,MOBUF
+                add     hl,de
+                ld      a,(vST)
+                ld      (hl),a
+                call    stnext          ; TX(T) = BX, TY(T) = BY
+                jp      c,extshot
+                ld      hl,131          ; vP9: где кончал перебор оригинала
                 ld      (vP9),hl
-extcell:
-                call    pmtest          ; PM(C,R) должно быть 0
-                jp      nz,extnext
+                ret
+
+extcell:                                ; PM(C,R) = 0; HL = 2*(C+10R)
                 ld      a,(eng_sp)      ; SALVO PLUS: BZ(C,R)=3 — доказанная
                 or      a               ; пустая вода, туда не стреляем
                 jp      z,extmo
@@ -592,46 +432,27 @@ extcell:
                 add     hl,de
                 ld      a,(hl)
                 cp      3
-                jp      z,extnext
+                ret     z
 extmo:
-                ld      hl,(vP9)        ; MO(P9) не должно нести метку хода
+                call    padidx          ; MO(P9) не должно нести метку хода
                 ld      de,MOBUF
                 add     hl,de
                 ld      a,(vST)
                 cp      (hl)
-                jp      z,extnext
-
-                ld      hl,(vP9)        ; SC = MC(P9)*8
-                ld      de,MCBUF
-                add     hl,de
-                ld      l,(hl)
-                ld      h,0
-                add     hl,hl
-                add     hl,hl
-                add     hl,hl
+                ret     z
+                call    mc8             ; SC = MC(P9)*8 + дрожание
                 ld      a,(vRD)
-                ld      b,a
-                call    jit
-                ld      e,a
-                ld      d,0
-                add     hl,de
-                ld      a,(vRIM)        ; бонусы края: случайная «личность»
-                ld      b,a             ; и выученная привычка
-                ld      a,(SMEMB)
-                or      b
-                jp      z,extsc
-                ld      a,(vC)
-                or      a
-                jp      z,extrim
-                cp      9
-                jp      z,extrim
+                call    jadd
+                ld      a,(vC)          ; край: C или R = 0 или 9
+                dec     a
+                cp      8
+                jp      nc,extrim
                 ld      a,(vR)
-                or      a
-                jp      z,extrim
-                cp      9
-                jp      nz,extsc
+                dec     a
+                cp      8
+                jp      c,extsc
 extrim:
-                ld      a,b             ; +192, если личность — край
+                ld      a,(vRIM)        ; +192, если личность — край
                 or      a
                 jp      z,extmem
                 ld      de,192
@@ -646,211 +467,209 @@ extsc:
                 ex      de,hl           ; DE = SC
                 ld      hl,(vBS)
                 call    sgt             ; SC > BS ?
-                jp      nc,extnext
+                ret     nc
                 ex      de,hl
                 ld      (vBS),hl
-                ld      a,(vC)
-                ld      (vBX),a
-                ld      a,(vR)
-                ld      (vBY),a
-extnext:
-                ld      hl,(vP9)
-                inc     hl
-                ld      (vP9),hl
-                ld      hl,vR
-                inc     (hl)
-                ld      a,(hl)
-                cp      10
-                jp      c,extcell
-                ld      hl,vC
-                inc     (hl)
-                ld      a,(hl)
-                cp      10
-                jp      c,extcol
-
-                ld      a,(vT)          ; TX(T) = BX, TY(T) = BY
-                ld      hl,ARR_TX
-                call    elptr
-                ld      a,(vBX)
-                ld      (hl),a
-                inc     hl
-                ld      (hl),0
-                ld      a,(vT)
-                ld      hl,ARR_TY
-                call    elptr
-                ld      a,(vBY)
-                ld      (hl),a
-                inc     hl
-                ld      (hl),0
-                ld      a,(vBY)         ; метка MO(BX*12 + BY + 13)
-                ld      e,a
-                ld      a,(vBX)
-                call    pidx
-                ld      de,MOBUF
-                add     hl,de
-                ld      a,(vST)
-                ld      (hl),a
-                ld      hl,vT
-                inc     (hl)
-                ld      a,(hl)
-                ld      hl,vNF
-                cp      (hl)
-                jp      c,extshot
+                ld      hl,(vC)         ; BX, BY = C, R
+                ld      (vBX),hl
                 ret
+
+; обход C = 0..9 (внешний), R = 0..9 (внутренний): для клеток с PM(C,R) = 0
+; зовёт обработчик (DE) с HL = 2*(C+10R).  В конце C = R = 10, как у оригинала.
+forcr:
+                ld      hl,0
+                ld      (vC),hl
+fc1:
+                push    de
+                call    pmtest
+                call    z,jpde
+                pop     de
+                ld      hl,vR           ; следующая клетка
+                inc     (hl)
+                ld      a,(hl)
+                cp      10
+                jp      c,fc1
+                dec     hl              ; vC
+                inc     (hl)
+                ld      a,(hl)
+                cp      10
+                ret     nc
+                inc     hl
+                ld      (hl),0          ; R = 0
+                jp      fc1
+
+; HL = MC(C,R)*8
+mc8:
+                call    padidx
+                ld      de,MCBUF
+                add     hl,de
+                ld      l,(hl)
+                ld      h,0
+                add     hl,hl
+                add     hl,hl
+                add     hl,hl
+                ret
+
+; HL += (C*5 + R*3 + A) AND 7 — дрожание.  Портит BC, DE.
+jadd:
+                ex      de,hl
+                ld      hl,(vC)         ; L = C, H = R
+                ld      b,a
+                ld      a,l
+                add     a,a
+                add     a,a
+                add     a,l             ; C*5
+                add     a,h
+                add     a,h
+                add     a,h             ; + R*3
+                add     a,b
+                and     7
+                ld      l,a
+                ld      h,0
+                add     hl,de
+                ret
+
+; ============================================================================
+; USR5: совместная выборка.  До шести совместных расстановок всего живого
+; флота (законных, без касаний); MG получает +16 за каждое покрытие клетки.
+; Меньше трёх удачных — под MG подкладываются маргинальные веса (marg).
+@eng_sample:
+                call    sortso
+                xor     a
+                call    mgseedx         ; MG = -1 / дрожание
+                ld      hl,6*256
+                ld      (vGG),hl        ; GG = 0, SA = 6
+smploop:                                ; первая выборка — всегда (GG = 0)
+                call    onesamp
+                ld      a,(vGG)
+                cp      3
+                ld      hl,vSA
+                dec     (hl)            ; CY сохраняется
+                ret     nc              ; три удачных
+                jp      nz,smploop
+                                        ; попытки кончились — marg (ниже)
 
 ; ------------------------------------------------- USR4: маргинальные веса
 ; Каждый живой кандидат добавляет 2880/CC(K) (не меньше 1) своим клеткам.
 @eng_marg:
-                call    setup
 marg:
-                ld      a,1
-                ld      (vMODE),a
-                ld      (vK),a
+                call    mode0           ; vMODE = 0 и без единого scan, как у оригинала
+                ld      de,mgship
+                jp      fork
 mgship:
-                ld      a,(vK)
                 ld      hl,ARR_CC
-                call    elptr
-                ld      c,(hl)
-                inc     hl
-                ld      b,(hl)
-                ld      a,b             ; кандидатов нет — нечего взвешивать
-                or      c
-                jp      z,mgnext
+                call    kel16
+                ld      a,d             ; кандидатов нет — нечего взвешивать
+                or      e
+                ret     z
                 ld      hl,2880
                 call    div16
                 ld      a,h
                 or      l
-                jp      nz,mgok
-                ld      hl,1
-mgok:
+                jp      nz,scanwt
+                inc     hl              ; 0 -> 1 (и сразу scanwt)
+
+; scan в режиме 1 с весом HL (vWT), затем vMODE = 0
+scanwt:
                 ld      (vWT),hl
+                ld      a,1
+; scan в режиме A, затем vMODE = 0
+scanm:
+                ld      (vMODE),a
                 call    scan
-mgnext:
-                ld      hl,vK
-                inc     (hl)
-                ld      a,(hl)
-                inc     hl              ; vNS1
-                cp      (hl)
-                jp      c,mgship
+mode0:
                 xor     a
                 ld      (vMODE),a
                 ret
 
-; HL = HL / BC без знака (BC <> 0), сдвигом с вычитанием.  Портит A, DE.
-; Оригинал делил повторным вычитанием: частное то же (при BC = 0 оригинал
-; зависал бы — у нас частное FFFFh), а время не зависит от величины частного
-; (6000/1 было 6000 итераций).  Остаток после k шагов < 2^k, поэтому сдвиг
-; остатка на шагах 1..16 никогда не выходит за 16 бит — 17-й бит не нужен.
+; HL = HL / DE без знака повторным вычитанием, как у оригинала: время растёт
+; с частным (2880/1 — 2880 шагов по 32 такта).  При DE = 0 частное 0
+; (оригинал зависал — вне инвариантов игры).  Портит BC, DE.
 div16:
-                ex      de,hl           ; DE = делимое -> частное
-                ld      hl,0            ; остаток
-                ld      a,16
-dvlp:
-                push    af
-                ex      de,hl
-                add     hl,hl           ; частное/делимое <<= 1, CY = старший бит
-                ex      de,hl
-                ld      a,l
-                rla
-                ld      l,a
-                ld      a,h
-                rla
-                ld      h,a             ; остаток = остаток*2 + CY
-                ld      a,l
-                sub     c
-                ld      l,a
-                ld      a,h
-                sbc     a,b
-                ld      h,a
-                jp      nc,dvone
-                add     hl,bc           ; не вычлось — вернуть
-                jp      dvnx
-dvone:
-                inc     e               ; бит частного
-dvnx:
-                pop     af
-                dec     a
-                jp      nz,dvlp
-                ex      de,hl
+                ld      a,e
+                cpl
+                ld      e,a
+                ld      a,d
+                cpl
+                ld      d,a
+                inc     de              ; DE = -делитель
+                ld      bc,-1
+dvl:
+                inc     bc
+                add     hl,de           ; CY <=> вычлось без заёма
+                jp      c,dvl
+                ld      h,b
+                ld      l,c
                 ret
+
+; ---------------------------------------------------------------- USR0: fold
+@eng_fold:
+                call    clrmap
+                ld      a,l             ; NS
+                and     0Fh
+                ret     z
+                ld      c,a
+fmark:                                  ; выстрелы NS-1..0 (порядок меток не важен):
+                push    bc              ; элемент C-1 = (база-2)[C]
+                ld      a,c
+                ld      hl,ARR_TY-2
+                call    getel
+                ld      b,a
+                ld      a,c
+                ld      hl,ARR_TX-2
+                call    getel
+                ld      d,a
+                ld      e,b
+                call    mapptr
+                ld      (hl),1
+                pop     bc
+                dec     c
+                jp      nz,fmark
+
+                ld      de,fship
+                jp      fork
+fship:
+                ld      hl,ARR_HK
+                call    kel
+                ld      (vH),a          ; и сразу scan (ниже)
 
 ; ---------------------------------------------------------------- scan: корабль K
 ; Перебор всех 20W кандидатов корабля vK в порядке оригинала.  Мёртвые
 ; (FA = 0) пропускаются прямо в цикле: указатель FA — в HL, индекс первой
-; клетки — в E (13..142, байт), обработчик candl зовётся только для живых.
+; клетки — в E (13..142, байт), cand зовётся только для живых.
 ; На выходе, как у оригинала: vFAP = FA(OS+20W), vSTEP = 1, vLK, vW.
 scan:
-                ld      a,(vK)
-                ld      hl,ARR_SZ
-                call    getel
-                ld      (vLK),a
-                ld      b,a
-                ld      a,11
-                sub     b
-                ld      (vW),a
-
-                ld      a,(vK)
-                ld      hl,ARR_OS
-                call    getel16
-                ld      hl,12
-                ld      (vSTEP),hl
-                ld      hl,FABUF
-                add     hl,de           ; HL -> FA(OS(K))
-
-; --- поперёк: Y внешний 0..9, X внутренний 0..W-1, индекс с 13, +12 на X
-                ld      e,13
-                ld      c,10
-sacross:
-                ld      a,(vW)
-                ld      b,a
-                push    de
-sacell:
-                ld      a,(hl)
-                or      a
-                call    nz,candl
-                inc     hl
-                ld      a,e
-                add     a,12
-                ld      e,a
-                dec     b
-                jp      nz,sacell
-                pop     de
-                inc     e               ; тот же X=0, следующий Y
-                dec     c
-                jp      nz,sacross
-
-; --- вниз: X внешний 0..9, Y внутренний 0..W-1, индекс с 13, +1 на Y
-                ex      de,hl
-                ld      hl,1
-                ld      (vSTEP),hl
-                ex      de,hl
-                ld      e,13
-                ld      c,10
-sdown:
-                ld      a,(vW)
-                ld      b,a
-                push    de
-sdcell:
-                ld      a,(hl)
-                or      a
-                call    nz,candl
-                inc     hl
-                inc     e
-                dec     b
-                jp      nz,sdcell
-                pop     de
-                ld      a,e
-                add     a,12            ; следующий столбец X
-                ld      e,a
-                dec     c
-                jp      nz,sdown
+                call    shipset         ; HL -> FA(OS(K))
+                ld      a,12            ; поперёк: Y внешний, X внутренний (+12)
+                call    shalf
+                ld      a,1             ; вниз: X внешний, Y внутренний (+1)
+                call    shalf
                 ld      (vFAP),hl
                 ret
 
-; ---------------------------------------------------------------- кандидат
-; Живой кандидат: HL -> FA(I), E = индекс первой клетки, vSTEP = шаг.
-; Сохраняет BC, DE, HL.
-candl:
+; половина перебора: A = шаг клеток кандидата (vSTEP: 12 / 1), HL -> FA;
+; 10 строк по W кандидатов, индекс первой клетки с 13; следующая строка —
+; +13-шаг (поперёк: следующий Y, вниз: следующий столбец X)
+shalf:
+                ld      e,13
+                ld      c,10
+; то же с E = индекс первой клетки, C = число строк.  Живые (FA <> 0) ->
+; cand (vFAP = HL, DE = индекс).
+shrows:
+                push    hl
+                ld      l,a
+                ld      h,0
+                ld      (vSTEP),hl
+                pop     hl
+                ld      b,a
+sh_o:
+                ld      a,(vW)
+                ld      d,a
+                push    de
+srow:
+                ld      a,(hl)
+                or      a
+                jp      z,srnext
                 push    hl
                 push    de
                 push    bc
@@ -860,24 +679,36 @@ candl:
                 pop     bc
                 pop     de
                 pop     hl
+srnext:
+                inc     hl
+                ld      a,e
+                add     a,b
+                ld      e,a
+                dec     d
+                jp      nz,srow
+                pop     de
+                ld      a,13
+                sub     b
+                add     a,e
+                ld      e,a
+                dec     c
+                jp      nz,sh_o
                 ret
 
+; ---------------------------------------------------------------- кандидат
+; Живой кандидат: vFAP -> FA(I), DE = индекс первой клетки, vSTEP = шаг.
 cand:
                 ld      a,(vMODE)
-                cp      2
+                dec     a
+                jp      z,candmg
+                dec     a
                 jp      z,candn1
-                or      a
-                jp      nz,candmg
 
                 ex      de,hl           ; режим 0: сумма карты выстрелов
                 ld      (vIDX),hl
-                ld      de,ARR_MG
-                add     hl,de
                 ex      de,hl
-                ld      hl,(vSTEP)
-                ex      de,hl           ; HL -> карта, DE = шаг
-                ld      a,(vLK)
-                ld      b,a
+                ld      hl,ARR_MG
+                call    crun
                 xor     a
 covsum:
                 add     a,(hl)
@@ -890,23 +721,16 @@ covsum:
 
                 ld      hl,(vFAP)       ; убить кандидата
                 ld      (hl),0
-                ld      a,(vK)
-                ld      hl,ARR_CC
-                call    elptr
-                ld      a,(hl)
-                sub     1
-                ld      (hl),a
-                inc     hl
-                ld      a,(hl)
-                sbc     a,0
-                ld      (hl),a
-                ld      hl,(vSTEP)
-                ex      de,hl
+                ld      hl,ARR_CC       ; CC(K) - 1
+                call    kel16           ; DE = CC, HL -> старший байт
+                dec     de
+                ld      (hl),d
+                dec     hl
+                ld      (hl),e
                 ld      hl,(vIDX)
-                ld      bc,MCBUF
-                add     hl,bc
-                ld      a,(vLK)
-                ld      b,a
+                ex      de,hl
+                ld      hl,MCBUF
+                call    crun
 mcloop:
                 dec     (hl)
                 add     hl,de
@@ -917,12 +741,7 @@ mcloop:
 ; режим 2 (probesel): число живых кандидатов на клетку — байтами в MO
 candn1:
                 ld      hl,MOBUF
-                add     hl,de
-                ex      de,hl
-                ld      hl,(vSTEP)
-                ex      de,hl
-                ld      a,(vLK)
-                ld      b,a
+                call    crun
 n1cell:
                 inc     (hl)
                 add     hl,de
@@ -930,20 +749,26 @@ n1cell:
                 jp      nz,n1cell
                 ret
 
+; HL += DE (-> первая клетка кандидата в плоскости), DE = vSTEP, B = vLK
+crun:
+                add     hl,de
+                ex      de,hl
+                ld      hl,(vSTEP)
+                ex      de,hl
+                ld      a,(vLK)
+                ld      b,a
+                ret
+
 ; режим 1: добавить вес vWT каждой покрытой клетке MG, ещё не запрещённой
 ; (отрицательные клетки вне игры).  Сумма НЕ насыщается — бюджет весов
 ; расписан в fold.asm оригинала у candmg.
 candmg:
-                ld      hl,ARR_MG
+                ld      hl,ARR_MG+1
                 add     hl,de
-                add     hl,de
-                inc     hl              ; HL -> старший байт MG(первая клетка)
-                ld      a,(vSTEP)
-                add     a,a
-                ld      c,a             ; C = 2*шаг (24 или 2)
-                ld      a,(vLK)
-                ld      b,a
+                call    crun            ; HL -> старший байт MG(первая клетка)
                 ex      de,hl
+                add     hl,hl
+                ld      c,l             ; C = 2*шаг (24 или 2)
                 ld      hl,(vWT)
                 ex      de,hl           ; DE = вес
 mgcell:
@@ -973,19 +798,16 @@ mgnc:
 ; Начало партии: все кандидаты живы, MC и MO чисты, метка хода 0.
 ; FA заполняется на все 1120 байт (в SALVO/BARRAGE используются 760).
 @eng_fainit:
-                ld      hl,FABUF
+                ld      hl,FABUF        ; FA, MC, MO, vST — подряд
                 ld      a,1
                 ld      b,0             ; 1024
                 call    fill4
                 ld      b,96/4          ; + 96 = 1120
                 call    fill4
-                ld      hl,MCBUF
-                ld      b,144/4
+                ld      b,288/4         ; MC и MO
                 xor     a
                 call    fill4
-                call    clrmo
-                xor     a
-                ld      (vST),a
+                ld      (hl),a          ; vST
                 ld      (vKL),a
                 ld      (vRK),a
                 ret
@@ -996,159 +818,69 @@ mgnc:
 ; остальное в MG — разведочные счета MC*8+дрожание.  BARRAGE ещё добавляет
 ; каждой клетке, способной добить ненайденный корабль, 6000/(need*CC).
 @eng_probesel:
-                call    setup
                 ld      a,1
                 call    mgseedx         ; MG = разведочные счета
-                ld      a,1
-                ld      (vK),a
+                ld      de,psship
+                jp      fork
 psship:
-                ld      a,(vK)
                 ld      hl,ARR_PH
-                call    getel
+                call    kel
                 or      a
-                jp      z,psnext
+                ret     z
                 ld      b,a
-                ld      a,(vK)
                 ld      hl,ARR_SZ
-                call    getel
-                cp      b
-                jp      z,psnext
+                call    kel
+                sub     b               ; SZ-PH: попаданий ещё нужно
+                ret     z
                 ld      c,a
                 ld      a,(eng_bar)
                 or      a
                 jp      z,ps1
                 ld      a,c
-                sub     b               ; SZ-PH: попаданий ещё нужно
                 ld      (vNEED),a
 ps1:
-                ld      a,(vK)
                 ld      hl,ARR_CC
-                call    getel16
+                call    kel16
                 ex      de,hl
                 ld      (vCCK),hl
                 ex      de,hl
-                ld      a,d
-                or      a
+                ld      a,e             ; CC = 1?
+                dec     a
+                or      d
                 jp      nz,psprobe
-                ld      a,e
-                cp      1
-                jp      nz,psprobe
-                ld      a,1             ; найден: добор
-                ld      (vMODE),a
-                ld      hl,25000
-                ld      (vWT),hl
-                call    scan
-                xor     a
-                ld      (vMODE),a
-                jp      psnext
+                ld      hl,25000        ; найден: добор
+                jp      scanwt
 psprobe:
                 ld      a,(eng_bar)
                 or      a
                 jp      z,psp2
-                ld      c,e             ; BARRAGE: вес 6000/CC/need
-                ld      b,d
-                ld      hl,6000
+                push    bc              ; C = need (от psship)
+                ld      hl,6000         ; BARRAGE: вес 6000/CC/need
                 call    div16
-                ld      a,(vNEED)
-                ld      c,a
-                ld      b,0
+                pop     de
+                ld      d,0
                 call    div16
-                ld      (vWT),hl
-                ld      a,1
-                ld      (vMODE),a
-                call    scan
-                xor     a
-                ld      (vMODE),a
+                call    scanwt
 psp2:
                 call    clrmo
                 ld      a,2
-                ld      (vMODE),a
-                call    scan
-                xor     a
-                ld      (vMODE),a
-                ld      hl,-1
-                ld      (vBS),hl
-                ld      hl,13
-                ld      (vP9),hl
-pscell:
-                ld      hl,(vP9)
-                add     hl,hl
-                ld      de,ARR_MG
-                add     hl,de
-                inc     hl
-                ld      a,(hl)
-                rla
-                jp      c,pscnext       ; клетка вне игры
-                ld      hl,(vP9)
-                ld      de,MOBUF
-                add     hl,de
-                ld      a,(hl)
-                or      a
-                jp      z,pscnext
-                add     a,a             ; 2n (в байте, как в оригинале)
-                ld      e,a
-                ld      d,0
-                ld      hl,(vCCK)
-                ld      a,e             ; BC = 2n - CC
-                sub     l
-                ld      c,a
-                ld      a,d
-                sbc     a,h
-                ld      b,a
-                jp      nc,psabs
-                ld      a,c             ; |2n - CC|
-                cpl
-                ld      c,a
-                ld      a,b
-                cpl
-                ld      b,a
-                inc     bc
-psabs:
-                ld      hl,(vBS)
-                ld      a,c
-                sub     l
-                ld      a,b
-                sbc     a,h             ; CY <=> |d| < BS
-                jp      nc,pscnext
-                ld      h,b
-                ld      l,c
-                ld      (vBS),hl
-                ld      hl,(vP9)
-                ld      (vBXW),hl
-pscnext:
-                ld      hl,(vP9)
-                inc     hl
-                ld      (vP9),hl
-                ld      a,l
-                cp      131
-                jp      nz,pscell
+                call    scanm
+                ld      de,psh
+                call    p9best
                 ld      hl,(vBS)
                 ld      a,h
                 and     l
                 inc     a
-                jp      z,psnext        ; ни одной клетки
+                ret     z               ; ни одной клетки
                 ld      hl,(vBXW)       ; MG(BX) += 12000
-                add     hl,hl
-                ld      de,ARR_MG
-                add     hl,de
-                ld      e,(hl)
-                inc     hl
-                ld      d,(hl)
-                push    hl
-                ld      hl,12000
-                add     hl,de
-                ex      de,hl
-                pop     hl
-                ld      (hl),d
-                dec     hl
-                ld      (hl),e
-psnext:
-                ld      hl,vK
-                inc     (hl)
+                call    mgat
                 ld      a,(hl)
-                inc     hl              ; vNS1
-                cp      (hl)
-                jp      c,psship
+                add     a,low 12000
+                ld      (hl),a
+                inc     hl
+                ld      a,(hl)
+                adc     a,high 12000
+                ld      (hl),a
                 ret
 
 ; ------------------------------------------------ MG = -1, затем счета клеток
@@ -1165,92 +897,40 @@ mgseedx:
                 ld      a,l
                 and     7
                 ld      (vRDS),a
-                xor     a
-                ld      (vC),a
-mmc:
-                xor     a
-                ld      (vR),a
-mmr:
-                call    pmtest
-                jp      nz,mmnext
+                ld      de,mmr
+                jp      forcr
+mmr:                                    ; PM(C,R) = 0
                 ld      hl,0
                 ld      a,(vSMC)
                 or      a
-                jp      z,mmj
-                call    padidx
-                ld      de,MCBUF
-                add     hl,de
-                ld      l,(hl)
-                ld      h,0
-                add     hl,hl
-                add     hl,hl
-                add     hl,hl           ; MC*8
-mmj:
-                push    hl
+                call    nz,mc8          ; MC*8
                 ld      a,(vRDS)
-                ld      b,a
-                call    jit
-                pop     hl
-                ld      e,a
-                ld      d,0
-                add     hl,de
+                call    jadd            ; + дрожание
                 push    hl
                 call    padidx
-                add     hl,hl
-                ld      de,ARR_MG
-                add     hl,de
+                call    mgat
                 pop     de
                 ld      (hl),e
                 inc     hl
                 ld      (hl),d
-mmnext:
-                ld      hl,vR
-                inc     (hl)
-                ld      a,(hl)
-                cp      10
-                jp      c,mmr
-                ld      hl,vC
-                inc     (hl)
-                ld      a,(hl)
-                cp      10
-                jp      c,mmc
-                ret
-
-; A = (C*5 + R*3 + B) AND 7.  Портит C, E.
-jit:
-                ld      a,(vC)
-                ld      c,a
-                add     a,a
-                add     a,a
-                add     a,c             ; C*5
-                ld      c,a
-                ld      a,(vR)
-                ld      e,a
-                add     a,a
-                add     a,e             ; R*3
-                add     a,c
-                add     a,b
-                and     7
                 ret
 
 ; HL = 2*(vC + 10*vR) — смещение клетки в массиве 10x10;
-; Z = PM(C,R) = 0.  HL сохраняется, портит A, DE.
+; Z = PM(C,R) = 0.  Портит A, BC; DE сохраняет (forcr держит в нём обработчик).
 pmtest:
-                ld      a,(vR)
-                ld      l,a
+                ld      hl,(vC)         ; L = C, H = R
+                ld      a,h
                 add     a,a
                 add     a,a
-                add     a,l
+                add     a,h
                 add     a,a             ; 10R (R <= 9)
-                ld      l,a
-                ld      a,(vC)
                 add     a,l
                 ld      l,a
                 ld      h,0
                 add     hl,hl
                 push    hl
-                ld      de,ARR_PM
-                add     hl,de
+                ld      bc,ARR_PM
+                add     hl,bc
                 ld      a,(hl)
                 inc     hl
                 or      (hl)
@@ -1259,18 +939,10 @@ pmtest:
 
 ; ---------------------------------------------------------------- помощники
 ; HL += 2*A.  Сохраняет BC; DE = A.
-elptr:
-                ld      e,a
-                ld      d,0
-                add     hl,de
-                add     hl,de
-                ret
-
-getel:
-                call    elptr
-                ld      a,(hl)
-                ret
-
+; элемент массива по номеру корабля: kel16 — DE = X(vK) (HL -> старший
+; байт), kel — A = X(vK) (младший байт); HL = база массива.  Сохраняют BC.
+kel16:
+                ld      a,(vK)
 getel16:
                 call    elptr
                 ld      e,(hl)
@@ -1278,83 +950,58 @@ getel16:
                 ld      d,(hl)
                 ret
 
-; HL = ARR_MG + (D+1)*12 + (E+1)   (D+1, E+1 — в байте, как в оригинале)
+kel:
+                ld      a,(vK)
+getel:
+                call    elptr
+                ld      a,(hl)
+                ret
+
+elptr:
+                ld      e,a
+                ld      d,0
+                add     hl,de
+                add     hl,de
+                ret
+
+; A = (D+1)*12 + (E+1) = 12D + E + 13, HL = ARR_MG + A.  В байте: у
+; оригинала D+1 и E+1 тоже байтовые, а сумма < 256 (TX, TY <= 11; U, V <= 15).
+; Портит BC.
 mapptr:
                 ld      a,d
-                inc     a
-                ld      l,a
-                ld      h,0
+                call    pidx
+                ld      a,l
+                db      0FEh            ; cp n: глотает add hl,hl ниже (A та же)
+; HL = ARR_MG + 2*HL (-> слово MG).  Портит BC.
+mgat:
                 add     hl,hl
-                add     hl,hl
-                ld      b,h
-                ld      c,l
-                add     hl,hl
-                add     hl,bc
-                ld      a,e
-                inc     a
-                ld      c,a
-                ld      b,0
-                add     hl,bc
                 ld      bc,ARR_MG
                 add     hl,bc
                 ret
 
 ; HL = индекс с полями для (vC,vR) = C*12 + R + 13.  Сохраняет BC.
 padidx:
-                ld      a,(vR)
-                ld      e,a
-                ld      a,(vC)
-; HL = A*12 + E + 13 (16 бит).  Сохраняет BC, портит DE.
+                ld      hl,(vC)         ; L = C, H = R
+                ld      e,h
+                ld      a,l
+; HL = A*12 + E + 13 (в байте: A, E <= 9 — не больше 130).  Сохраняет BC, DE.
 pidx:
-                ld      d,0
-                push    de              ; E = строка
                 ld      l,a
-                ld      h,d
-                add     hl,hl
-                add     hl,hl           ; 4A
-                ld      d,h
-                ld      e,l
-                add     hl,hl
-                add     hl,de           ; 12A
-                pop     de
-                add     hl,de
-                ld      de,13
-                add     hl,de
+                add     a,a
+                add     a,l
+                add     a,a
+                add     a,a             ; 12A
+                add     a,e
+                add     a,13
+                ld      l,a
+                ld      h,0
                 ret
-
-; ============================================================================
-; USR5: совместная выборка.  До шести совместных расстановок всего живого
-; флота (законных, без касаний); MG получает +16 за каждое покрытие клетки.
-; Меньше трёх удачных — под MG подкладываются маргинальные веса (marg).
-@eng_sample:
-                call    setup
-                call    sortso
-                xor     a
-                call    mgseedx         ; MG = -1 / дрожание
-                xor     a
-                ld      (vGG),a
-                ld      a,6
-                ld      (vSA),a
-smploop:
-                ld      a,(vGG)
-                cp      3
-                jp      nc,smpend
-                call    onesamp
-                ld      hl,vSA
-                dec     (hl)
-                jp      nz,smploop
-smpend:
-                ld      a,(vGG)
-                cp      3
-                ret     nc
-                jp      marg
 
 ; --- SO[0..NSHIPS-1] = номера кораблей по возрастанию CC
 sortso:
-                ld      hl,vSOA
-                ld      a,(vNS1)
-                dec     a
+                call    nsh
                 ld      b,a             ; NSHIPS
+                ld      hl,vSOA
                 ld      a,1
 ss0:
                 ld      (hl),a
@@ -1364,69 +1011,56 @@ ss0:
                 jp      nz,ss0
                 xor     a
                 ld      (vSI),a
-ssi:
-                ld      a,(vSI)
+ssj:                                    ; A = SJ-1
                 inc     a
                 ld      (vSJ),a
-ssj:
-                ld      a,(vSJ)
-                inc     a
-                ld      hl,vNS1
-                cp      (hl)            ; SJ < NSHIPS
-                jp      nc,ssinext
-                ld      a,(vSJ)
-                call    ccof
+                ld      b,a
+                call    nsh
+                cp      b               ; SJ < NSHIPS (SJ <= NSHIPS всегда)
+                ld      a,b
+                jp      z,ssinext
+                call    ccof            ; HL -> SO[J], DE = CC(SO[J])
+                push    hl
+                ex      de,hl
                 ld      (vSCJ),hl
                 ld      a,(vSI)
-                call    ccof
-                ex      de,hl           ; DE = CC(SO[I])
-                ld      hl,(vSCJ)       ; HL = CC(SO[J])
-                ld      a,l
-                sub     e
-                ld      a,h
-                sbc     a,d
-                jp      nc,ssjnext      ; CC(SO[J]) >= CC(SO[I])
-                ld      a,(vSI)         ; поменять местами
-                ld      e,a
-                ld      d,0
-                ld      hl,vSOA
-                add     hl,de
+                call    ccof            ; HL -> SO[I], DE = CC(SO[I])
+                ex      (sp),hl
                 push    hl
-                ld      a,(vSJ)
-                ld      e,a
-                ld      hl,vSOA
-                add     hl,de
-                pop     de
-                ld      a,(de)
+                ld      hl,(vSCJ)
+                call    sgt1            ; CY <=> CC(SO[J]) < CC(SO[I])
+                pop     de              ; -> SO[J]
+                pop     hl              ; -> SO[I]
+                jp      nc,ssjnext      ; CC(SO[J]) >= CC(SO[I])
+                ld      a,(de)          ; поменять местами
                 ld      c,(hl)
                 ld      (hl),a
                 ld      a,c
                 ld      (de),a
 ssjnext:
-                ld      hl,vSJ
-                inc     (hl)
+                ld      a,(vSJ)
                 jp      ssj
 ssinext:
                 ld      hl,vSI
                 inc     (hl)
+                call    nsh
+                sub     (hl)
+                cp      2               ; SI < NSHIPS-1
                 ld      a,(hl)
-                inc     a
-                inc     a
-                ld      hl,vNS1
-                cp      (hl)            ; SI < NSHIPS-1
-                jp      c,ssi
+                jp      nc,ssj
                 ret
 
-; A = номер слота -> HL = CC(SO[A])
+; A = номер слота -> HL -> SO[A], DE = CC(SO[A])
 ccof:
                 ld      e,a
                 ld      d,0
                 ld      hl,vSOA
                 add     hl,de
+                push    hl
                 ld      a,(hl)
                 ld      hl,ARR_CC
                 call    getel16
-                ex      de,hl
+                pop     hl
                 ret
 
 ; --- одна совместная выборка: поставить все корабли, затем зачесть клетки
@@ -1434,8 +1068,7 @@ onesamp:
                 xor     a
                 ld      (vQNC),a
                 call    bumpst
-                ld      a,(vNS1)
-                dec     a
+                call    nsh
                 ld      (vO2),a
                 ld      hl,vSOA
                 ld      (vSOP),hl
@@ -1454,9 +1087,7 @@ osship:
                 ld      hl,vGG
                 inc     (hl)
                 ld      a,(vQNC)        ; каждая клетка выборки +16
-                or      a
-                ret     z               ; [одна сторона: после удачной выборки QNC = сумма длин >= 5]
-                ld      b,a
+                ld      b,a             ; (QNC = сумма длин кораблей, не 0)
                 ld      hl,vZX
 osadd:
                 push    bc
@@ -1466,9 +1097,7 @@ osadd:
                 inc     hl
                 push    hl
                 ex      de,hl
-                add     hl,hl
-                ld      de,ARR_MG
-                add     hl,de
+                call    mgat
                 inc     hl
                 ld      a,(hl)
                 dec     hl
@@ -1490,26 +1119,15 @@ osskip:
 
 ; --- поставить корабль vK; CY = все восемь попыток не удались
 place:
-                ld      a,(vK)
-                ld      hl,ARR_SZ
-                call    getel
-                ld      (vLK),a
-                ld      b,a
-                ld      a,11
-                sub     b
-                ld      (vW),a
-                ld      a,(vK)
-                ld      hl,ARR_OS
-                call    getel16
+                call    shipset
                 ex      de,hl
                 ld      (vOSK),hl
 
                 ld      a,8
                 ld      (vT2),a
 platt:
-                call    pldraw          ; vJ0 <- равномерно среди ЖИВЫХ
+                call    pldraw          ; vJ0 <- равномерно среди ЖИВЫХ, -> vIBB, vS9
                 jp      c,plnext        ; живых нет
-                call    decode          ; vJ0 -> vIBB, vS9
 ; vRK: найденные корабли этой партии доказали расстановку у края — кандидат,
 ; не касающийся края, получает до двух перерисовок в пользу края
                 ld      a,(vRK)
@@ -1521,10 +1139,9 @@ platt:
                 ld      (vJ0F),a
                 ld      a,2
                 ld      (vRDL),a
-plrdo:
-                call    pldraw
-                jp      c,plrgive       ; [одна сторона: первый pldraw удался, CC не менялся — живой есть]
-                call    decode
+plrdo:                                  ; CC тот же, что у первого удачного
+                call    pldraw          ; pldraw — живой есть (у оригинала
+                                        ; jr c,plrgive, не срабатывающий никогда)
                 call    rimchk
                 jp      z,plcoll        ; у края — берём
                 ld      hl,vRDL
@@ -1549,28 +1166,16 @@ plcf:
                 add     hl,de
                 dec     b
                 jp      nz,plcf
-                jp      plok
-plnext:
-                ld      hl,vT2
-                dec     (hl)
-                jp      nz,platt
-                scf
-                ret
-plok:
-                ld      a,(vLK)         ; записать клетки корабля в vZX
-                ld      b,a
-                ld      hl,(vIBB)
-                ld      (vP9),hl
-                ld      a,(vQNC)
-                ld      e,a
-                ld      d,0
+
+                ld      a,(vQNC)        ; записать клетки корабля в vZX
                 ld      hl,vZX
-                add     hl,de
-                add     hl,de
-                ex      de,hl           ; DE -> слот ZX
+                call    elptr           ; HL -> слот ZX
+                ld      a,(vLK)
+                ld      b,a
+                ex      de,hl
+                ld      hl,(vIBB)
+                ex      de,hl           ; DE = клетка
 plrec:
-                ld      hl,(vP9)
-                ex      de,hl           ; HL -> слот, DE = клетка
                 ld      (hl),e
                 inc     hl
                 ld      (hl),d
@@ -1578,204 +1183,157 @@ plrec:
                 push    hl
                 ld      hl,(vS9)
                 add     hl,de
-                ld      (vP9),hl
-                pop     de
-                ld      hl,vQNC
-                inc     (hl)
+                ex      de,hl
+                pop     hl
                 dec     b
                 jp      nz,plrec
+                ex      de,hl
+                ld      (vP9),hl        ; IBB + LK*S9, как у оригинала
+                ld      hl,vQNC
+                ld      a,(vLK)
+                add     a,(hl)
+                ld      (hl),a
 
-                ld      hl,(vS9)        ; W2 = 13 - S9: боковой сосед
-                ld      b,h
-                ld      c,l
-                ld      a,13
-                sub     c
+; метка в MO клеток корабля и соседей: у оригинала — LK+2 клеток p от
+; IB-S9 с шагом S9, в каждой p, p-W2, p+W2 (W2 = 13-S9, боковой сосед).
+; Здесь то же множество тремя линиями: от IB-S9-W2 = IB-13, +W2, +2*W2.
+                ld      a,(vS9)
+                cpl
+                add     a,14            ; W2 = 13 - S9 (1 / 12)
                 ld      l,a
-                ld      a,0
-                sbc     a,b
-                ld      h,a
+                ld      h,0
                 ld      (vW2),hl
-                ld      hl,(vIBB)       ; метить от IB - S9, LK + 2 клеток
-                ld      a,l
-                sub     c
-                ld      l,a
-                ld      a,h
-                sbc     a,b
-                ld      h,a
-                ld      de,MOBUF
-                add     hl,de
+                ld      hl,(vIBB)
+                ld      de,MOBUF-13
+                add     hl,de           ; HL -> MO(IB - 13)
+                ld      c,3
+plst:
+                push    hl
+                ex      de,hl
+                ld      hl,(vS9)
+                ex      de,hl           ; DE = S9
                 ld      a,(vLK)
                 add     a,2
                 ld      b,a
                 ld      a,(vST)
-                ld      c,a
 plstamp:
-                ld      (hl),c
-                ex      de,hl           ; DE = p
-                ld      hl,(vW2)
-                ld      a,e
-                sub     l
-                ld      l,a
-                ld      a,d
-                sbc     a,h
-                ld      h,a
-                ld      (hl),c          ; p - W2
-                ld      hl,(vW2)
+                ld      (hl),a
                 add     hl,de
-                ld      (hl),c          ; p + W2
-                ld      hl,(vS9)
-                add     hl,de           ; p + S9
                 dec     b
                 jp      nz,plstamp
-                or      a
+                pop     hl
+                ex      de,hl
+                ld      hl,(vW2)
+                add     hl,de           ; следующая линия: +W2 (CY = 0: адреса MO
+                dec     c               ; далеко от 0FFFFh) — место поставлено
+                jp      nz,plst
                 ret
-
-; шаг xorshift над HL (портит A, D); тело rnd16 — оно же в цикле отбраковки
-; pldraw, где семя живёт в HL (ненулевое семя в ноль не переходит: все три
-; шага обратимы, поэтому проверка на 0 нужна только на первом шаге)
-                MACRO   ENG_XSHIFT
-                ld      a,l
-                rrca                    ; бит 7 = L.0, биты 6..0 = L>>1
-                ld      d,a
-                and     7Fh
-                xor     h
-                ld      h,a
-                ld      a,d
-                and     80h
-                xor     l
-                ld      l,a
-                ld      a,h             ; CY = 0: его сбросил xor выше
-                rra                     ; H>>1
-                xor     l
-                ld      l,a
-                xor     h
-                ld      h,a
-                ENDM
+plnext:
+                ld      hl,vT2
+                dec     (hl)
+                jp      nz,platt
+                scf
+                ret
 
 ; Равномерный выбор среди ЖИВЫХ кандидатов корабля vK: r в [0, CC), затем
 ; r-й живой флаг FA.  CY только при CC = 0.  CC обязан равняться числу
 ; живых флагов (его ведёт fold).
 pldraw:
-                ld      a,(vK)
                 ld      hl,ARR_CC
-                call    getel16
+                call    kel16
                 ld      a,d
                 or      e
-                jp      nz,pld1
                 scf
-                ret
-pld1:
+                ret     z               ; CC = 0
                 ld      c,e             ; CC <= 180 — байт
+pldr:
                 call    rnd16
                 ld      a,l
                 cp      c
-                jp      c,pldok
-pldr:
-                ENG_XSHIFT                  ; следующий rnd16 — семя в HL
-                ld      a,l
-                cp      c
                 jp      nc,pldr         ; r в [0, CC)
-                ld      (vSEED),hl
-pldok:
                 inc     a
                 ld      b,a             ; остановиться на (r+1)-м живом
+                ld      c,-1            ; C = номер кандидата J0
                 ld      hl,(vOSK)
                 ld      de,FABUF
                 add     hl,de
 pldscan:
+                inc     c
                 ld      a,(hl)
                 inc     hl
                 or      a
                 jp      z,pldscan
                 dec     b
                 jp      nz,pldscan
-                dec     hl
-pldhit:
-                ld      a,(vOSK)        ; J0 = мл. байт (ptr - FABUF - OS(K))
-                ld      b,a
-                ld      a,l
-                sub     low FABUF
-                sub     b
+                ld      a,c
                 ld      (vJ0),a
-                or      a
+; A = vJ0 (номер кандидата внутри корабля) -> vIBB, vS9, vC, vR.  NC: у
+; настоящего кандидата (X, Y <= 9) в pidx переноса нет.
+decode:
+                call    jdec
+                ld      (vIBB),hl
+                ld      l,b
+                ld      h,0
+                ld      (vS9),hl
+                ld      l,d
+                ld      h,e
+                ld      (vC),hl         ; vC = X, vR = Y
                 ret
 
-; vJ0 (номер кандидата внутри корабля) -> vIBB, vS9, vC, vR
-decode:
-                ld      a,(vW)
-                ld      b,a
-                add     a,a
-                add     a,a
-                add     a,a
-                add     a,b
-                add     a,b             ; 10*W
-                ld      c,a
-                ld      a,(vJ0)
-                cp      c
-                jp      nc,decdown
-                ld      a,(vW)          ; поперёк: Y = J0/W, X = J0-Y*W
-                ld      c,a
-                ld      a,(vJ0)
-                ld      l,a
-                call    divsm
-                ld      (vR),a          ; Y
-                ld      a,e
-                ld      (vC),a          ; X
-                ld      hl,12
-                jp      decfin
-decdown:
-                sub     c               ; вниз: X = J/W, Y = J-X*W
+; A = j (номер кандидата внутри корабля, по vW) -> D = X, E = Y,
+; B = шаг клеток (12 поперёк / 1 вниз), HL = индекс первой клетки 12X+Y+13
+jdec:
                 ld      l,a
                 ld      a,(vW)
                 ld      c,a
-                call    divsm
-                ld      (vC),a          ; X
-                ld      a,e
-                ld      (vR),a          ; Y
-                ld      hl,1
-decfin:
-                ld      (vS9),hl
-                call    padidx
-                ld      (vIBB),hl
-                ret
+                call    divsm           ; A = j/W, E = j mod W
+                sub     10
+                jp      c,jdacr
+                ld      d,a             ; вниз (j >= 10W): X = j/W - 10, Y = j mod W
+                ld      b,1
+                jp      jdfin
+jdacr:
+                add     a,10            ; поперёк: Y = j/W, X = j mod W
+                ld      d,e
+                ld      e,a
+                ld      b,12
+jdfin:
+                ld      a,d
+                jp      pidx
 
 ; L / C -> A частное, E остаток
 divsm:
-                ld      b,0
-dv1:
+                ld      b,-1
                 ld      a,l
-                sub     c
-                jp      c,dv2
-                ld      l,a
+dv1:
                 inc     b
-                jp      dv1
-dv2:
-                ld      e,l
+                sub     c
+                jp      nc,dv1
+                add     a,c
+                ld      e,a
                 ld      a,b
                 ret
 
 ; Z = декодированный кандидат (vC,vR,vS9,vLK) касается края поля.
 rimchk:
+                ld      hl,(vC)         ; L = C, H = R
                 ld      a,(vS9)
                 cp      12
-                ld      a,(vC)
-                ld      b,a
-                ld      a,(vR)
-                jp      z,rck1
-                ld      c,a             ; вниз: поменять оси
-                ld      a,b
-                ld      b,c
-rck1:                                   ; A = поперечная ось, B = продольная
+                jp      z,rck1          ; поперёк: поперечная ось R, продольная C
+                ld      a,l             ; вниз: поменять оси
+                ld      l,h
+                ld      h,a
+rck1:                                   ; H = поперечная ось, L = продольная
+                ld      a,h
                 or      a
                 ret     z
                 cp      9
                 ret     z
-                ld      a,b
+                ld      a,l
                 or      a
                 ret     z
-                ld      c,a
                 ld      a,(vLK)
-                add     a,c
+                add     a,l
                 cp      10              ; продольная + LK - 1 = 9
                 ret
 
@@ -1792,7 +1350,22 @@ rnd16:
                 jp      nz,rnz
                 ld      hl,0ACE1h
 rnz:
-                ENG_XSHIFT
+                ld      a,l
+                rrca                    ; бит 7 = L.0, биты 6..0 = L>>1
+                ld      d,a
+                and     7Fh
+                xor     h
+                ld      h,a
+                ld      a,d
+                and     80h
+                xor     l
+                ld      l,a
+                ld      a,h             ; CY = 0: его сбросил xor выше
+                rra                     ; H>>1
+                xor     l
+                ld      l,a
+                xor     h
+                ld      h,a
                 ld      (vSEED),hl
                 ret
 
