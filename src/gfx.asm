@@ -194,30 +194,26 @@ rmask_tab:  db 80h,0C0h,0E0h,0F0h,0F8h,0FCh,0FEh,0FFh
 ; B=x1 C=y1 D=x2 E=y2 A=цвет
 gfx_box:
             ld   (gb_col),a
-            push bc
             push de
-            ld   a,(gb_col)
             ld   e,c                    ; верх: (x1,y1)-(x2,y1)
-            call gfx_fill
+            call gb_one
             pop  de
-            pop  bc
             push bc
-            push de
             ld   c,e                    ; низ: (x1,y2)-(x2,y2)
-            ld   a,(gb_col)
-            call gfx_fill
-            pop  de
+            call gb_one
             pop  bc
-            push bc
             push de
             ld   d,b                    ; лево: (x1,y1)-(x1,y2)
+            call gb_one
+            pop  de
+            ld   b,d                    ; право: (x2,y1)-(x2,y2)
+gb_one:     push bc
+            push de
             ld   a,(gb_col)
             call gfx_fill
             pop  de
             pop  bc
-            ld   b,d                    ; право: (x2,y1)-(x2,y2)
-            ld   a,(gb_col)
-            jp   gfx_fill
+            ret
 
 ; ---------------------------------------------------------------- PSET (x,y),c
 ; B=x C=y A=цвет. Ставит и графический курсор (для PRINT#1).

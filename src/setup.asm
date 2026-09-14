@@ -11,29 +11,23 @@ S120:       SETV bDL,3  ; RP=0: DL=3: ...
 S140:       call S3406
 S150:       call S3500
 S155:                                   ; панель загрузки (3800, 155) убрана по решению владельца
-S162:       LDV  bTU                ; POKE настроек в «&HDDF5..&HE00»
-            STV  cfg_TU
-            LDV  bAM
-            STV  cfg_AM
-            LDV  bXS
-            STV  cfg_XS
-            LDV  bSV
-            STV  cfg_SV
-            LDV  bFL
-            STV  cfg_FL
-            LDV  bQS
-            STV  cfg_QS
+S162:       ld   bc,t_cfgv              ; POKE настроек в «&HDDF5..&HE00»
+            ld   hl,cfg_TU
+S162a:      ld   a,(bc)
+            ld   e,a
+            ld   d,high varpage
+            ld   a,(de)
+            ld   (hl),a
+            inc  hl
+            inc  bc
+            ld   a,c
+            cp   low (t_cfgv+10)
+            jp   nz,S162a
             LDV  bBD                ; -(BD>0)
             or   a
             jp   z,S164
             ld   a,1
 S164:       STV  cfg_BD
-            LDV  bDL
-            STV  cfg_DL
-            LDV  bBO
-            STV  cfg_BO
-            LDV  bSB
-            STV  cfg_SB
             SETV cfg_magic,165
             SETV cfg_magic+1,195
 S166:       LDV  bBD                ; RUN BARRAGE/SALVOP/SALVO/IRONCLAD
@@ -625,6 +619,10 @@ s_loading_ver: db "LOADING "
             TXT  " ..."
 
 
+; переменные настроек в порядке cfg_TU..cfg_SB (161/162)
+t_cfgv:     db   low bTU, low bAM, low bXS, low bSV, low bFL, low bQS, low bBD, low bDL, low bBO, low bSB
+            ASSERT high t_cfgv == high (t_cfgv+10)
+
 ; ---------------------------------------------------------------- «RUN» игры: 133..172 (из game_run)
 ; Исполняется из оверлея: game_run зовёт это до распаковки тайлов поверх оверлея.
 gr_init:
@@ -676,36 +674,18 @@ L158:       CPV  cfg_magic,165
             jp   nz,L163
             CPV  cfg_magic+1,195
             jp   nz,L163
-L161:       ld   hl,cfg_TU
+L161:       ld   bc,t_cfgv              ; TU..SB = PEEK(&HDDF5..)
+            ld   hl,cfg_TU
+L161a:      ld   a,(bc)
+            ld   e,a
+            ld   d,high varpage
             ld   a,(hl)
-            STV  bTU
+            ld   (de),a
             inc  hl
-            ld   a,(hl)
-            STV  bAM
-            inc  hl
-            ld   a,(hl)
-            STV  bXS
-            inc  hl
-            ld   a,(hl)
-            STV  bSV
-            inc  hl
-            ld   a,(hl)
-            STV  bFL
-            inc  hl
-            ld   a,(hl)
-            STV  bQS
-            inc  hl
-            ld   a,(hl)
-            STV  bBD
-            inc  hl
-            ld   a,(hl)
-            STV  bDL
-            inc  hl
-            ld   a,(hl)
-            STV  bBO
-            inc  hl
-            ld   a,(hl)
-            STV  bSB
+            inc  bc
+            ld   a,c
+            cp   low (t_cfgv+10)
+            jp   nz,L161a
 L163:       ld   hl,ships_sp            ; RESTORE 9028
             CPV  bNK,8
             jp   nc,L164
