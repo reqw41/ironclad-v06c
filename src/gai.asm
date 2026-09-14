@@ -103,31 +103,13 @@ L1811:      LDV  bHY                ; IF PM(HX,HY)=2 THEN 1814 ELSE найти �
             call pm_xy
             cp   2
             jp   z,L1814
-            ld   b,0
-L1811a:     ld   c,0
-L1811b:     push bc
-            ld   a,b
-            ld   e,c
-            call pm_xy
-            pop  bc
-            cp   2
-            jp   nz,L1812
+            ld   hl,pm_is2
+            call scan_cells
+            jp   nc,L1814
             ld   a,b
             STV  bHX
             ld   a,c
             STV  bHY
-            jp   L1812x
-L1812:      inc  c
-            ld   a,c
-            cp   10
-            jp   c,L1811b
-            inc  b
-            ld   a,b
-            cp   10
-            jp   c,L1811a
-L1812x:     ld   hl,10                  ; I, J после циклов
-            ld   (bI),hl
-            ld   (bJ),hl
 L1814:      ld   hl,-1
             ld   (bNB),hl
             ZEROV bD
@@ -313,6 +295,85 @@ L1839:      INCV bD
             LDV  bNB+1              ; IF NB>=0 THEN RETURN
             or   a
             ret  p
+; первая клетка (I=0..9 внешний, J=0..9 внутренний), где процедура HL (A = I, E = J) даёт Z:
+; CY=1 — нашли, B = I, C = J. Как после FOR в оригинале: I = J = 10 (слова)
+scan_cells: ld   b,0
+scn_1:      ld   c,0
+scn_2:      push bc
+            push hl
+            ld   a,b
+            ld   e,c
+            call scn_c
+            pop  hl
+            pop  bc
+            jp   z,scn_y
+            inc  c
+            ld   a,c
+            cp   10
+            jp   c,scn_2
+            inc  b
+            ld   a,b
+            cp   10
+            jp   c,scn_1
+scn_y:      push af
+            ld   hl,10
+            ld   (bI),hl
+            ld   (bJ),hl
+            pop  af
+            scf
+            ret  z
+            ccf
+            ret
+scn_c:      jp   (hl)
+pm_is2:     call pm_xy
+            cp   2
+            ret
+pm_is0:     call pm_xy
+            or   a
+            ret
+; 1908..1914: сколько подряд (не больше 4) открытых клеток от (D,E) с шагом (B,C) в поле;
+; A = счёт, D/E — клетка остановки
+cnt_open:   xor  a
+co_1:       push af
+            ld   a,d
+            cp   10
+            jp   nc,co_x
+            ld   a,e
+            cp   10
+            jp   nc,co_x
+            push bc
+            push de
+            ld   a,d
+            call open_xy
+            pop  de
+            pop  bc
+            jp   nz,co_x
+            ld   a,d
+            add  a,b
+            ld   d,a
+            ld   a,e
+            add  a,c
+            ld   e,a
+            pop  af
+            inc  a
+            cp   4
+            jp   c,co_1
+            ret
+co_x:       pop  af
+            ret
+; IF SC>NB THEN NB=SC: BX=D: BY=E
+nb_take:    push de
+            call sc_gt_nb
+            pop  de
+            ret  nc
+            ld   hl,(bSC)
+            ld   (bNB),hl
+            ld   a,d
+            STV  bBX
+            ld   a,e
+            STV  bBY
+            ret
+
 L1840:      ZEROV bD  ; FOR D=0 TO 3: соседняя открытая клетка
 L1840a:     call L1890
             LDV  bU1
@@ -343,23 +404,17 @@ L1841:      INCV bD
             cp   4
             jp   c,L1840a
             ; сквозной проход в 1890 (как в оригинале: NEXT D, затем строка 1890 и RETURN)
-L1890:      ZEROV bU1  ; U1,V1 по направлению D
+L1890:      LDV  bD                 ; U1,V1 по направлению D (D=4 — после NEXT D: как D=3)
+            add  a,a
+            ld   hl,t1890
+            rst  00h
+            ld   a,(hl)
+            STV  bU1
+            inc  hl
+            ld   a,(hl)
             STV  bV1
-            LDV  bD
-            or   a
-            jp   nz,L1890a
-            SETV bU1,-1
-            ret
-L1890a:     cp   1
-            jp   nz,L1890b
-            SETV bU1,1
-            ret
-L1890b:     cp   2
-            jp   nz,L1890c
-            SETV bV1,-1
-            ret
-L1890c:     SETV bV1,1
 L1891:      ret
+t1890:      db -1,0, 1,0, 0,-1, 0,1, 0,1
 
 ; U=U-U1: V=V-V1 / U=U+U1: V=V+V1
 uv_minus:   LDV  bU1
@@ -390,16 +445,11 @@ uv_plus:    LDV  bU1
 hscore:     ld   hl,0
             ld   (bSC),hl
             SETV bK,1
-hs_k:       LDV  bK
-            ld   hl,ARR_PH
-            add  a,a
-            rst  00h
-            ld   d,(hl)                 ; PH(K)
-            LDV  bK
-            ld   hl,ARR_SZ
-            add  a,a
-            rst  00h
-            ld   e,(hl)                 ; SZ(K)
+hs_k:       push bc
+            call k_ph_sz
+            ld   d,b                    ; PH(K)
+            ld   e,c                    ; SZ(K)
+            pop  bc
             ld   a,d
             cp   e
             jp   nc,hs_n                ; PH>=SZ — потоплен
@@ -439,15 +489,11 @@ hs_take:    ld   hl,(bSC)
             ret  z
             ld   a,10
             call sc_mul_rnd
-            call sc_gt_nb
-            ret  nc
-            ld   hl,(bSC)
-            ld   (bNB),hl
             LDV  bX
-            STV  bBX
+            ld   d,a
             LDV  bY
-            STV  bBY
-            ret
+            ld   e,a
+            jp   nb_take
 
 ; ---------------------------------------------------------------- 1902: поиск по вероятностям
 L1902:      LDV  bTD
@@ -459,20 +505,11 @@ L1902a:     ZEROV bB
 L1902b:     ld   hl,0
             ld   (bT),hl
             SETV bK,1
-L1902c:     LDV  bK                 ; IF PH(K)>=SZ(K) THEN 1905
-            ld   hl,ARR_PH
-            add  a,a
-            rst  00h
-            ld   d,(hl)
-            LDV  bK
-            ld   hl,ARR_SZ
-            add  a,a
-            rst  00h
-            ld   e,(hl)
-            ld   a,d
-            cp   e
+L1902c:     call k_ph_sz                ; IF PH(K)>=SZ(K) THEN 1905
+            ld   a,b
+            cp   c
             jp   nc,L1905
-            ld   a,e                    ; L=SZ(K): X=MIN(A,L-1): Y=MIN(B,L-1)
+            ld   a,c                    ; L=SZ(K): X=MIN(A,L-1): Y=MIN(B,L-1)
             STV  bL
             dec  a
             ld   c,a
@@ -518,96 +555,35 @@ L1906:      ld   hl,-1
 L1906a:     ld   a,100                  ; P=INT(RND(1)*100): I=P\10: J=P MOD 10
             call rnd_n
             STV  bP
-            ld   b,0
-L1906b:     sub  10
-            jp   c,L1906c
-            inc  b
-            jp   L1906b
-L1906c:     add  a,10
+            call div10
+            STV  bI
+            ld   a,b
             STV  bJ
             ZEROV bJ+1
             STV  bI+1
-            ld   a,b
-            STV  bI
             LDV  bJ                 ; IF PM(I,J)<>0 OR BZ(I,J)=3 THEN 1919
             ld   e,a
             LDV  bI
             call open_xy
             jp   nz,L1919
-L1907:      ZEROV bA  ; A = свободных влево (по X)
-            LDV  bI
-            dec  a
-            STV  bU
-L1908:      LDV  bU
-            or   a
-            jp   m,L1909
-            CPV  bA,4
-            jp   nc,L1909
-            LDV  bJ
-            ld   e,a
-            LDV  bU
-            call open_xy
-            jp   nz,L1909
-            INCV bA
-            ld   hl,bU
-            dec  (hl)
-            jp   L1908
-L1909:      ZEROV bB  ; B = вправо
-            LDV  bI
-            inc  a
-            STV  bU
-L1910:      CPV  bU,10
-            jp   nc,L1911
-            CPV  bB,4
-            jp   nc,L1911
-            LDV  bJ
-            ld   e,a
-            LDV  bU
-            call open_xy
-            jp   nz,L1911
-            INCV bB
-            INCV bU
-            jp   L1910
+L1907:      ld   bc,0FF00h              ; A = свободных влево (по X): U от I-1
+            call co_u
+            STV  bA
+L1909:      ld   bc,0100h               ; B = вправо: U от I+1
+            call co_u
+            STV  bB
 L1911:      call ga_ab                  ; SC=GA(A,B): A=0: V=J-1
             ld   a,(hl)
             inc  hl
             ld   h,(hl)
             ld   l,a
             ld   (bSC),hl
-            ZEROV bA
-            LDV  bJ
-            dec  a
-            STV  bV
-L1912:      LDV  bV
-            or   a
-            jp   m,L1913
-            CPV  bA,4
-            jp   nc,L1913
-            LDV  bV
-            ld   e,a
-            LDV  bI
-            call open_xy
-            jp   nz,L1913
-            INCV bA
-            ld   hl,bV
-            dec  (hl)
-            jp   L1912
-L1913:      ZEROV bB
-            LDV  bJ
-            inc  a
-            STV  bV
-L1914:      CPV  bV,10
-            jp   nc,L1915
-            CPV  bB,4
-            jp   nc,L1915
-            LDV  bV
-            ld   e,a
-            LDV  bI
-            call open_xy
-            jp   nz,L1915
-            INCV bB
-            INCV bV
-            jp   L1914
+            ld   bc,00FFh               ; A = вверх (по Y): V от J-1
+            call co_v
+            STV  bA
+L1913:      ld   bc,0001h               ; B = вниз: V от J+1
+            call co_v
+            STV  bB
 L1915:      call ga_ab                  ; SC=SC+GA(A,B)
             ld   e,(hl)
             inc  hl
@@ -627,14 +603,7 @@ L1915:      call ga_ab                  ; SC=SC+GA(A,B)
             jp   L1919
 L1916:      ld   a,10
             call sc_mul_rnd
-            call sc_gt_nb
-            jp   nc,L1919
-            ld   hl,(bSC)
-            ld   (bNB),hl
-            LDV  bI
-            STV  bBX
-            LDV  bJ
-            STV  bBY
+            call nb_ij
 L1919:      INCV bSM
             ld   a,(hl)
             cp   21
@@ -642,33 +611,16 @@ L1919:      INCV bSM
             LDV  bNB+1
             or   a
             ret  p
-L1920:      ld   b,0                    ; первая открытая клетка
-L1920a:     ld   c,0
-L1920b:     push bc
-            ld   a,b
-            ld   e,c
-            call open_xy
-            pop  bc
-            jp   nz,L1921
+L1920:      ld   hl,open_xy             ; первая открытая клетка
+            call scan_cells
+            jp   nc,L1921x
             ld   a,b
             STV  bBX
             ld   a,c
             STV  bBY
             ld   hl,0
             ld   (bNB),hl
-            jp   L1921x
-L1921:      inc  c
-            ld   a,c
-            cp   10
-            jp   c,L1920b
-            inc  b
-            ld   a,b
-            cp   10
-            jp   c,L1920a
-L1921x:     ld   hl,10
-            ld   (bI),hl
-            ld   (bJ),hl
-            LDV  bNB+1
+L1921x:     LDV  bNB+1
             or   a
             ret  p
 L1922:      ld   a,10                   ; случайная нестрелянная
@@ -842,14 +794,7 @@ L1946:      CPV  bT,1  ; IF T=1 THEN T=0: TM=1: X=I: Y=J: GOSUB 1960: IF SC>NB .
             LDV  bJ
             call st_y
             call L1960
-            call sc_gt_nb
-            jp   nc,L1947
-            ld   hl,(bSC)
-            ld   (bNB),hl
-            LDV  bI
-            STV  bBX
-            LDV  bJ
-            STV  bBY
+            call nb_ij
 L1947:      INCV bJ
             ld   a,(hl)
             cp   10
@@ -864,15 +809,10 @@ L1948:      SETV bSM,1
 L1948a:     ld   a,100
             call rnd_n
             STV  bP
-            ld   b,0
-L1948b:     sub  10
-            jp   c,L1948c
-            inc  b
-            jp   L1948b
-L1948c:     add  a,10
-            call st_y                   ; Y=P MOD 10
-            ld   a,b
+            call div10
             call st_x                   ; X=P\10
+            ld   a,b
+            call st_y                   ; Y=P MOD 10
             LDV  bY                 ; IF PM(X,Y)<>0 OR ((X+Y+PA) AND 1)=1 THEN 1950
             ld   e,a
             LDV  bX
@@ -889,14 +829,11 @@ L1948c:     add  a,10
             and  1
             jp   nz,L1950
 L1949:      call L1960
-            call sc_gt_nb
-            jp   nc,L1950
-            ld   hl,(bSC)
-            ld   (bNB),hl
             LDV  bX
-            STV  bBX
+            ld   d,a
             LDV  bY
-            STV  bBY
+            ld   e,a
+            call nb_take
 L1950:      INCV bSM
             ld   a,(hl)
             cp   21
@@ -904,31 +841,43 @@ L1950:      INCV bSM
             LDV  bNB+1
             or   a
             ret  p
-L1951:      ld   b,0                    ; первая нестрелянная
-L1951a:     ld   c,0
-L1951b:     push bc
-            ld   a,b
-            ld   e,c
-            call pm_xy
-            pop  bc
-            or   a
-            jp   nz,L1952
+L1951:      ld   hl,pm_is0              ; первая нестрелянная
+            call scan_cells
+            ret  nc
             ld   a,b
             STV  bBX
             ld   a,c
             STV  bBY
-            jp   L1952x
-L1952:      inc  c
-            ld   a,c
-            cp   10
-            jp   c,L1951b
-            inc  b
-            ld   a,b
-            cp   10
-            jp   c,L1951a
-L1952x:     ld   hl,10
-            ld   (bI),hl
-            ld   (bJ),hl
+            ret
+; IF SC>NB THEN NB=SC: BX=I: BY=J
+nb_ij:      LDV  bI
+            ld   d,a
+            LDV  bJ
+            ld   e,a
+            jp   nb_take
+; 1908/1910: от (I±1, J) шагом (B,C): A = счёт, U = столбец остановки
+co_u:       LDV  bI
+            add  a,b
+            ld   d,a
+            LDV  bJ
+            ld   e,a
+            call cnt_open
+            push af
+            ld   a,d
+            STV  bU
+            pop  af
+            ret
+; 1912/1914: от (I, J±1) шагом (B,C): A = счёт, V = строка остановки
+co_v:       LDV  bJ
+            add  a,c
+            ld   e,a
+            LDV  bI
+            ld   d,a
+            call cnt_open
+            push af
+            ld   a,e
+            STV  bV
+            pop  af
             ret
 ; T=1, если PM(A,J)>1 / PM(A,E)>1
 nb_hit:     ld   e,a
@@ -1195,15 +1144,4 @@ L1972:      INCV bJ
             LDV  bHW
             or   a
             ret  z
-L1973:      ld   a,10
-            call rnd_n
-            STV  bBX
-            ld   a,10
-            call rnd_n
-            STV  bBY
-            ld   e,a
-            LDV  bBX
-            call pm_xy
-            or   a
-            jp   nz,L1973
-            ret
+L1973:      jp   L1922
