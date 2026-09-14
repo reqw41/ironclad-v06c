@@ -17,24 +17,24 @@ o2_help:    SETV pg_vis,2
             ld   de,249*256+205
             ld   a,3
             call gfx_box
-            ld   bc,104*256+14
+            ld   bc,100*256+14
             ld   a,15
             call gfx_pset
             call fg15
             call putsi
-            TXT  "KEYS"
+            TXT  "КЛАВИШИ"
 L3901:      SETV hk_y,36  ; колонка 110 (в оригинале — в CX, см. docs)
             ld   hl,keys_tab
 L3903:      ld   a,(hl)
             cp   '!'
             jp   z,L3910
 L3905:      push hl
-            call str_len                ; X=110-8*LEN(A$)
+            call str_len                ; X=94-8*LEN(A$) (в оригинале 110 и 126 — русские пояснения длиннее)
             add  a,a
             add  a,a
             add  a,a
             ld   b,a
-            ld   a,110
+            ld   a,94
             sub  b
             ld   b,a
             LDV  hk_y
@@ -49,7 +49,7 @@ L3905:      push hl
             call gfx_putc
             LDV  hk_y
             ld   c,a
-            ld   b,126
+            ld   b,110
             ld   a,5
             call gfx_pset
             pop  hl
@@ -59,7 +59,7 @@ L3905:      push hl
             add  a,18
             STV  hk_y
             jp   L3903
-L3910:      ld   bc,40*256+190
+L3910:      ld   bc,44*256+190
             ld   a,11
             call gfx_pset
             ld   hl,s_press_key_back
@@ -69,22 +69,22 @@ L3920:      call getkey
             ret
 
 ; 9070: подписи клавиш (пары строк, "!" — конец)
-keys_tab:   TXT  "ARROWS"
-            TXT  "MOVE"
-            TXT  "SPACE"
-            TXT  "FIRE OR DROP"
-            TXT  "R"
-            TXT  "TURN SHIP"
-            TXT  "U"
-            TXT  "UNDO"
-            TXT  "Z"
-            TXT  "AUTO-PLACE"
-            TXT  "X"
-            TXT  "BUOY MARK"
-            TXT  "TAB"
-            TXT  "SWITCH VIEW"
-            TXT  "Q"
-            TXT  "MENU (TWICE)"
+keys_tab:   TXT  "СТРЕЛКИ"
+            TXT  "КУРСОР"
+            TXT  "ПРОБЕЛ"
+            TXT  "ОГОНЬ / ПОСТАВИТЬ"
+            TXT  "Р"
+            TXT  "РАЗВЕРНУТЬ"
+            TXT  "У"
+            TXT  "УБРАТЬ ПОСЛЕДНИЙ"
+            TXT  "А"
+            TXT  "АВТОРАССТАНОВКА"
+            TXT  "Б"
+            TXT  "БУЙ (МЕТКА)"
+            TXT  "ТАБ"
+            TXT  "ДРУГОЕ ПОЛЕ"
+            TXT  "М"
+            TXT  "МЕНЮ (ДВАЖДЫ)"
             TXT  "!"
 
 ; ---------------------------------------------------------------- 2235..2270: конец партии
@@ -158,7 +158,7 @@ L2260:      call getkey
 L2265:      cp   9
             jp   z,L2266
             LDV  bDP
-            call o_showpg               ; (тайлы — через резидентную обёртку)
+            call o2_showpg
             LDV  bMD
             or   a
             jp   nz,L2270
@@ -180,7 +180,7 @@ L2268:      CPV  bVP,2
             call show_end_image
             jp   L2260
 L2268a:     LDV  bVP
-            call o_showpg
+            call o2_showpg
             jp   L2260
 L2254:      INCV bGN                    ; (MS$="LOADING NEXT GAME ..." — загрузки с диска нет)
             LDV  bFS
@@ -198,34 +198,44 @@ L2256:      ld   hl,ARR_PH              ; PH, QH, HS = 0 (QH, HS — подря�
 L2257:      jp   o_next                 ; 221 — с тайлами
 L2270:      jp   setup_run              ; RUN "SETUP.BAS" (без «LOADING MENU ...» — загрузки с диска нет)
 
-; экран победы/поражения (страница 2): VICTORY.SC5 / DEFEAT.SC5 (GOSUB 2508 — палитра 9042)
-; 8 цв.: 3 плоскости с $8000. 4 цв.: 2 плоскости с $A000, в $8000 — поля экрана белым
-; (слот 4 = белый бордюр MSX), бордюр Вектора — индекс 8.
+; страница A (доски) после картинки итога: поля экрана — снова слот 0 (cls1 льёт только 212
+; видимых строк MSX), тайлы — через резидентную обёртку
+o2_showpg:  push af
+            xor  a
+            call end_margins
+            pop  af
+            jp   o_showpg
+
+; экран победы/поражения (страница 2): VICTORY.SC5 / DEFEAT.SC5 (GOSUB 2508 — палитра 9042),
+; 6 цветов картинки + белый: данные во всех плоскостях экрана с $8000; белый — свой слот (его
+; номер — в cmap картинки для цвета 1): поля экрана (строки памяти 0..21, 234..255) заливает
+; end_margins, бордюр Вектора — индекс 2*слот (как COLOR 15,1,1 MSX: бордюр белый).
 show_end_image:
             call disp_blank
             SETV pg_vis,2
             IFNDEF NOIMG
-            CPV  bWN,1
-            jp   z,sei_v
             ld   hl,img_defeat
             ld   de,pal_defeat
-            ld   a,DEFEAT_PLANES
-            jp   sei_1
-sei_v:      ld   hl,img_victory
+            ld   bc,cmap_defeat+1
+            CPV  bWN,1
+            jp   nz,sei_1
+            ld   hl,img_victory
             ld   de,pal_victory
-            ld   a,VICTORY_PLANES
+            ld   bc,cmap_victory+1
 sei_1:      push de
-            cp   3
-            jp   z,sei_3
-            ld   de,0A000h
+            ld   a,(bc)                 ; слот белого (цвет 1) << 5
+            push af
+            ld   de,8000h               ; данные — все плоскости экрана подряд с $8000
             call dzx0
-            call end_margins
-            ld   a,BORDER_4C
-            jp   sei_2
-sei_3:      ld   de,8000h
-            call dzx0
-            xor  a
-sei_2:      ld   (vec_border),a
+            pop  af
+            push af
+            call end_margins            ; поля экрана — белым
+            pop  af
+            rrca
+            rrca
+            rrca
+            rrca
+            ld   (vec_border),a         ; бордюр — белый (индекс 2*слот), как COLOR 15,1,1 MSX
             pop  hl
             call pal_set
             call end_captions
@@ -289,35 +299,43 @@ ecl_1:      ld   (gfx_pitch),a
             inc  hl
             ex   de,hl
             ret
-cap_victory: db   52,168,1,1
-             TXT  "YOU ARE VICTORIOUS!"
-cap_defeat:  db   8,168,1,1
-             TXT  "YOUR FLEET HAS BEEN DESTROYED."
-cap_keys:    db   68,186,2,0
-             TXT  "TAB:"
-             db   98,186,7,0
-             TXT  "REVIEW THE BOARDS"
-             db   56,197,2,0
-             TXT  "SPACE:"
-             db   98,197,7,0
-             TXT  "CONTINUE"
+cap_victory: db   68,168,1,1              ; по центру: x = (256 - 8*длина)/2
+             TXT  "ПОБЕДА ЗА ВАМИ!"
+cap_defeat:  db   52,168,1,1
+             TXT  "ВАШ ФЛОТ УНИЧТОЖЕН."
+cap_keys:    db   77,186,2,0              ; клавиши кончаются на x=101, пояснения с 107 (блок по центру)
+             TXT  "ТАБ:"
+             db   107,186,7,0
+             TXT  "ПОСМОТРЕТЬ ПОЛЯ"
+             db   59,197,2,0
+             TXT  "ПРОБЕЛ:"
+             db   107,197,7,0
+             TXT  "ДАЛЬШЕ"
              db 0
 
-; плоскость $8000 для 4-цветной картинки: поля экрана (строки памяти 0..21 и 234..255) = FF
-end_margins:
-            ld   hl,8000h
-em_1:       ld   a,l
+; поля экрана (строки памяти 0..21 и 234..255) — цвет слота A во всех плоскостях (данные
+; картинки в полях — нули)
+end_margins:                            ; A = слот << 5 (биты 7,6,5 — плоскости $8000,$A000,$C000)
+            ld   c,a
+            ld   hl,8000h+234           ; столбец: строки 234..255, затем 0..21 (L переполняется)
+em_p:       ld   a,c                    ; байт полей этой плоскости: FF, если бит слота 1
+            rlca
+            ld   c,a
+            sbc  a,a
+            ld   b,a
+em_1:       ld   (hl),b
+            inc  l
+            ld   a,l
             cp   22
-            jp   c,em_ff
-            cp   234
-            jp   nc,em_ff
-            ld   (hl),0
-            jp   em_2
-em_ff:      ld   (hl),0FFh
-em_2:       inc  hl
-            ld   a,h
-            cp   0A0h
             jp   nz,em_1
+            ld   l,234
+            inc  h                      ; следующий столбец
+            ld   a,h
+            and  1Fh
+            jp   nz,em_1
+            ld   a,h                    ; начало следующей плоскости
+            cp   80h+NPL*20h
+            jp   nz,em_p
             ret
 
 

@@ -46,7 +46,7 @@ L3801:      LDV  bSL                ; NV=SL: GOSUB 3810
             ld   hl,s_hits
             call hits_msg
             ld   hl,sSS                 ; IF SS$<>"" THEN MS$=MS$+" SANK: "+LEFT$(SS$,LEN(SS$)-1)
-            ld   de,9                   ; сокращение: LEFT$(MS$,9)+MID$(MS$,14)
+            ld   de,11                  ; сокращение: LEFT$(MS$,11)+MID$(MS$,16) — «ПОПАЛИ: 3/5» (было 9/14 для «HITS:»)
             call salvo_sank
 L3803:      call L1305
             LDV  bSK
@@ -59,7 +59,7 @@ L3804:      call te_tt
             call L1315
             jp   L3330                  ; KQ$="": 3805
 
-; MS$ = строка HL + STR$(A) + "/" + MID$(STR$(B),2) + " [" + S1$ + "]"
+; MS$ = строка HL + STR$(A) + "/" + MID$(STR$(B),2) + " (" + S1$ + ")"
 hits_msg:   push bc
             push af
             call ms_set
@@ -72,14 +72,14 @@ hits_msg:   push bc
             pop  af
             call ms_catd
             call ms_cati
-            TXT  " ["
+            TXT  " ("
             ld   hl,sS1
             call ms_cat
-            ld   a,']'
+            ld   a,')'                  ; скобки круглые: коды [ ] заняты буквами Ь Ю
             jp   ms_catc
 
-; MS$ += " SANK: " + SS$ без последней запятой; если длиннее 31 — вырезать 4 знака
-; HL = SS$/ES$, D = с какого знака (0-базно) вырезать: E=9 -> LEFT$(,9)+MID$(,14); E=15 -> LEFT$(,15)+MID$(,20)
+; MS$ += " НА ДНЕ: " + SS$ без последней запятой; если длиннее 31 — вырезать 4 знака « (А)»
+; HL = SS$/ES$, E = с какого знака (0-базно) вырезать: E=11 -> LEFT$(,11)+MID$(,16); E=15 -> LEFT$(,15)+MID$(,20)
 salvo_sank:
             ld   a,(hl)
             or   a
@@ -87,7 +87,7 @@ salvo_sank:
             push de
             push hl
             call ms_cati
-            TXT  " SANK: "
+            TXT  " НА ДНЕ: "
             pop  hl
             call ms_cat
             ld   de,sMS                 ; убрать завершающую запятую
@@ -284,7 +284,8 @@ L3840:      ZEROV bEK
             jp   nz,L3843
             ZEROV bFP
             call msg2i
-            TXT  "ENEMY REVIEWS LAST SALVO ..."
+            TXT  "ВРАГ ИЗУЧАЕТ ЗАЛП ..."
+            SETV ai_left,AI_SHOW
             call L4301
 L3843:      call L4000
             ld   hl,ARR_HK              ; FOR K=1 TO ZT: HK(K)=0
@@ -444,7 +445,7 @@ L3882:      LDV  bSH
             ld   hl,bSJ
             dec  (hl)
 L3883:      call ms_seti
-            TXT  "UNDO "
+            TXT  "ОТМЕНА "
             LDV  bCX
             add  a,65
             call ms_catc
@@ -549,10 +550,12 @@ L4002x:     LDV  bKM
             or   a
             jp   nz,L4002b
             call msg2i
-            TXT  "ENEMY PROBES OPEN SEA ..."
+            TXT  "ВРАГ ПРОЧЕСЫВАЕТ МОРЕ ..."
+            SETV ai_left,AI_SHOW
             jp   L4070
 L4002b:     call msg2i
-            TXT  "ENEMY CLOSES IN ..."
+            TXT  "ВРАГ ПОДБИРАЕТСЯ ..."
+            SETV ai_left,AI_SHOW
 L4003:      ZEROV bNA  ; NA, KL, T5 = сумма CC(K)*SZ(K) живых K<=ZT
             ld   hl,0
             ld   (bT5),hl
@@ -1241,29 +1244,29 @@ L4170:      ld   hl,bBL
             ret
 ; 9031: подписи панели SALVO PLUS (y, текст)
 panel_sp:   db   34
-            TXT  "CAR"
+            TXT  "АВН"
             db   42
-            TXT  "BAT"
+            TXT  "ЛИН"
             db   50
-            TXT  "CRU"
+            TXT  "КРС"
             db   58
-            TXT  "SUB"
+            TXT  "ПЛ"
             db   66
-            TXT  "DES"
+            TXT  "ЭСМ"
             db   82
-            TXT  "BOT"
+            TXT  "БОТ"
             db   105
-            TXT  "CAR"
+            TXT  "АВН"
             db   113
-            TXT  "BAT"
+            TXT  "ЛИН"
             db   121
-            TXT  "CRU"
+            TXT  "КРС"
             db   129
-            TXT  "SUB"
+            TXT  "ПЛ"
             db   137
-            TXT  "DES"
+            TXT  "ЭСМ"
             db   153
-            TXT  "BOT"
+            TXT  "БОТ"
 
 ; ---------------------------------------------------------------- 4300: разбор отчёта о прошлом залпе
 L4301:      LDV  bNS                ; T2=USR0(NS)
@@ -1475,6 +1478,6 @@ L4339:      pop  bc
             jp   c,L4338a
             ret
 
-s_hits:         TXT  "HITS:"
-s_press_space:  TXT  "Press SPACE to continue ..."
-s_enemy_hits:   TXT  "ENEMY HITS:"
+s_hits:         TXT  "ПОПАЛИ:"
+s_press_space:  TXT  "ПРОБЕЛ - ДАЛЬШЕ ..."
+s_enemy_hits:   TXT  "ВРАГ ПОПАЛ:"

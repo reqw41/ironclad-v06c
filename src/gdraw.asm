@@ -460,7 +460,8 @@ L1305:      SETV bMY,192
             jp   L1300
 L1306:      SETV bMY,192
             jp   L1300
-L1315:      SETV bMY,202
+L1315:      call ai_wait                ; порт: прежнее сообщение ИИ в этой строке — не меньше 60 кадров
+            SETV bMY,202
             SETV bMC,15
             jp   L1300
 ; HL = запись строки сообщений для MY=A
@@ -486,7 +487,7 @@ L1355s:     ld   bc,232*256+4           ; PSET(232,4),12: PRINT "TAB"
             ld   a,12
             call gfx_pset
             call putsi
-            TXT  "TAB"
+            TXT  "ТАБ"
 L1375:      ZEROV bI  ; FOR I=0 TO 9: PSET(GX+I*16+4,18),15: PRINT CHR$(65+I)
 L1375a:     LDV  bI                 ; 1380 (тем же циклом): PSET(2,GY+I*16+4),15: PRINT RIGHT$(STR$(I+1),2)
             add  a,a
@@ -660,8 +661,8 @@ L1441:      LDV  bK_
             jp   nz,L1444
 L1441a:     SETV bAC,1
             ret
-L1444:      call upcase                 ; R -> AC=2, X -> 7, Q -> 3, Z -> 4, U -> 5
-            ld   hl,t1444-1
+L1444:      ld   hl,t1444-1             ; R -> AC=2, B -> 7, M -> 3, A -> 4, U -> 5 (UCASE не нужен:
+                                        ; kbd_code строчных не даёт, коды <= 5Fh)
 L1444a:     inc  hl
             ld   b,(hl)
             inc  b
@@ -678,13 +679,7 @@ L1451:      cp   '?'
             call L3900
             ZEROV bAC
             ret
-t1444:      db   'R',2,'X',7,'Q',3,'Z',4,'U',5,0
-upcase:     cp   'a'
-            ret  c
-            cp   'z'+1
-            ret  nc
-            sub  32
-            ret
+t1444:      db   'R',2,'B',7,'M',3,'A',4,'U',5,0   ; клавиши Р, Б, М, А, У (коды латинские)
 
 ; ---------------------------------------------------------------- 1473: поле AT:
 L1473:      LDV  bCX                ; CO$=CHR$(65+CX)+MID$(STR$(CY+1),2)
@@ -1105,7 +1100,7 @@ L1795a:     call pxy_off
             jp   c,L1795a
             ret
 
-s_enemy:    TXT  "ENEMY"
-s_yours:    TXT  "YOURS"
-s_game:     TXT  "GAME"
-s_at:       TXT  "AT:"
+s_enemy:    TXT  "ВРАГ"
+s_yours:    TXT  "ВАШИ"
+s_game:     TXT  "ИГРА"
+s_at:       TXT  "ЦЕЛЬ:"

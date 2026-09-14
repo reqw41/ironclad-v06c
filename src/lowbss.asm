@@ -14,6 +14,7 @@ rt_src:     ds 2
 rt_dst:     ds 2
 rt_pl:      ds 1
 rt_r:       ds 1
+kbd_rows:   ds 8        ; ряды клавиатуры 0..7, прочитанные в ISR (0 = нажата)
 kbd_last:   ds 1
 kbd_rep:    ds 1
 kq_head:    ds 1
@@ -63,7 +64,6 @@ mus_p:      ds 4
 mus_cnt:    ds 2
 mv_v:       ds 1
 ; zx0
-zx_bits:    ds 1
 zx_off:     ds 2
 ; util
 rnd_seed:   ds 2

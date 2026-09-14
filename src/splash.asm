@@ -8,7 +8,7 @@
 SPLASH_FRAMES equ 150                   ; 3 с
 
 splash_show:
-            ld   a,8Ah                  ; ВВ55: клавиатура
+            ld   a,PPI_OUT              ; ВВ55: порт B — выход (индекс палитры), см. vec.asm
             out  (PPI_CW),a
             ld   a,0FFh
             out  (PPI_A),a
@@ -62,11 +62,16 @@ sp_1:       ld   a,c
             pop  hl
             ret
 
-; NZ = нажата любая клавиша (все ряды разом), порт 3 (он же скролл) — на место
-spl_keys:   xor  a
+; NZ = нажата любая клавиша (все ряды разом). Порт B — вход только на чтение; запись режима
+; обнуляет выходы: B = 0 (бордюр — индекс 0, как после spl_pal), порт 3 (скролл) — на место
+spl_keys:   ld   a,PPI_KBD
+            out  (PPI_CW),a
+            xor  a
             out  (PPI_A),a
             in   a,(PPI_B)
             ld   c,a
+            ld   a,PPI_OUT
+            out  (PPI_CW),a
             ld   a,0FFh
             out  (PPI_A),a
             ld   a,c

@@ -34,7 +34,7 @@ sd1_1:      ZEROV bSD
 L2010:      ld   hl,0
             ld   (bAT),hl
             call msg1i
-            TXT  "PLACING FLEET ..."
+            TXT  "РАССТАНОВКА ФЛОТА ..."
             LDV  bRW
             or   a
             jp   z,L2020
@@ -43,7 +43,7 @@ L2010:      ld   hl,0
 L2020:      call at_inc
             jp   nc,L2030
             call ms_seti
-            TXT  "NO ROOM"
+            TXT  "НЕТ МЕСТА"
             jp   L1305
 L2030:      call L3440
 L2040:      call L1615
@@ -71,7 +71,7 @@ L2085:      jp   L2635                  ; COPY стр.1 -> стр.2: запис�
 L2108:      CPV  bSH,2
             jp   nc,L2110
             call ms_seti
-            TXT  "NOTHING TO UNDO"
+            TXT  "НЕЧЕГО УБИРАТЬ"
             jp   L1305
 L2110:      ld   hl,bSH
             dec  (hl)
@@ -217,12 +217,11 @@ o_next:     call tiles_load
 
 ; ---------------------------------------------------------------- 2350: выход в меню
 L2350:      call msg1i
-            TXT  "TERMINATE GAME? Q AGAIN"
+            TXT  "ПРЕРВАТЬ ИГРУ? ЕЩЕ РАЗ М"
             ZEROV bAB
 L2352:      call getkey
             STV  bK_
-L2354:      call upcase
-            cp   'Q'
+L2354:      cp   'M'                    ; клавиша М (было Q); UCASE не нужен — строчных кодов нет
             jp   nz,L2356
             SETV bAB,1
 L2356:      call ms_clear
@@ -386,15 +385,16 @@ L3943z:     ld   (hl),0
 L3946:      jp   rd_cxcy
 
 ; 3960: MS$="PLACE "+N$(SH)+SPACE$(19-LEN(N$(SH)))+"?:HELP": ... подсказка клавиш
+; (по-русски: "СТАВЬТЕ "+N$+SPACE$(15-LEN)+"?:ПОМОЩЬ" — те же 31 знак)
 L3960:      call ms_seti
-            TXT  "PLACE "
+            TXT  "СТАВЬТЕ "
             call n_sh
             push hl
             call ms_cat
             pop  hl
             call str_len
             ld   b,a
-            ld   a,19
+            ld   a,15
             sub  b
             ld   b,a
 L3960a:     ld   a,b
@@ -407,10 +407,10 @@ L3960a:     ld   a,b
             dec  b
             jp   L3960a
 L3960b:     call ms_cati
-            TXT  "?:HELP"
+            TXT  "?:ПОМОЩЬ"
             call L1305
             call ms_seti
-            TXT  "SPC:DROP R:TURN U:UNDO Z:AUTO"
+            TXT  "ПРОБЕЛ:СТАВ Р:РАЗВ У:УБР А:АВТО"
             jp   L1315
 
 ; ---------------------------------------------------------------- перерисовка страницы (порт)
@@ -460,6 +460,6 @@ rf_3:       call at_draw_vis
             jp   disp_on
 
 
-s_enemy_wins:   TXT  "ENEMY WINS"
-s_you_win:      TXT  "YOU WIN"
-s_press_key_back: TXT  "Press a key to go back"
+s_enemy_wins:   TXT  "ПОБЕДИЛ ВРАГ"
+s_you_win:      TXT  "ВЫ ПОБЕДИЛИ"
+s_press_key_back: TXT  "НАЖМИТЕ ЛЮБУЮ КЛАВИШУ"

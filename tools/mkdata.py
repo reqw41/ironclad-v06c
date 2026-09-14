@@ -200,43 +200,52 @@ def build_tiles():
     png('tiles_check', sheet, rgb_of(PAL_GAME, 1), 3)
     return len(data), len(gl)
 
-# --------------------------------------------------------------------------- шрифт
-# Хранятся только знаки, которые печатает программа: из строк db "..." в src/*.asm и
-# знаки, что строятся счётом (цифры, A..V номера залпов, координаты, знак числа).
-# 64 ячейки на коды 32..95 (ячейка = код-32); строчные буквы занимают ячейки неиспользуемых
-# знаков 32..95, их номер берётся из таблицы lc_map (коды 96..127). Строка 7 у всех знаков
-# шрифта пустая — хранятся 7 строк (8-ю gfx_putc кладёт нулём). Данные сжаты ZX0 (font.zx0),
-# распаковываются на старте в font_data (BSS); таблица lc_map — в font.inc.
-FONT_DYN = set(' -/,[]:0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ')
+# Внутренняя кодировка текста (игра только на русском): 20h..40h — как ASCII (пробел, цифры,
+# знаки), буквы А..Я без Ё и Ъ — с 41h по алфавиту, Й — последней (5Fh): тогда 41h+i для
+# i = 0..9 — А Б В Г Д Е Ж З И К (столбцы русского морского боя), а буквы номеров залпов
+# CHR$(64+M) — А, Б, В ... Исходники пишут строки в UTF-8, в байты их переводит Lua-функция
+# U() в src/macros.asm по таблице ENC из build/data/dict.lua (её пишет build_text). Латиница
+# в строках — ошибка сборки. Ё пишется как Е.
+# Шрифт: 64 ячейки на коды 20h..5Fh (ячейка = код-20h), по 7 строк (8-ю gfx_putc кладёт нулём);
+# сжат ZX0 (font.zx0), распаковывается на старте в font_data (BSS).
+RU = font5x7.RU_ORDER
+ENC = {c: 0x41 + i for i, c in enumerate(RU)}
+ENC['Ё'] = ENC['Е']
+DEC = {v: k for k, v in ENC.items() if k != 'Ё'}
+def enc(s):
+    out = []
+    for ch in s:
+        if ch in ENC: out.append(ENC[ch])
+        elif 32 <= ord(ch) <= 0x40: out.append(ord(ch))
+        else: raise ValueError('знак вне шрифта: %r в строке %r' % (ch, s))
+    return ''.join(map(chr, out))
+# знаки, что строятся счётом: цифры, знак числа, разделители, все буквы (столбцы, номера залпов)
+FONT_DYN = set(' -/,():0123456789') | set(RU)
+TXT_RE = r'^\s*(?:[A-Za-z_]\w*:)?\s*(?:db|TXT|TXR)\s+(.*)$'
 def used_chars():
     import glob, re
     used = set(FONT_DYN)
     for f in glob.glob(os.path.join(ROOT, 'src', '*.asm')) + [os.path.join(OUT, 'version.inc')]:
         if '/engine/' in f or f.endswith('libtest.asm') or not os.path.exists(f): continue
         for l in open(f, encoding='utf8'):
-            m = re.match(r'^\s*(?:[A-Za-z_]\w*:)?\s*(?:db|TXT)\s+(.*)$', l)
+            m = re.match(TXT_RE, l)
             if m:
                 for t in re.findall(r'"([^"]*)"', m.group(1)): used |= set(t)
     return used
 def build_font():
     used = used_chars()
-    assert all(32 <= ord(c) < 128 for c in used), sorted(used)
-    slot = [chr(32 + i) if chr(32 + i) in used else None for i in range(64)]
-    free = [i for i in range(64) if slot[i] is None]
-    hi = sorted(c for c in used if ord(c) >= 96)
-    assert len(hi) <= len(free), ('знаков 96..127 больше, чем свободных ячеек', hi)
-    lc = [0] * 32
-    for c, i in zip(hi, free):
-        slot[i] = c; lc[ord(c) - 96] = i
+    codes = {ord(enc(c)) for c in used}
+    assert all(32 <= c < 96 for c in codes), sorted(codes)
     data = []
     for i in range(64):
-        r = font5x7.rows(slot[i]) if slot[i] else [0] * 8
-        assert r[7] == 0, slot[i]
+        c = 32 + i
+        ch = DEC.get(c, chr(c))
+        r = font5x7.rows(ch) if c in codes else [0] * 8
+        assert r[7] == 0, ch
         data += r[:7]
     zx0('font', data)
-    write('font.inc', '; сгенерировано tools/mkdata.py: номер ячейки шрифта (font_data) для кодов 96..127\n'
-          '; знаки: ' + ''.join(sorted(used)).replace(';', '') + '\n'
-          'lc_map: db ' + ','.join('%d' % v for v in lc) + '\n'
+    write('font.inc', '; сгенерировано tools/mkdata.py: шрифт — коды 20h..5Fh (font_data)\n'
+          '; знаки: ' + ''.join(sorted(used, key=lambda c: ord(enc(c)))).replace(';', '') + '\n'
           'FONT_SIZE equ %d\n' % len(data))
     return bytes(data)
 
@@ -253,7 +262,7 @@ def txt_strings():
         if os.path.basename(f) in TXT_DICT_FILES: continue
         for l in open(f, encoding='utf8'):
             m = re.match(r'^\s*(?:[A-Za-z_]\w*:)?\s*TXT\s+"([^"]*)"', l)
-            if m: out.append(m.group(1))
+            if m: out.append(enc(m.group(1)))
     return out
 def txt_parse(s, words):
     """ДП: минимум байтов; при равенстве — меньше слов словаря (детерминированно, как в Lua)."""
@@ -311,7 +320,10 @@ def build_text():
             tt = total(ws)
             if tt <= t: words, t, changed = ws, tt, True
     raw = sum(len(x) + 1 for x in strs)
-    write('dict.lua', 'DICT = {\n' + ''.join('  "%s",\n' % w for w in words) + '}\n')
+    lua = lambda w: w.replace('\\', '\\\\').replace('"', '\\"')
+    write('dict.lua', '-- сгенерировано tools/mkdata.py: слова словаря (во внутренней кодировке) и ENC\n'
+          'DICT = {\n' + ''.join('  "%s",\n' % lua(w) for w in words) + '}\n'
+          'ENC = {' + ', '.join('[%d]=%d' % (ord(c), v) for c, v in sorted(ENC.items(), key=lambda x: x[1])) + '}\n')
     data = []
     for w in words: data += [ord(ch) for ch in w[:-1]] + [ord(w[-1]) | 0x80]
     write('dict.inc', '; сгенерировано tools/mkdata.py: словарь текстов (%d слов), последний знак слова | 80h\n'
@@ -354,7 +366,27 @@ def best_order(name, px, pal, slots, planes):
     json.dump(cache, open(cache_f, 'w'))
     return best[1]
 
-IMG_COLORS = {'title': 8, 'victory': int(os.environ.get('VICTORY_COLORS', '4')), 'defeat': 4}
+IMG_COLORS = {'title': 6, 'victory': 6, 'defeat': 6}
+
+def end_order(name, px, pal, others):
+    """Слоты картинки итога: 0 — цвет 5, цвета others + белый (1) — в слоты 1.. в порядке,
+    дающем самый короткий поток ZX0 (3 плоскости). Кэш — build/data/slotcache.json."""
+    import json, hashlib
+    cache_f = os.path.join(OUT, 'slotcache.json')
+    cache = json.load(open(cache_f)) if os.path.exists(cache_f) else {}
+    key = hashlib.md5(('end6w' + name + repr(others) + repr(px)).encode()).hexdigest()
+    if key in cache:
+        return cache[key]
+    best = None
+    for perm in itertools.permutations(others + [1]):
+        sl = [5] + list(perm)
+        cm = cmap_of(sl, pal)
+        n = zx0('_try', vram_planes(px, cm, 3))
+        if best is None or n < best[0]:
+            best = (n, sl)
+    cache[key] = best[1]
+    json.dump(cache, open(cache_f, 'w'))
+    return best[1]
 
 def vram_planes(px, slotmap, planes):
     """Плоскости картинки без полей: planes x 8 КБ, старший бит слота — в первой."""
@@ -386,26 +418,30 @@ def build_images():
     cm = cmap_of(sl, mp)
     res['title'] = zx0('title', vram_planes(t, cm, 3))
     pals['menu'] = (sl, cm)
-    # итог матча (4 цв.): данные — 2 плоскости $A000/$C000 (слоты 0..3, самый частый цвет = слот 0);
-    # слот 4 = цвет 1 палитры 9042 (белый бордюр MSX): плоскость $8000 код заливает в полях экрана
+    # итог матча (6 цв. + белый, решение владельца): данные — 3 плоскости $8000..$C000.
+    # Слот 0 = цвет 5 (фон картинки и полосы подписей); белый — цвет 1 палитры 9042 (бордюр и
+    # поля экрана, как COLOR 15,1,1 MSX; заголовок подписи) — свой слот, если его нет среди 6
+    # цветов картинки. Цвета (обязателен 2 — «TAB:»/«SPACE:») и белый — в слоты 1.., порядок —
+    # по размеру ZX0 (кэш). Слот белого код берёт из cmap (cmap_X+1): поля — его биты во всех
+    # плоскостях (end_margins), бордюр — индекс 2*слот.
     ep = mpal(PAL_END)
     for nm, f in (('victory', 'VICTORY.SC5'), ('defeat', 'DEFEAT.SC5')):
         px = load_sc5(f)
         # подписи (строки 168..203) нарисованы в картинке; полоса 162..211 — ровный фон 5,
         # подписи печатает программа (end_captions)
         line_bf(px, 0, 162, 255, 211, 5)
-        n = IMG_COLORS[nm]
+        if nm == 'victory':
+            # рамка автора — столбцы 0..2 и 253..255 цветом 5 в строках 0..161 — зеркалом соседних
+            for y in range(162):
+                for x in range(3): px[y][x] = px[y][5 - x]
+                for x in range(253, 256): px[y][x] = px[y][505 - x]
         cnt = collections.Counter(c for r in px for c in r)
-        top = cnt.most_common(1)[0][0]
-        sl = pick_slots(cnt, ep, n, (top, 2))     # 2 — цвет «TAB:»/«SPACE:» в подписях
-        sl = best_order(nm, px, ep, sl, 2 if n == 4 else 3)
+        six = pick_slots(cnt, ep, IMG_COLORS[nm], (5, 2))
+        others = [c for c in six if c not in (5, 1)]
+        sl = end_order(nm, px, ep, others)
         cm = cmap_of(sl, ep)
-        if n == 4:
-            res[nm] = zx0(nm, vram_planes(px, cm, 2))
-            sl = sl + [1]                         # слот 4 — бордюр
-            cm = dict(cm); cm[1] = 4              # белый (бордюр, заголовок подписи) — слот 4
-        else:
-            res[nm] = zx0(nm, vram_planes(px, cm, 3))
+        assert cm[5] == 0 and sl[cm[1]] == 1, (nm, sl)
+        res[nm] = zx0(nm, vram_planes(px, cm, 3))
         pals[nm] = (sl, cm)
     return res, pals
 
@@ -423,10 +459,7 @@ def build_palettes(pals):
            'cmap_menu:', db_lines([pals['menu'][1][c] << 5 for c in range(16)]),
            'cmap_victory:', db_lines([pals['victory'][1][c] << 5 for c in range(16)]),
            'cmap_defeat:', db_lines([pals['defeat'][1][c] << 5 for c in range(16)]),
-           'VICTORY_PLANES equ %d' % (3 if IMG_COLORS['victory'] == 8 else 2),
-           'DEFEAT_PLANES equ %d' % (3 if IMG_COLORS['defeat'] == 8 else 2),
-           '; 4-цветные: данные в $A000/$C000, бордюр — слот 4 (индекс 8), поля — плоскость $8000',
-           'BORDER_4C equ 8']
+           '; картинки итога: данные во всех плоскостях; белый (бордюр, поля) — слот cmap_X[1]>>5']
     write('palettes.inc', '\n'.join(txt) + '\n')
     print('слоты: игра', GAME_SLOTS, 'меню', pals['menu'][0], 'победа', pals['victory'][0], 'поражение', pals['defeat'][0])
 
@@ -478,7 +511,7 @@ def build_splash():
 if __name__ == '__main__':
     os.makedirs(OUT, exist_ok=True)
     ver = open(os.path.join(REF, 'VERSION')).read().strip()
-    write('version.inc', '        TXT "V%s"\n' % ver)
+    write('version.inc', '        TXT "В.%s"\n' % ver)
     build_text()
     fb = build_font()
     nf = len(fb)

@@ -38,12 +38,33 @@
             ENDM
 
 ; ---------------------------------------------------------------- тексты
+; Строки в исходниках — UTF-8, заглавные русские буквы; U() переводит их во внутреннюю
+; кодировку шрифта (таблица ENC из build/data/dict.lua, см. tools/mkdata.py): 20h..40h — как
+; ASCII, А = 41h ... Я = 5Eh, Й = 5Fh (Ё = Е). Латиница и прочее — ошибка сборки.
 ; TXT "строка" — строка, сжатая словарём (build/data/dict.lua, строит tools/mkdata.py):
 ; байт >= 80h — слово словаря (dict в dict.inc), 0 — конец. Разбор — оптимальный (ДП).
+; TXR "строка" — те же знаки без словаря и без 0 (для кода, читающего байты подряд).
             LUA PASS1
             dofile("build/data/dict.lua")
-            function T(s)
+            function U(s)
               s = s:match('^"(.*)"$') or s
+              local o = {}
+              for _, c in utf8.codes(s) do
+                local b = ENC[c]
+                if not b then
+                  if c >= 32 and c <= 64 then b = c
+                  else error("знак вне шрифта: " .. utf8.char(c) .. " в строке " .. s) end
+                end
+                o[#o + 1] = string.char(b)
+              end
+              return table.concat(o)
+            end
+            function R(s)
+              s = U(s)
+              for i = 1, #s do _pc("db " .. s:byte(i)) end
+            end
+            function T(s)
+              s = U(s)
               local n = #s
               local bc, bw, ch = {}, {}, {}
               bc[n + 1], bw[n + 1] = 0, 0
@@ -70,5 +91,11 @@
             DEFINE+ _TXTA str
             LUA ALLPASS
             T(sj.get_define("_TXTA"))
+            ENDLUA
+            ENDM
+            MACRO TXR str
+            DEFINE+ _TXTA str
+            LUA ALLPASS
+            R(sj.get_define("_TXTA"))
             ENDLUA
             ENDM
