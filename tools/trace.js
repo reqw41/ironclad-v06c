@@ -127,7 +127,9 @@ function nm(a) { let best = "?", bv = -1; for (const k in L) if (L[k] <= a && L[
 function tap(k) { key(k, true); frame(2); key(k, false); frame(2); }
 function qEmpty() { return rd(L.kq_head) === rd(L.kq_tail); }
 function inGetkey() { const p = ipc(); return p >= L.getkey && p < L.getkey + 12; }
-function inPoll() { const p = ipc(); return p >= L.L1415a && p < L.L1425; }   // цикл опроса 1415a..1417 (до обработки клавиши)
+// ждёт клавишу = INKEY$ вернул "" (1416..1417, до обработки клавиши L1425); на входе в 1415a
+// K$ ещё прежний — там не записывать
+function inPoll() { const p = ipc(); return p >= L.L1416 && p < L.L1425; }
 const trace = []; let seeded = false, shots = 0, step = 0, endScreens = 0, script = [];
 if (R === 3) script = ["r", "right", "down", "space", "u", "slash", "space", "tab", "tab", "z"];   // расстановка вручную, отмена, помощь, TAB
 let menuDone = false, finished = false, guard = 0;
