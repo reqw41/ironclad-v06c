@@ -26,14 +26,12 @@ vH              ds      1       ; PARM+16  попаданий в корабль 
 vLK             ds      1       ; PARM+17  длина корабля
 vW              ds      1       ; PARM+18  11-LK: позиций по линии
 vK              ds      1       ; PARM+19  номер корабля
-vNS1            ds      1       ; (нов.)   NSHIPS+1; обязан идти сразу за vK
 vFAP            ds      2       ; PARM+20  -> FA(текущий кандидат)
 vIDX            ds      2       ; PARM+22  индекс первой клетки кандидата
 vSTEP           ds      2       ; PARM+24  шаг по клеткам: 12 (поперёк) / 1 (вниз)
 @vRD            ds      1       ; PARM+32  0CF98h: RD, пишет игра перед eng_explore
 @vNF            ds      1       ; PARM+33  0CF99h: NF, число выстрелов залпа
 @vRIM           ds      1       ; PARM+34  0CF9Ah: флаг «личность — край»
-vST             ds      1       ; PARM+36  метка хода в MO
 vJ0F            ds      1       ; PARM+37  первый живой кандидат перерисовки
 vBS             ds      2       ; PARM+38  лучший счёт
 vBX             ds      1       ; PARM+40
@@ -72,22 +70,23 @@ vNEED           ds      1       ; PARM+135 SZ-PH (только BARRAGE)
 vSMC            ds      1       ; (нов.)   mgseed: 0 = только дрожание, 1 = MC*8+дрожание
 vKI             ds      2       ; (нов.)   kill1: vIDX до снятия (klast)
 
-; --- плоскости (бывшие MOBUF 0D008h, MCBUF 0D098h, FABUF 0D128h) ------------
-MOBUF           ds      144     ; метки ходов, байт на клетку 12x12
-MCBUF           ds      144     ; покрытие живыми кандидатами, байт на клетку
-@ENG_MC         equ     MCBUF
+; --- плоскости (бывшие FABUF 0D128h, MCBUF 0D098h, MOBUF 0D008h) ------------
+; порядок FA, MC, MO, vST — для eng_fainit (одно заполнение) и bumpst
 FABUF           ds      1120    ; флаги кандидатов (всегда размер SALVO PLUS)
 @ENG_FA         equ     FABUF
+MCBUF           ds      144     ; покрытие живыми кандидатами, байт на клетку
+@ENG_MC         equ     MCBUF
+MOBUF           ds      144     ; метки ходов, байт на клетку 12x12
+vST             ds      1       ; PARM+36  метка хода в MO; сразу за MO
 
 ; --- сессионные счётчики (бывшие 0DDF0h..0DDF2h) ------------------------------
 @SMEMG          ds      1       ; партий выучено (<= 14)
 @SMEMR          ds      1       ; клеток края увидено
 @SMEMB          ds      1       ; привычка «край» выучена (читает eng_explore)
 
-                ASSERT  vNS1 == vK+1
                 ASSERT  vR == vC+1      ; decode, explore, nextcr: C и R одним словом
                 ASSERT  vBY == vBX+1    ; explore: BX и BY одним словом
                 ASSERT  vSA == vGG+1    ; sample: GG и SA одним словом
-                ASSERT  MCBUF == MOBUF+144 && FABUF == MCBUF+144  ; fainit: одним заполнением
+                ASSERT  MCBUF == FABUF+1120 && MOBUF == MCBUF+144 && vST == MOBUF+144
 
                 ENDMODULE

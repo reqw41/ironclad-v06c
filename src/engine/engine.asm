@@ -48,12 +48,11 @@ NSH_CL          equ     5               ; кораблей в SALVO / BARRAGE
 NSH_SP          equ     7               ; кораблей в SALVO PLUS
 
 ; ---------------------------------------------------------------- пролог
-; vNS1 = NSHIPS+1 по флагу eng_sp (заменяет константу NSHIPS оригинала)
-setup:
+; A = NSHIPS по флагу eng_sp (заменяет константу NSHIPS оригинала)
+nsh:
                 ld      a,(eng_sp)      ; 0 / 1
                 add     a,a
-                add     a,NSH_CL+1      ; 6 / 8
-                ld      (vNS1),a
+                add     a,NSH_CL        ; 5 / 7
                 ret
                 ASSERT  NSH_SP == NSH_CL+2
 
@@ -93,46 +92,42 @@ bumpst:
                 ld      hl,vST
                 inc     (hl)
                 ret     nz
-                call    clrmo
-                ld      hl,vST
+                call    clrmo           ; HL -> vST (он сразу за MO)
                 inc     (hl)
                 ret
 
-; vK += 1; CY = vK < NSHIPS+1
+; vK += 1; NC = vK <= NSHIPS (продолжать)
 nextk:
                 ld      hl,vK
                 inc     (hl)
-                ld      a,(hl)
-                inc     hl              ; vNS1
+                call    nsh
                 cp      (hl)
                 ret
 
 ; ---------------------------------------------------------------- USR0: fold
 @eng_fold:
-                call    setup
                 call    clrmap
                 ld      a,l             ; NS
                 and     0Fh
                 ret     z
-                ld      b,a
-                ld      c,0
-fmark:
+                ld      c,a
+fmark:                                  ; выстрелы NS-1..0 (порядок меток не важен)
+                dec     c
                 push    bc
-                ld      a,c
-                ld      hl,ARR_TX
-                call    getel
-                push    af
                 ld      a,c
                 ld      hl,ARR_TY
                 call    getel
-                ld      e,a
-                pop     af
+                ld      b,a
+                ld      a,c
+                ld      hl,ARR_TX
+                call    getel
                 ld      d,a
+                ld      e,b
                 call    mapptr
                 ld      (hl),1
                 pop     bc
                 inc     c
-                dec     b
+                dec     c
                 jp      nz,fmark
 
                 ld      a,1
@@ -143,7 +138,7 @@ fship:
                 ld      (vH),a
                 call    scan
                 call    nextk
-                jp      c,fship
+                jp      nc,fship
                 ret
 
 ; ------------------------------------------------- USR1: снять покрытие клетки
@@ -273,7 +268,6 @@ shipset:
 ; Добивание: vKL = корабль (или 255 = все) — его живые клетки получают вес
 ; 2000 до выбора; vKL обнуляется.
 @eng_pickn:
-                call    setup
                 ld      a,(vKL)
                 or      a
                 jp      z,pknorm
@@ -282,8 +276,7 @@ shipset:
                 inc     a
                 jp      nz,pkl          ; не 255: один
                 ld      b,1             ; 255: все
-                ld      a,(vNS1)
-                dec     a
+                call    nsh
                 ld      c,a
 pkl:
                 ld      a,b
@@ -452,6 +445,8 @@ extnext:
                 call    nextcr
                 jp      c,extcell
                 ld      hl,(vBX)        ; метка MO(BX*12 + BY + 13)
+                ld      b,l
+                ld      c,h
                 ld      e,h
                 ld      a,l
                 call    pidx
@@ -459,9 +454,6 @@ extnext:
                 add     hl,de
                 ld      a,(vST)
                 ld      (hl),a
-                ld      hl,(vBX)
-                ld      b,l
-                ld      c,h
                 call    stnext          ; TX(T) = BX, TY(T) = BY
                 jp      c,extshot
                 ld      hl,131          ; vP9: где кончал перебор оригинала
@@ -499,29 +491,26 @@ mc8:
 
 ; HL += (C*5 + R*3 + A) AND 7 — дрожание.  Портит BC, DE.
 jadd:
+                ex      de,hl
+                ld      hl,(vC)         ; L = C, H = R
                 ld      b,a
-                ld      a,(vC)
-                ld      c,a
+                ld      a,l
                 add     a,a
                 add     a,a
-                add     a,c             ; C*5
-                ld      c,a
-                ld      a,(vR)
-                ld      e,a
-                add     a,a
-                add     a,e             ; R*3
-                add     a,c
+                add     a,l             ; C*5
+                add     a,h
+                add     a,h
+                add     a,h             ; + R*3
                 add     a,b
                 and     7
-                ld      e,a
-                ld      d,0
+                ld      l,a
+                ld      h,0
                 add     hl,de
                 ret
 
 ; ------------------------------------------------- USR4: маргинальные веса
 ; Каждый живой кандидат добавляет 2880/CC(K) (не меньше 1) своим клеткам.
 @eng_marg:
-                call    setup
 marg:
                 ld      a,1
                 ld      (vK),a
@@ -543,7 +532,7 @@ mgok:
                 call    scanwt
 mgnext:
                 call    nextk
-                jp      c,mgship
+                jp      nc,mgship
                 xor     a               ; и без единого scan — как у оригинала
                 ld      (vMODE),a
                 ret
@@ -731,16 +720,12 @@ crun:
 ; (отрицательные клетки вне игры).  Сумма НЕ насыщается — бюджет весов
 ; расписан в fold.asm оригинала у candmg.
 candmg:
-                ld      hl,ARR_MG
+                ld      hl,ARR_MG+1
                 add     hl,de
-                add     hl,de
-                inc     hl              ; HL -> старший байт MG(первая клетка)
-                ld      a,(vSTEP)
-                add     a,a
-                ld      c,a             ; C = 2*шаг (24 или 2)
-                ld      a,(vLK)
-                ld      b,a
+                call    crun            ; HL -> старший байт MG(первая клетка)
                 ex      de,hl
+                add     hl,hl
+                ld      c,l             ; C = 2*шаг (24 или 2)
                 ld      hl,(vWT)
                 ex      de,hl           ; DE = вес
 mgcell:
@@ -770,17 +755,16 @@ mgnc:
 ; Начало партии: все кандидаты живы, MC и MO чисты, метка хода 0.
 ; FA заполняется на все 1120 байт (в SALVO/BARRAGE используются 760).
 @eng_fainit:
-                ld      hl,MOBUF        ; MO, MC — 288 нулей подряд, за ними FA
-                ld      b,288/4
-                xor     a
-                call    fill4
-                inc     a
+                ld      hl,FABUF        ; FA, MC, MO, vST — подряд
+                ld      a,1
                 ld      b,0             ; 1024
                 call    fill4
                 ld      b,96/4          ; + 96 = 1120
                 call    fill4
+                ld      b,288/4         ; MC и MO
                 xor     a
-                ld      (vST),a
+                call    fill4
+                ld      (hl),a          ; vST
                 ld      (vKL),a
                 ld      (vRK),a
                 ret
@@ -791,7 +775,6 @@ mgnc:
 ; остальное в MG — разведочные счета MC*8+дрожание.  BARRAGE ещё добавляет
 ; каждой клетке, способной добить ненайденный корабль, 6000/(need*CC).
 @eng_probesel:
-                call    setup
                 ld      a,1
                 call    mgseedx         ; MG = разведочные счета
                 ld      a,1
@@ -804,14 +787,13 @@ psship:
                 ld      b,a
                 ld      hl,ARR_SZ
                 call    kel
-                cp      b
+                sub     b               ; SZ-PH: попаданий ещё нужно
                 jp      z,psnext
                 ld      c,a
                 ld      a,(eng_bar)
                 or      a
                 jp      z,ps1
                 ld      a,c
-                sub     b               ; SZ-PH: попаданий ещё нужно
                 ld      (vNEED),a
 ps1:
                 ld      hl,ARR_CC
@@ -903,20 +885,16 @@ pscnext:
                 jp      z,psnext        ; ни одной клетки
                 ld      hl,(vBXW)       ; MG(BX) += 12000
                 call    mgat
-                ld      e,(hl)
+                ld      a,(hl)
+                add     a,low 12000
+                ld      (hl),a
                 inc     hl
-                ld      d,(hl)
-                push    hl
-                ld      hl,12000
-                add     hl,de
-                ex      de,hl
-                pop     hl
-                ld      (hl),d
-                dec     hl
-                ld      (hl),e
+                ld      a,(hl)
+                adc     a,high 12000
+                ld      (hl),a
 psnext:
                 call    nextk
-                jp      c,psship
+                jp      nc,psship
                 ret
 
 ; HL = ARR_MG + 2*HL (-> слово MG).  Портит BC.
@@ -966,14 +944,12 @@ mmnext:
 ; HL = 2*(vC + 10*vR) — смещение клетки в массиве 10x10;
 ; Z = PM(C,R) = 0.  HL сохраняется, портит A, DE.
 pmtest:
-                ld      a,(vR)
-                ld      l,a
+                ld      hl,(vC)         ; L = C, H = R
+                ld      a,h
                 add     a,a
                 add     a,a
-                add     a,l
+                add     a,h
                 add     a,a             ; 10R (R <= 9)
-                ld      l,a
-                ld      a,(vC)
                 add     a,l
                 ld      l,a
                 ld      h,0
@@ -1029,9 +1005,9 @@ mapptr:
 
 ; HL = индекс с полями для (vC,vR) = C*12 + R + 13.  Сохраняет BC.
 padidx:
-                ld      a,(vR)
-                ld      e,a
-                ld      a,(vC)
+                ld      hl,(vC)         ; L = C, H = R
+                ld      e,h
+                ld      a,l
 ; HL = A*12 + E + 13 (в байте: A, E <= 9 — не больше 130).  Сохраняет BC, DE.
 pidx:
                 ld      l,a
@@ -1050,7 +1026,6 @@ pidx:
 ; флота (законных, без касаний); MG получает +16 за каждое покрытие клетки.
 ; Меньше трёх удачных — под MG подкладываются маргинальные веса (marg).
 @eng_sample:
-                call    setup
                 call    sortso
                 xor     a
                 call    mgseedx         ; MG = -1 / дрожание
@@ -1068,10 +1043,9 @@ smploop:                                ; первая выборка — все
 
 ; --- SO[0..NSHIPS-1] = номера кораблей по возрастанию CC
 sortso:
-                ld      hl,vSOA
-                ld      a,(vNS1)
-                dec     a
+                call    nsh
                 ld      b,a             ; NSHIPS
+                ld      hl,vSOA
                 ld      a,1
 ss0:
                 ld      (hl),a
@@ -1084,11 +1058,11 @@ ss0:
 ssj:                                    ; A = SJ-1
                 inc     a
                 ld      (vSJ),a
-                inc     a
-                ld      hl,vNS1
-                cp      (hl)            ; SJ < NSHIPS
-                jp      nc,ssinext
-                dec     a
+                ld      b,a
+                call    nsh
+                cp      b               ; SJ < NSHIPS (SJ <= NSHIPS всегда)
+                ld      a,b
+                jp      z,ssinext
                 call    ccof            ; HL -> SO[J], DE = CC(SO[J])
                 push    hl
                 ex      de,hl
@@ -1113,9 +1087,9 @@ ssjnext:
 ssinext:
                 ld      hl,vSI
                 inc     (hl)
-                ld      a,(vNS1)
+                call    nsh
                 sub     (hl)
-                cp      3               ; SI < NSHIPS-1
+                cp      2               ; SI < NSHIPS-1
                 ld      a,(hl)
                 jp      nc,ssj
                 ret
@@ -1138,8 +1112,7 @@ onesamp:
                 xor     a
                 ld      (vQNC),a
                 call    bumpst
-                ld      a,(vNS1)
-                dec     a
+                call    nsh
                 ld      (vO2),a
                 ld      hl,vSOA
                 ld      (vSOP),hl
@@ -1326,22 +1299,19 @@ pldr:
                 jp      nc,pldr         ; r в [0, CC)
                 inc     a
                 ld      b,a             ; остановиться на (r+1)-м живом
+                ld      c,-1            ; C = номер кандидата J0
                 ld      hl,(vOSK)
                 ld      de,FABUF
                 add     hl,de
 pldscan:
+                inc     c
                 ld      a,(hl)
                 inc     hl
                 or      a
                 jp      z,pldscan
                 dec     b
                 jp      nz,pldscan
-                dec     hl
-                ld      a,(vOSK)        ; J0 = мл. байт (ptr - FABUF - OS(K))
-                ld      b,a
-                ld      a,l
-                sub     low FABUF
-                sub     b
+                ld      a,c
                 ld      (vJ0),a
                 or      a
                 ret
@@ -1365,21 +1335,14 @@ jdec:
                 ld      l,a
                 ld      a,(vW)
                 ld      c,a
-                add     a,a
-                add     a,a
-                add     a,c
-                add     a,a             ; 10W
-                ld      b,a
-                ld      a,l
-                sub     b
+                call    divsm           ; A = j/W, E = j mod W
+                sub     10
                 jp      c,jdacr
-                ld      l,a             ; вниз: X = j'/W, Y = j' mod W
-                call    divsm
-                ld      d,a
+                ld      d,a             ; вниз (j >= 10W): X = j/W - 10, Y = j mod W
                 ld      b,1
                 jp      jdfin
 jdacr:
-                call    divsm           ; поперёк: Y = j/W, X = j mod W
+                add     a,10            ; поперёк: Y = j/W, X = j mod W
                 ld      d,e
                 ld      e,a
                 ld      b,12

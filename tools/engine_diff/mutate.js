@@ -29,7 +29,7 @@ const MUT = [
   ['sgt1: sbc -> sub (потерян заём)', 'sub     e\n                ld      a,h\n                sbc     a,d             ; CY <=> HL < DE', 'sub     e\n                ld      a,h\n                sub     d               ; CY <=> HL < DE'],
   ['explore: край 9 -> 8', 'ld      a,(vR)\n                dec     a\n                cp      8', 'ld      a,(vR)\n                dec     a\n                cp      7'],
   ['SALVO PLUS: буй cp 3 -> cp 2', 'ld      a,(hl)\n                cp      3\n                jp      z,extnext', 'ld      a,(hl)\n                cp      2\n                jp      z,extnext'],
-  ['bumpst: после переполнения 2', 'call    clrmo\n                ld      hl,vST\n                inc     (hl)', 'call    clrmo\n                ld      hl,vST\n                inc     (hl)\n                inc     (hl)'],
+  ['bumpst: после переполнения 2', 'call    clrmo           ; HL -> vST (он сразу за MO)\n                inc     (hl)', 'call    clrmo           ; HL -> vST (он сразу за MO)\n                inc     (hl)\n                inc     (hl)'],
   // fold / scan / cand
   ['fold: маска NS 0Fh -> 07h', 'ld      a,l             ; NS\n                and     0Fh', 'ld      a,l             ; NS\n                and     07h'],
   ['mapptr: оси перепутаны', 'mapptr:\n                ld      a,d\n                call    pidx', 'mapptr:\n                ld      a,e\n                call    pidx'],
@@ -49,7 +49,8 @@ const MUT = [
   ['cand: sbc -> sub в CC (потерян заём)', 'ld      a,(hl)\n                sub     1\n                ld      (hl),a\n                inc     hl\n                ld      a,(hl)\n                sbc     a,0', 'ld      a,(hl)\n                sub     1\n                ld      (hl),a\n                inc     hl\n                ld      a,(hl)\n                sub     0'],
   // marg / div16 / probesel
   ['div16: 15 шагов вместо 16', 'ld      hl,0            ; остаток\n                ld      a,16', 'ld      hl,0            ; остаток\n                ld      a,15'],
-  ['probesel: 12000 -> 12001', 'ld      hl,12000', 'ld      hl,12001'],
+  ['probesel: 12000 -> 12001', 'add     a,low 12000', 'add     a,low 12001'],
+  ['probesel: +12000 без переноса в старший байт', 'adc     a,high 12000', 'add     a,high 12000'],
   ['probesel: sbc -> sub (потерян заём)', 'sub     l\n                ld      a,b\n                sbc     a,h             ; CY <=> |d| < BS', 'sub     l\n                ld      a,b\n                sub     h               ; CY <=> |d| < BS'],
   ['BARRAGE: 6000 -> 5000', 'ld      hl,6000', 'ld      hl,5000'],
   ['SALVO PLUS: NSHIPS 7 -> 6', 'ld      a,(eng_sp)      ; 0 / 1\n                add     a,a', 'ld      a,(eng_sp)      ; 0 / 1\n                nop'],
