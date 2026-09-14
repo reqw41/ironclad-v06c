@@ -485,15 +485,15 @@ L1355:      call rec_clear
             call cls1
             call hdr_draw
             call L1355s
-            ret
-; общая часть 1370..1385 (без заголовка)
+L1372:      CPV  bSB,1                  ; (после подписей сетки — места не пересекаются)
+            ret  nz
+            jp   L1396
+; общая часть 1370..1385 (без заголовка и без строки счёта 1396)
 L1355s:     ld   bc,232*256+4           ; PSET(232,4),12: PRINT "TAB"
             ld   a,12
             call gfx_pset
             call putsi
             TXT  "TAB"
-L1372:      CPV  bSB,1
-            call z,L1396
 L1375:      ZEROV bI  ; FOR I=0 TO 9: PSET(GX+I*16+4,18),15: PRINT CHR$(65+I)
 L1375a:     LDV  bI                 ; 1380 (тем же циклом): PSET(2,GY+I*16+4),15: PRINT RIGHT$(STR$(I+1),2)
             add  a,a

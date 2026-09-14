@@ -715,18 +715,8 @@ render_full:
             call memcpy
             call cls1
             call hdr_draw
-            LDV  sl_n               ; строка счёта 1396 — как была напечатана
-            push af
-            ZEROV sl_n
-            LDV  bSB
-            push af
-            ZEROV bSB
             call L1355s
-            pop  af
-            STV  bSB
-            pop  af
-            STV  sl_n
-            CPV  bSB,1
+            CPV  bSB,1                  ; строка счёта 1396 — как была напечатана
             jp   nz,rf_1
             LDV  sl_n
             or   a
