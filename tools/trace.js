@@ -61,6 +61,7 @@ function frame(n, stopAt) {
     while (frc < 59904) {
       if (stopAt !== undefined && cpu.pc === stopAt) { hit = stopAt; return; }
       if (cpu.pc === seedPC && seedHook) seedHook();
+      if (aiwHook) aiwHook();
       const c = (cpu.instruction(), cpu.vcycles); steps++; frc += c; tacc += c;
       if (tacc > 1) { const tn = tacc >> 1; tacc -= tn * 2; timer.Count(tn); }
       if (cpu.last_opcode === 0xd3) io.commit();
@@ -68,6 +69,15 @@ function frame(n, stopAt) {
     frc -= 59904; frames++; v06c.irq = true; v06c.checkInterrupt();
   }
 }
+// отладка: TRACE_AIW=1 — замер показа сообщений ИИ (ai_left): кадр вывода, кадр следующего
+// вывода в строку MY=202 (L1315) или ожидания клавиши (getkey), сколько ждал ai_wait
+let aiwHook = null; const aiw = [];
+if (process.env.TRACE_AIW) { let cur = null, prev = 0;
+  aiwHook = () => { const v = rd(L.ai_left), pc = cpu.pc;
+    if (v === 60 && prev !== 60) { if (cur && cur.next === undefined) cur.next = -1; cur = { t0: frames, frc }; aiw.push(cur); }
+    prev = v;
+    if (cur && cur.next === undefined && (pc === L.L1315 || pc === L.getkey)) { cur.at = pc === L.L1315 ? "L1315" : "getkey"; cur.next = frames - cur.t0; cur.left = v; }
+    if (cur && cur.next !== undefined && cur.out === undefined && pc === L.ai_wait && v === 0 && cur.left !== undefined) { cur.out = frames - cur.t0; } }; }
 // ---- снимок
 function shot(out) {
   const PAL = L.vec_pal_live !== undefined ? L.vec_pal_live : null;
@@ -167,6 +177,8 @@ while (!finished && frames < 400000 && guard++ < 2000000) {
   else { const ra = nm(retaddr()); if (ra.startsWith("L226")) { endScreens++; k = endScreens % 4 === 0 ? "space" : "tab"; } else k = "space"; }
   rec.key = k; trace.push(rec); tap(k);
 }
+if (process.env.TRACE_AIW) { const w = aiw.filter(r => r.next >= 0), waited = w.filter(r => r.left > 0);
+  console.log(`сообщений ИИ: ${aiw.length}; до следующего вывода/клавиши без ожидания: мин ${Math.min(...w.map(r => r.next))} кадров; ждали: ${waited.length} раз; показ после ожидания: мин ${Math.min(...w.map(r => r.out !== undefined ? r.out : r.next))}, макс ожидания ${Math.max(0, ...waited.map(r => r.left))} кадров; без ожидания (ИИ дольше 60): ${w.length - waited.length}; события: ${[...new Set(w.map(r => r.at))].join(",")}`); }
 if (process.env.TRACE_DBG) { const t = trace.slice(-12).map(r => r.i + " " + r.where + " " + r.key); console.log(t.join("\n")); }
 fs.writeFileSync(OUTJSON || "build/trace.json", JSON.stringify({ rules: R, steps: trace.length, shots, frames, trace }));
 console.log(`правило ${R}: шагов ${trace.length}, выстрелов ${shots}, кадров ${frames}, конец: ${finished}, семена: ${seeded}`);

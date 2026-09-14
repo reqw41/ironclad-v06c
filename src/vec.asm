@@ -58,6 +58,11 @@ isr_pal:
             ld   hl,(frame_cnt)
             inc  hl
             ld   (frame_cnt),hl
+            ld   hl,ai_left             ; счёт показа сообщения ИИ: до 0
+            dec  (hl)
+            jp   p,isr_ai
+            inc  (hl)
+isr_ai:
             call kbd_isr
             ld   a,0FFh
             out  (PPI_A),a              ; после опроса клавиатуры — скролл на место
@@ -213,11 +218,12 @@ ik_none:    xor  a
 
 ; ждать клавишу: A = код
 getkey:
-            call inkey
+            call ai_wait                ; сообщение ИИ провисело свои 60 кадров
+gk_1:       call inkey
             ret  nz
             ei
             halt
-            jp   getkey
+            jp   gk_1
 
 ; A = номер клавиши (ряд 0..7 * 8 + бит 0..7) -> A = код (MSX: 28 ->, 29 <-, 30 вверх, 31 вниз).
 ; Ряд 0: ТАБ ПС ВК ЗБ <- ^ -> v (таблица); ряд 1 (F-клавиши, АР2) — нет кода; ряды 2..7 —

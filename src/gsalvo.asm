@@ -285,6 +285,7 @@ L3840:      ZEROV bEK
             ZEROV bFP
             call msg2i
             TXT  "ENEMY REVIEWS LAST SALVO ..."
+            SETV ai_left,AI_SHOW
             call L4301
 L3843:      call L4000
             ld   hl,ARR_HK              ; FOR K=1 TO ZT: HK(K)=0
@@ -550,9 +551,11 @@ L4002x:     LDV  bKM
             jp   nz,L4002b
             call msg2i
             TXT  "ENEMY PROBES OPEN SEA ..."
+            SETV ai_left,AI_SHOW
             jp   L4070
 L4002b:     call msg2i
             TXT  "ENEMY CLOSES IN ..."
+            SETV ai_left,AI_SHOW
 L4003:      ZEROV bNA  ; NA, KL, T5 = сумма CC(K)*SZ(K) живых K<=ZT
             ld   hl,0
             ld   (bT5),hl

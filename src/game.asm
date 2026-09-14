@@ -665,6 +665,7 @@ L702:       ld   hl,L3470               ; 702..704
             call nf_calc
 L710:       call msg2i
             TXT  "ENEMY IS PLOTTING..."
+            SETV ai_left,AI_SHOW
 L715:       LDV  bDP
             or   a
             jp   nz,L716
@@ -1001,6 +1002,15 @@ msg2i:      pop  hl
             inc  hl
             push hl
             jp   L1315
+; порт: ждать, пока сообщение ИИ («ENEMY ...», строка MY=202) провисит AI_SHOW кадров
+; с вывода (счёт ai_left — в ISR). Ход ИИ дольше — не ждёт.
+AI_SHOW     equ 60
+ai_wait:    LDV  ai_left
+            or   a
+            ret  z
+            ei
+            halt
+            jp   ai_wait
 ; MS$ = ""
 ms_clear:
             xor  a
