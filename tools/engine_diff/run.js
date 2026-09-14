@@ -44,8 +44,10 @@ const MIN_CASES = +opt('min-cases', 50);
 function log(...a) { if (!QUIET) console.log(...a); }
 
 // ---------------------------------------------------------------- сборка
-const orig = buildOrig(path.join(OUT, 'orig'));
-const wide = buildWide(path.join(OUT, 'orig_wide'));
+// каталоги сборки — свои у каждого прогона (mutate.js гоняет их параллельно)
+const SUB = path.join(OUT, opt('build-sub', 'diff'));
+const orig = buildOrig(path.join(SUB, 'orig'));
+const wide = buildWide(path.join(SUB, 'orig_wide'));
 const mine = buildMine(path.join(OUT, opt('build-sub', 'diff')), opt('engine-dir', null));
 log(`оригиналы: ${Object.entries(orig).map(([v, o]) => `${v} ${o.code.length} Б @${o.org.toString(16).toUpperCase()} (${o.release})`).join('; ')}`);
 log(`перевод: код ${mine.codeSize} Б, данные ${mine.bssSize} Б`);
@@ -80,6 +82,7 @@ let invalid = 0;       // случаи, где оригинал писал вн�
 let total = 0;
 const games = {};      // v -> статистика партий модели
 let turnV = 0, turnZ = 0, callsInTurn = [];
+let minSP = 0xF000;    // глубина стека перевода
 
 function st(v, e) {
   stats[v] = stats[v] || {};
@@ -101,6 +104,7 @@ function run8080(box, entry, hl, pname) {
   while (cpu.pc !== 0) {
     const pc = cpu.pc;
     hits[pc]++;
+    if (cpu.sp < minSP) minSP = cpu.sp;
     cpu.instruction();
     cyc += cpu.cpu_cycles; vcyc += cpu.vcycles;
     if (pr) pr[pc] += cpu.vcycles;
@@ -276,6 +280,7 @@ if (deadLabels.length) { gateOk = false; why.push(`непройденные ме
 if (deadInsn.length) { gateOk = false; why.push(`непройденные команды: ${deadInsn.length}`); }
 
 console.log(`\nсверка: ${total} вызовов за ${secs} с, вне инвариантов (отброшено): ${invalid}`);
+console.log(`перевод: код ${mine.codeSize} Б, данные ${mine.bssSize} Б, стек до ${0xF000 - minSP} Б (включая адрес возврата вызова)`);
 console.log('(* — эталон с TX/TY на 11: залп 6..11 выстрелов)');
 console.log('вариант  вход       случаев  расх.   такты Вектора (медиана / p90 / макс)      8080 T (мед/макс)     Z80 T (мед/макс)');
 for (const r of rows) console.log(`${r.v.padEnd(8)} ${r.e.padEnd(10)} ${String(r.n).padStart(7)} ${String(r.bad).padStart(6)}   ${String(r.med).padStart(9)} ${String(r.p90).padStart(9)} ${String(r.max).padStart(10)}   ${String(r.cmed).padStart(9)} ${String(r.cmax).padStart(10)}   ${String(r.zmed).padStart(9)} ${String(r.zmax).padStart(10)}`);
@@ -314,7 +319,7 @@ if (fails.length) {
   console.log('\nпервые расхождения:');
   for (const f of fails) console.log(`  ${f.v}/${f.entry} (${f.why || ''}) arg=${f.arg}: ${f.d.join(' | ')}`);
 }
-const summary = { total, invalid, rows, scen, codeSize: mine.codeSize, bssSize: mine.bssSize,
+const summary = { total, invalid, stack: 0xF000 - minSP, rows, scen, codeSize: mine.codeSize, bssSize: mine.bssSize,
   labels: labelHits, deadInsn: deadInsn.map(([a, x]) => x), branchHalf: branchHalf.map(([a, x]) => ({ ...x, taken: taken[a], notTaken: notTaken[a] })), gateOk, why };
 if (opt('json', null)) fs.writeFileSync(opt('json'), JSON.stringify(summary, null, 1));
 console.log(gateOk ? '\nГЕЙТ ПРОЙДЕН' : '\nГЕЙТ НЕ ПРОЙДЕН: ' + why.join('; '));

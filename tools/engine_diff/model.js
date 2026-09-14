@@ -348,7 +348,7 @@ function randomState(v, rng, entry, wide) {
   // CC как чистое число (не счётчик для pldraw) можно портить: marg делит на
   // него (CC > 2880 даёт вес 1), probesel сравнивает с 1 и 2n
   if (entry !== 'sample' && rng.chance(0.15))
-    for (let k = 1; k <= ZT; k++) if (rng.chance(0.5)) A.CC[k] = rng.pick([rng.int(65536), 256 + rng.int(3000), 2881 + rng.int(1000)]);
+    for (let k = 1; k <= ZT; k++) if (rng.chance(0.5)) A.CC[k] = rng.pick([rng.int(65536), 256 + rng.int(3000), 2881 + rng.int(1000), 0x100, 0x200, 0x1000]);
   let arg = rng.int(65536);
   if (entry === 'fold') arg = (arg & 0xfff0) | (wide ? 6 + rng.int(6) : rng.int(6));
   if (entry === 'kill1') arg = ((1 + rng.int(ZT)) << 8) | rng.int(256);
