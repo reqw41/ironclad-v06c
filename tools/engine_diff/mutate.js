@@ -47,13 +47,14 @@ const MUT = [
   ['kill1: без строки поперёк', 'push    bc\n                call    krow', 'push    bc\n                nop\n                nop\n                nop'],
   ['klast: j на единицу больше', 'klhit:\n                dec     b', 'klhit:\n                nop'],
   ['kill1: vIDX не восстановлен', 'k1end:\n                pop     hl\n                ld      (vIDX),hl', 'k1end:\n                pop     hl\n                nop\n                nop\n                nop'],
-  ['cand: sbc -> sub в CC (потерян заём)', 'ld      a,(hl)\n                sub     1\n                ld      (hl),a\n                inc     hl\n                ld      a,(hl)\n                sbc     a,0', 'ld      a,(hl)\n                sub     1\n                ld      (hl),a\n                inc     hl\n                ld      a,(hl)\n                sub     0'],
+  ['cand: CC-1 без заёма (dec de -> dec e)', 'dec     de\n                ld      (hl),d', 'dec     e\n                ld      (hl),d'],
   // marg / div16 / probesel
   ['div16: частное на 1 больше', 'ld      bc,-1\ndvl:', 'ld      bc,0\ndvl:'],
   ['div16: делитель без +1 (обратный код)', 'inc     de              ; DE = -делитель', 'nop'],
   ['probesel: 12000 -> 12001', 'add     a,low 12000', 'add     a,low 12001'],
   ['probesel: +12000 без переноса в старший байт', 'adc     a,high 12000', 'add     a,high 12000'],
-  ['probesel: sbc -> sub (потерян заём)', 'sub     l\n                ld      a,b\n                sbc     a,h             ; CY <=> |d| < BS', 'sub     l\n                ld      a,b\n                sub     h               ; CY <=> |d| < BS'],
+  ['probesel: sbc -> sub (потерян заём в CC - 2n)', 'sbc     a,d\n                ld      h,a\n                jp      nc,psabs', 'sub     d\n                ld      h,a\n                jp      nc,psabs'],
+  ['probesel: |2n - CC| без заёма в старший байт', 'ld      l,a\n                sbc     a,a\n                sub     h', 'ld      l,a\n                xor     a\n                sub     h'],
   ['BARRAGE: 6000 -> 5000', 'ld      hl,6000', 'ld      hl,5000'],
   ['SALVO PLUS: NSHIPS 7 -> 6', 'ld      a,(eng_sp)      ; 0 / 1\n                add     a,a', 'ld      a,(eng_sp)      ; 0 / 1\n                nop'],
   // sampler

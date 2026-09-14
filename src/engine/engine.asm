@@ -668,15 +668,12 @@ covsum:
 
                 ld      hl,(vFAP)       ; убить кандидата
                 ld      (hl),0
-                ld      hl,ARR_CC
-                call    kelp
-                ld      a,(hl)
-                sub     1
-                ld      (hl),a
-                inc     hl
-                ld      a,(hl)
-                sbc     a,0
-                ld      (hl),a
+                ld      hl,ARR_CC       ; CC(K) - 1
+                call    kel16           ; DE = CC, HL -> старший байт
+                dec     de
+                ld      (hl),d
+                dec     hl
+                ld      (hl),e
                 ld      hl,(vIDX)
                 ex      de,hl
                 ld      hl,MCBUF
@@ -855,33 +852,29 @@ psh:
                 ld      e,a
                 ld      d,0
                 ld      hl,(vCCK)
-                ld      a,e             ; BC = 2n - CC
-                sub     l
-                ld      c,a
-                ld      a,d
-                sbc     a,h
-                ld      b,a
+                ld      a,l             ; HL = CC - 2n
+                sub     e
+                ld      l,a
+                ld      a,h
+                sbc     a,d
+                ld      h,a
                 jp      nc,psabs
-                ld      a,c             ; |2n - CC|
-                cpl
-                ld      c,a
-                ld      a,b
-                cpl
-                ld      b,a
-                inc     bc
-psabs:
-                ld      hl,(vBS)
-                ld      a,c
+                xor     a               ; |2n - CC| = 0 - HL
                 sub     l
-                ld      a,b
-                sbc     a,h             ; CY <=> |d| < BS
-                ld      h,b
-                ld      l,c
-                ret
+                ld      l,a
+                sbc     a,a
+                sub     h
+                ld      h,a
+psabs:
+                ex      de,hl
+                ld      hl,(vBS)
+                ex      de,hl
+                jp      sgt1            ; CY <=> |d| < BS
 
 ; HL = ARR_MG + 2*HL (-> слово MG).  Портит BC.
 mgat:
                 add     hl,hl
+mgat1:
                 ld      bc,ARR_MG
                 add     hl,bc
                 ret
@@ -947,8 +940,8 @@ pmtest:
 
 ; ---------------------------------------------------------------- помощники
 ; HL += 2*A.  Сохраняет BC; DE = A.
-; элемент массива по номеру корабля: kel16 — DE = X(vK), kel — A = X(vK)
-; (младший байт), kelp — HL -> X(vK); HL = база массива.  Сохраняют BC.
+; элемент массива по номеру корабля: kel16 — DE = X(vK) (HL -> старший
+; байт), kel — A = X(vK) (младший байт); HL = база массива.  Сохраняют BC.
 kel16:
                 ld      a,(vK)
 getel16:
@@ -965,8 +958,6 @@ getel:
                 ld      a,(hl)
                 ret
 
-kelp:
-                ld      a,(vK)
 elptr:
                 ld      e,a
                 ld      d,0
@@ -981,9 +972,7 @@ mapptr:
                 ld      a,d
                 call    pidx
                 ld      a,l
-                ld      bc,ARR_MG
-                add     hl,bc
-                ret
+                jp      mgat1
 
 ; HL = индекс с полями для (vC,vR) = C*12 + R + 13.  Сохраняет BC.
 padidx:
