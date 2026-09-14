@@ -1361,25 +1361,19 @@ L4323:      ld   hl,(bT2)               ; PD(K)=T2+1: FL=1
             LDV  bY
             dec  a
             STV  bB1
+            LDV  bLK                ; O=0: A2=X+LK: B2=Y+1; O=1: A2=X+1: B2=Y+LK
+            ld   b,a
+            ld   c,1
             LDV  bO
             or   a
-            jp   nz,L4323a
-            LDV  bLK
-            ld   b,a
-            LDV  bX
-            add  a,b
-            STV  bA2
-            LDV  bY
-            inc  a
-            STV  bB2
-            jp   L4324
+            jp   z,L4323a
+            ld   c,b
+            ld   b,1
 L4323a:     LDV  bX
-            inc  a
-            STV  bA2
-            LDV  bLK
-            ld   b,a
-            LDV  bY
             add  a,b
+            STV  bA2
+            LDV  bY
+            add  a,c
             STV  bB2
 L4324:      LDV  bA1                ; FOR U=A1 TO A2: FOR V=B1 TO B2
             STV  bU

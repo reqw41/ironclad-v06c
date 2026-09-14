@@ -633,35 +633,27 @@ L1425:      LDV  bK_
             call page_show
             call L1473
             jp   L1415
-L1430:      cp   28
-            jp   nz,L1432
-            CPV  bCX,9
+L1430:      cp   28                     ; 28 ->: CX<9 — CX+1; 29 <-: CX>0 — CX-1;
+            jp   c,L1437                ; 30 ^: CY>0 — CY-1; 31 v: CY<9 — CY+1
+            cp   32
             jp   nc,L1437
-            inc  a
-            STV  bCX
+            ld   hl,bCX
+            sub  28                     ; 0 CX+, 1 CX-, 2 CY-, 3 CY+
+            cp   2
+            jp   c,L1432
+            inc  hl                     ; bCY
+            xor  3                      ; 2 -> 1 (назад), 3 -> 0 (вперёд)
+L1432:      or   a
+            jp   nz,L1435
+            ld   a,(hl)                 ; вперёд
+            cp   9
+            jp   nc,L1437
+            inc  (hl)
             jp   L1437
-L1432:      cp   29
-            jp   nz,L1434
-            LDV  bCX
+L1435:      ld   a,(hl)                 ; назад
             or   a
             jp   z,L1437
-            dec  a
-            STV  bCX
-            jp   L1437
-L1434:      cp   30
-            jp   nz,L1436
-            LDV  bCY
-            or   a
-            jp   z,L1437
-            dec  a
-            STV  bCY
-            jp   L1437
-L1436:      cp   31
-            jp   nz,L1437
-            CPV  bCY,9
-            jp   nc,L1437
-            inc  a
-            STV  bCY
+            dec  (hl)
 L1437:      CPV  bKA,28
             jp   c,L1441
             cp   32
