@@ -62,7 +62,6 @@ gh_s:       ds 1
 sl_n:       ds 1        ; строка «GAME» (1396): сколько раз напечатана поверх (1 или 2)
 rp_tmp:     ds 4
 br_n:       ds 1
-br_j:       ds 1
 co_pg:      ds 1
 cd_n:       ds 1
 gh_i:       ds 1
@@ -285,6 +284,4 @@ msg_rec:    ds 2*(2+34) ; строки сообщений MY=192 и MY=202: цв
 sl_v1:      ds 4        ; GN,BO,GW,GC первой печати
 sl_v2:      ds 4        ; второй (2238)
 cd_p:       ds 2
-qd_b:       ds 1
-qd_x:       ds 1
 game_vars_end:
