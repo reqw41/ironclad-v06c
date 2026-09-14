@@ -11,7 +11,7 @@ stp_1:      call tx_i                   ; B = TX(I), C = TY(I)
             push bc
             ld   a,(bI)
             ld   hl,ARR_GT
-            rst  08h
+            rst  00h
             ld   l,(hl)                 ; SH+16*GT(I)
             ld   h,0
             add  hl,hl
@@ -19,7 +19,7 @@ stp_1:      call tx_i                   ; B = TX(I), C = TY(I)
             add  hl,hl
             add  hl,hl
             ld   a,(bSH)
-            rst  08h
+            rst  00h
             ex   de,hl
             pop  bc
             push bc
@@ -160,7 +160,7 @@ L2118:      ld   a,(bI)                 ; TX(I)=PX(N,I): TY(I)=PY(N,I)
             ld   a,(bN)
             add  a,b
             ld   hl,ARR_PX
-            rst  08h
+            rst  00h
             ld   b,(hl)
             ld   de,60
             add  hl,de
@@ -168,14 +168,14 @@ L2118:      ld   a,(bI)                 ; TX(I)=PX(N,I): TY(I)=PY(N,I)
             ld   a,(bI)
             add  a,a
             ld   hl,ARR_TX
-            rst  08h
+            rst  00h
             ld   (hl),b
             inc  hl
             ld   (hl),0
             ld   a,(bI)
             add  a,a
             ld   hl,ARR_TY
-            rst  08h
+            rst  00h
             ld   (hl),c
             inc  hl
             ld   (hl),0
@@ -204,7 +204,7 @@ L2126:      xor  a
 L2128:                                  ; COPY стр.1 -> стр.2: записи клеток
 L2130:      ld   a,(bSH)                ; CX=PX(SH,0): CY=PY(SH,0): OD=1: IF PX(SH,0)<>PX(SH,1) THEN OD=0
             ld   hl,ARR_PX
-            rst  08h
+            rst  00h
             ld   a,(hl)
             ld   (bCX),a
             ld   b,a
@@ -217,7 +217,7 @@ L2130:      ld   a,(bSH)                ; CX=PX(SH,0): CY=PY(SH,0): OD=1: IF PX(
             ld   a,(bSH)
             add  a,12
             ld   hl,ARR_PX
-            rst  08h
+            rst  00h
             ld   a,(hl)
             cp   b
             ret  z
@@ -663,7 +663,7 @@ L3460:      xor  a
 L3460a:     ld   a,(bI)
             ld   hl,ARR_PH
             add  a,a
-            rst  08h
+            rst  00h
             ld   b,(hl)
             call sz_i
             ld   a,b
@@ -683,7 +683,7 @@ L3470:      xor  a
             ld   (bI),a
 L3470a:     ld   a,(bI)
             ld   hl,ARR_QH
-            rst  08h
+            rst  00h
             ld   b,(hl)
             call sz_i
             ld   a,b
@@ -835,7 +835,7 @@ L3960:      ld   hl,s_place
             rst  28h
             call n_sh
             push hl
-            rst  30h
+            call ms_cat
             pop  hl
             call str_len
             ld   b,a
@@ -852,7 +852,7 @@ L3960a:     ld   a,b
             dec  b
             jp   L3960a
 L3960b:     ld   hl,s_help
-            rst  30h
+            call ms_cat
             call L1305
             ld   hl,s_place_keys
             rst  28h
@@ -865,7 +865,7 @@ render_full:
             call disp_blank
             ld   hl,bKA                 ; переменные BASIC не должны меняться
             ld   de,ARR_MG              ; MG — рабочий массив движка, вне хода противника свободен
-            ld   bc,sMS-bKA
+            ld   bc,bMI-bKA
             call memcpy
             call cls1
             call hdr_draw
@@ -916,7 +916,7 @@ rf_2:       ld   a,192
             call msg_draw_my
             ld   hl,ARR_MG
             ld   de,bKA
-            ld   bc,sMS-bKA
+            ld   bc,bMI-bKA
             call memcpy
             ld   bc,0                   ; клетки, призрак, курсор, AT:
 rf_c:       push bc
@@ -943,16 +943,6 @@ rf_3:       call at_draw_vis
             ld   (gfx_fg),a
             jp   disp_on
 
-; копировать BC байт HL -> DE
-memcpy:     ld   a,b
-            or   c
-            ret  z
-            ld   a,(hl)
-            ld   (de),a
-            inc  hl
-            inc  de
-            dec  bc
-            jp   memcpy
 
 s_placing:      db "PLACING FLEET ...",0
 s_no_room:      db "NO ROOM",0

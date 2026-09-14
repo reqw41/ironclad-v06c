@@ -140,7 +140,7 @@ L166a:      ld   e,(hl)                 ; имя
             ld   a,(bI)
             ld   hl,ARR_N
             add  a,a
-            rst  08h
+            rst  00h
             ld   (hl),e
             inc  hl
             ld   (hl),d
@@ -151,7 +151,7 @@ L166a:      ld   e,(hl)                 ; имя
             ld   a,(bI)
             ld   hl,ARR_SZ
             add  a,a
-            rst  08h
+            rst  00h
             ld   (hl),c
             inc  hl
             ld   (hl),0
@@ -431,12 +431,12 @@ tx_i:
             ld   a,(bI)
             ld   hl,ARR_TX
             add  a,a
-            rst  08h
+            rst  00h
             ld   b,(hl)
             ld   a,(bI)
             ld   hl,ARR_TY
             add  a,a
-            rst  08h
+            rst  00h
             ld   c,(hl)
             ret
 
@@ -511,7 +511,7 @@ L482a:      call tx_i
             push bc
             ld   a,(bI)
             ld   hl,ARR_GT
-            rst  08h
+            rst  00h
             ld   l,(hl)
             ld   h,0
             add  hl,hl
@@ -519,7 +519,7 @@ L482a:      call tx_i
             add  hl,hl
             add  hl,hl
             ld   a,(bSH)
-            rst  08h
+            rst  00h
             ex   de,hl
             pop  bc
             ld   a,b
@@ -580,9 +580,9 @@ L501:       ld   a,(bDL)                ; IF DL>1 AND GN=1 THEN MS$="COIN TOSS: 
             cp   1
             jp   nz,L501a
             ld   hl,s_coin_toss
-            rst  30h
+            call ms_cat
 L501a:      pop  hl
-            rst  30h
+            call ms_cat
 L502:       call L1305
             ld   a,(bFS)
             cp   1
@@ -730,7 +730,7 @@ L655:       xor  a
             ld   b,a
             ld   a,(bNC)
             ld   hl,ARR_GT
-            rst  08h
+            rst  00h
             ld   (hl),b
 L660:       call L2645
             ld   a,DLY_120
@@ -920,9 +920,9 @@ L830:       xor  a
 L840:       ld   hl,s_you_fire
             rst  28h
             ld   hl,sCO
-            rst  30h
+            call ms_cat
             ld   hl,s_miss
-            rst  30h
+            call ms_cat
             call L1305
             ret
 L850:       ld   a,1
@@ -949,9 +949,9 @@ L870:       call L2615
 L870a:      ld   hl,s_you_fire
             rst  28h
             ld   hl,sCO
-            rst  30h
+            call ms_cat
             ld   hl,s_hit
-            rst  30h
+            call ms_cat
             call L1305
             ret
 L878:       ld   a,(bQS)
@@ -964,7 +964,7 @@ L882:       call L1706
 L890:       ld   hl,s_sunk_enemy
             rst  28h
             call n_sh
-            rst  30h
+            call ms_cat
             call L1305
             call L1270
             ret
@@ -993,7 +993,7 @@ sz_sh:
             ld   a,(bSH)
             ld   hl,ARR_SZ
             add  a,a
-            rst  08h
+            rst  00h
             ld   c,(hl)
             ret
 ; HL = N$(SH)
@@ -1001,7 +1001,7 @@ n_sh:
             ld   a,(bSH)
 n_a:        ld   hl,ARR_N
             add  a,a
-            rst  08h
+            rst  00h
             ld   a,(hl)
             inc  hl
             ld   h,(hl)
@@ -1012,7 +1012,7 @@ ph_sh:
             ld   a,(bSH)
             ld   hl,ARR_PH
             add  a,a
-            rst  08h
+            rst  00h
             ld   c,(hl)
             ret
 
@@ -1052,9 +1052,9 @@ L950:       ld   a,(cfg_fam)            ; только IRONCLAD.BAS
             ld   hl,s_enemy_fires
             rst  28h
             ld   hl,sCE
-            rst  30h
+            call ms_cat
             ld   hl,s_miss
-            rst  30h
+            call ms_cat
             call L1315
 L952:       ret
 ; SD=0: C=FX: R=FY: GOSUB 1105
@@ -1092,7 +1092,7 @@ L961:       ld   a,(bBD)
 L961a:      ld   a,(bSH)                ; HK(SH)=HK(SH)+1
             ld   hl,ARR_HK
             add  a,a
-            rst  08h
+            rst  00h
             inc  (hl)
 L962:       ld   a,(cfg_fam)            ; только IRONCLAD.BAS
             or   a
@@ -1136,9 +1136,9 @@ L976:       ld   a,(bBD)
 L977:       ld   hl,s_enemy_fires
             rst  28h
             ld   hl,sCE
-            rst  30h
+            call ms_cat
             ld   hl,s_hit
-            rst  30h
+            call ms_cat
             jp   L1315
 L980:       xor  a
             ld   (bNT),a
@@ -1187,7 +1187,7 @@ L990:       ld   hl,bEK
 L991:       ld   hl,s_enemy_sank
             rst  28h
             call n_sh
-            rst  30h
+            call ms_cat
             call L1315
 L992:       ld   a,(bBD)
             cp   1

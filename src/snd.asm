@@ -196,7 +196,7 @@ vi_off:
 vi_cw:
             add  a,a
             ld   hl,vi_tab
-            rst  08h
+            rst  00h
             inc  hl
             ld   a,(hl)
             ld   (vd_op+1),a
@@ -224,7 +224,7 @@ mus_frame:
 mus_voice:
             ld   (mv_v),a
             ld   hl,mus_cnt
-            rst  08h
+            rst  00h
             ld   a,(hl)
             or   a
             jp   z,mv_fetch
@@ -237,7 +237,7 @@ mv_fetch:   push hl                     ; -> mus_cnt[v]
             ld   a,(mv_v)
             add  a,a
             ld   hl,mus_p
-            rst  08h               ; HL -> mus_p[v]
+            rst  00h               ; HL -> mus_p[v]
             ld   e,(hl)
             inc  hl
             ld   d,(hl)

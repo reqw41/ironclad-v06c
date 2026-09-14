@@ -3,12 +3,40 @@
 ; Строки — байты с нулём в конце.
 ; ============================================================================
 
-; HL += A
-add_a_hl:
-            add  a,l
+; HL += A — add_a_hl, RST 0 (код в векторе $0000, ставит старт)
+
+; копировать BC байт HL -> DE
+memcpy:     ld   a,b
+            or   c
+            ret  z
+            ld   a,(hl)
+            ld   (de),a
+            inc  hl
+            inc  de
+            dec  bc
+            jp   memcpy
+
+; ---------------------------------------------------------------- страница переменных
+; LDV v (rst 08h / db low v): A = (v). STV v (rst 30h / db low v): (v) = A.
+; v — в странице varpage. Прочие регистры и флаги сохраняются (как у ld a,(v) / ld (v),a).
+rst_ldv:    ex   (sp),hl
+            ld   a,(hl)
+            inc  hl
+            ex   (sp),hl
+            push hl
             ld   l,a
-            ret  nc
-            inc  h
+            ld   h,high varpage
+            ld   a,(hl)
+            pop  hl
+            ret
+rst_stv:    ex   (sp),hl
+            push de
+            ld   e,(hl)
+            inc  hl
+            ld   d,high varpage
+            ld   (de),a
+            pop  de
+            ex   (sp),hl
             ret
 
 ; ---------------------------------------------------------------- RND

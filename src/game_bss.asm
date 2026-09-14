@@ -8,6 +8,17 @@
 
 ; ---------------------------------------------------------------- переживают RUN
 persist_start:
+            IFDEF ENGINE_STUB
+            include "engine_stub_bss.inc"
+            ELSE
+            include "engine/engine_bss.inc"
+            ENDIF
+; ---------------------------------------------------------------- страница переменных
+; От varpage до varpage_end — одна 256-байтная страница: к её байтам игра обращается
+; командами LDV/STV (rst + младший байт адреса, см. util.asm). Порядок внутри — любой,
+; кроме: имена BASIC (b??, s??) идут подряд (стенд трассы сравнивает переменную
+; до следующего имени), cfg_TU..cfg_SB — в порядке SETUP.BAS (161 читает их подряд).
+varpage:
 ; настройки, которые SETUP.BAS кладёт в &HDDF5..&HDE00 (161 читает их PEEK-ами)
 cfg_TU:     ds 1
 cfg_AM:     ds 1
@@ -22,11 +33,6 @@ cfg_SB:     ds 1
 cfg_magic:  ds 2        ; 165,195 = настройки заданы
 cfg_fam:    ds 1        ; какую программу запустил SETUP: 0 IRONCLAD, 1 SALVO, 2 SALVOP, 3 BARRAGE
 smem_magic: ds 2        ; &HDDF3/&HDDF4 = 165,195: сессионные счётчики движка заведены
-            IFDEF ENGINE_STUB
-            include "engine_stub_bss.inc"
-            ELSE
-            include "engine/engine_bss.inc"
-            ENDIF
 persist_end:
 
 ; Массивы только сборки IRONCLAD.BAS (GA, GB, QX, QY) лежат в буфере кандидатов движка FA:
@@ -39,6 +45,37 @@ STD_OVL_END equ ENG_FA+296
 
 ; ---------------------------------------------------------------- переменные BASIC (RUN обнуляет)
 game_vars:
+; ---------------------------------------------------------------- состояние страниц (порт), байты в странице
+pg_vis:     ds 1        ; что сейчас в видеопамяти: 0/1 = страница игры, 2 = иной экран
+cur_on:     ds 1        ; курсор-спрайт (страница 0) виден
+cur_x:      ds 1        ; KX, KY
+cur_y:      ds 1
+gh_on:      ds 1        ; призрак корабля на странице 1 (1664-1668)
+gh_rx:      ds 1
+gh_ry:      ds 1
+gh_rw:      ds 1
+gh_rh:      ds 1
+gh_sx:      ds 1
+gh_sy:      ds 1
+gh_od:      ds 1        ; композит 3204: ориентация и тайлы кораблей
+gh_s:       ds 1
+sl_n:       ds 1        ; строка «GAME» (1396): сколько раз напечатана поверх (1 или 2)
+rp_tmp:     ds 4
+br_n:       ds 1
+br_j:       ds 1
+co_pg:      ds 1
+cd_n:       ds 1
+gh_i:       ds 1
+gh_n:       ds 1
+gh_c0:      ds 1
+cw_pg:      ds 1
+hr_q:       ds 1
+hr_j:       ds 1
+hr_x:       ds 1
+hr_x0:      ds 1
+hk_y:       ds 1
+sm_k:       ds 1
+; ---------------------------------------------------------------- переменные BASIC
 ; байтовые
 bKA: ds 1
 bCX: ds 1
@@ -194,6 +231,15 @@ bA1: ds 1
 bB1: ds 1
 bA2: ds 1
 bB2: ds 1
+; меню (SETUP.BAS)
+bMI:        ds 1
+bMG:        ds 1
+bBI:        ds 1
+varpage_end:
+            ASSERT high varpage == high (varpage_end-1)
+bRT:        ds 2
+sRN:        ds 2
+sBM:        ds 2
 ; строки (0 в конце)
 sMS: ds 64      ; MS$
 sCO: ds 4       ; CO$
@@ -226,49 +272,14 @@ ARR_QH: ds 12
 ARR_HS: ds 12*5         ; HS(SH,J) = SH + J*12
 ARR_SQ: ds 11
 ARR_N:  ds 12*2         ; N$(I) — указатели на имена кораблей
-; ---------------------------------------------------------------- состояние страниц (порт)
-pg_vis:     ds 1        ; что сейчас в видеопамяти: 0/1 = страница игры, 2 = иной экран
+; ---------------------------------------------------------------- состояние страниц (порт), вне страницы
 cellrec:    ds 2*100*4  ; слои клеток страниц 0 и 1: 0..31 тайл, 32+n белая, 64+n жёлтая, 96+n красная цифра, FF пусто
 at_rec:     ds 2*8      ; содержимое поля AT: на страницах 0/1 (строка, 0 = пусто)
-cur_on:     ds 1        ; курсор-спрайт (страница 0) виден
-cur_x:      ds 1        ; KX, KY
-cur_y:      ds 1
-gh_on:      ds 1        ; призрак корабля на странице 1 (1664-1668)
-gh_rx:      ds 1
-gh_ry:      ds 1
-gh_rw:      ds 1
-gh_rh:      ds 1
-gh_sx:      ds 1
-gh_sy:      ds 1
-gh_od:      ds 1        ; композит 3204: ориентация и тайлы кораблей
-gh_s:       ds 1
 gh_gt:      ds 5
 msg_rec:    ds 2*(2+34) ; строки сообщений MY=192 и MY=202: цвет, флаг, текст
-sl_n:       ds 1        ; строка «GAME» (1396): сколько раз напечатана поверх (1 или 2)
 sl_v1:      ds 4        ; GN,BO,GW,GC первой печати
 sl_v2:      ds 4        ; второй (2238)
-rp_tmp:     ds 4
-br_n:       ds 1
-br_j:       ds 1
-co_pg:      ds 1
 cd_p:       ds 2
-cd_n:       ds 1
-gh_i:       ds 1
-gh_n:       ds 1
-gh_c0:      ds 1
-cw_pg:      ds 1
-hr_q:       ds 1
-hr_j:       ds 1
-hr_x:       ds 1
-hr_x0:      ds 1
-hk_y:       ds 1
-sm_k:       ds 1
-bMI:        ds 1
-bMG:        ds 1
-bBI:        ds 1
-bRT:        ds 2
-sRN:        ds 2
-sBM:        ds 2
 qd_b:       ds 1
 qd_x:       ds 1
 game_vars_end:

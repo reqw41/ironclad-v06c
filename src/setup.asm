@@ -443,7 +443,7 @@ S3606:      ld   a,(bBI)                ; BO, SB, BM$
             add  a,a
             add  a,a
             ld   hl,match_tab
-            rst  08h
+            rst  00h
             ld   a,(hl)
             ld   (bBO),a
             inc  hl

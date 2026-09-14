@@ -11,7 +11,7 @@ L3799:      xor  a                      ; FOR N=0 TO SJ-1: SH=SQ(N): GOSUB 3858:
             ld   (bN),a
 L3799a:     ld   a,(bN)
             ld   hl,ARR_SQ
-            rst  08h
+            rst  00h
             ld   a,(hl)
             ld   (bSH),a
             call L3858
@@ -28,7 +28,7 @@ L3800:      ld   a,(bSK)                ; IF SK>0: FOR N=0 TO NF-1: P=GT(N): U=P
             ld   (bN),a
 L3800a:     ld   a,(bN)
             ld   hl,ARR_GT
-            rst  08h
+            rst  00h
             ld   a,(hl)
             ld   (bP),a
             call div10
@@ -55,9 +55,9 @@ L3801:      ld   a,(bSL)                ; NV=SL: GOSUB 3810
             ld   a,(bNF)
             call ms_catd
             ld   hl,s_lbr
-            rst  30h
+            call ms_cat
             ld   hl,sS1
-            rst  30h
+            call ms_cat
             ld   a,']'
             call ms_catc
             ld   hl,sSS                 ; IF SS$<>"" THEN MS$=MS$+" SANK: "+LEFT$(SS$,LEN(SS$)-1)
@@ -90,9 +90,9 @@ salvo_sank:
             push de
             push hl
             ld   hl,s_sank
-            rst  30h
+            call ms_cat
             pop  hl
-            rst  30h
+            call ms_cat
             ld   de,sMS                 ; убрать завершающую запятую
             call str_end
             dec  de
@@ -105,7 +105,7 @@ salvo_sank:
             ret  c
             ld   a,e                    ; сдвинуть хвост с позиции E+4 на E
             ld   hl,sMS
-            rst  08h
+            rst  00h
             ld   d,h
             ld   e,l
             inc  hl
@@ -200,7 +200,7 @@ L3821:      ld   a,(bI)                 ; LINE(190,37+(I-1)*PZ)-(255,44+(I-1)*10
             rst  20h
 L3822:      ld   a,(bI)                 ; SF: QH(I)>=SZ(I)
             ld   hl,ARR_QH
-            rst  08h
+            rst  00h
             ld   b,(hl)
             call sz_i
             ld   a,15
@@ -237,7 +237,7 @@ L3830:      ld   a,15
 
 ; 3825..3829 для корабля bI, строка bYP, x0=216 (шаг 8)
 hs_row:     ld   a,(bI)
-            rst  08h
+            rst  00h
             ld   a,(hl)
             ld   (hr_q),a               ; QH(I)
             ld   a,1
@@ -277,7 +277,7 @@ hr_hit:     ld   a,(hr_j)               ; NV=HS(I,J-1): GOSUB 3810: COLOR 8: PSE
             ld   a,(bI)
             add  a,b
             ld   hl,ARR_HS
-            rst  08h
+            rst  00h
             ld   a,(hl)
             ld   (bNV),a
             call L3810
@@ -331,13 +331,13 @@ L3844:      xor  a                      ; FOR NC=0 TO NS-1: BX=TX(NC): BY=TY(NC)
 L3844a:     ld   a,(bNC)
             add  a,a
             ld   hl,ARR_TX
-            rst  08h
+            rst  00h
             ld   a,(hl)
             ld   (bBX),a
             ld   a,(bNC)
             add  a,a
             ld   hl,ARR_TY
-            rst  08h
+            rst  00h
             ld   a,(hl)
             ld   (bBY),a
             call L910
@@ -376,9 +376,9 @@ L3853:      ld   a,(bSN)                ; NV=SN: "ENEMY HITS:"+STR$(EK)+"/"+NS+"
             ld   a,(bNS)
             call ms_catd
             ld   hl,s_lbr
-            rst  30h
+            call ms_cat
             ld   hl,sS1
-            rst  30h
+            call ms_cat
             ld   a,']'
             call ms_catc
             ld   hl,sES
@@ -458,7 +458,7 @@ L3874:      ld   a,1
             ld   a,(bSH)
             add  a,c
             ld   hl,ARR_HS
-            rst  08h
+            rst  00h
             ld   a,(bSL)
             ld   (hl),a
 L3876:      call qh_sh
@@ -469,7 +469,7 @@ L3876:      call qh_sh
             ret  c
 L3878:      ld   a,(bSJ)                ; SJ=SJ+1: SQ(SJ-1)=SH
             ld   hl,ARR_SQ
-            rst  08h
+            rst  00h
             ld   a,(bSH)
             ld   (hl),a
             ld   hl,bSJ
@@ -483,7 +483,7 @@ L3880:      ld   a,(bNC)
 L3881:      dec  a
             ld   (bNC),a
             ld   hl,ARR_GT
-            rst  08h
+            rst  00h
             ld   a,(hl)
             ld   (bP),a
             call div10
@@ -522,7 +522,7 @@ L3882:      ld   a,(bSH)
             ld   a,(bSH)
             add  a,c
             ld   hl,ARR_HS
-            rst  08h
+            rst  00h
             ld   (hl),0
             call sz_sh                  ; IF QH(SH)=SZ(SH)-1 THEN SJ=SJ-1
             dec  c
@@ -615,7 +615,7 @@ pr_1:       ld   a,(hr_j)
             ld   a,(bSH)
             add  a,c
             ld   hl,ARR_PX
-            rst  08h
+            rst  00h
             ld   a,(hl)
             ld   de,60
             add  hl,de
@@ -705,7 +705,7 @@ L4003a:     call k_ph_sz
             ld   a,(bK)                 ; T5=T5+CC(K)*SZ(K)
             add  a,a
             ld   hl,ARR_CC
-            rst  08h
+            rst  00h
             ld   e,(hl)
             inc  hl
             ld   d,(hl)
@@ -727,7 +727,7 @@ L4004:      ld   hl,bK
             ld   a,(bKL)
             ld   hl,ARR_PH
             add  a,a
-            rst  08h
+            rst  00h
             ld   a,(hl)
             or   a
             jp   z,L4005
@@ -746,7 +746,7 @@ L4005:      ld   a,(cfg_fam)            ; 4005..4009 — только SALVO/BARR
 L4005a:     ld   a,(bK)                 ; IF PD(K)=0 OR PH(K)=0 OR SZ(K)>3 OR SZ(K)<2 THEN 4009
             add  a,a
             ld   hl,ARR_PD
-            rst  08h
+            rst  00h
             ld   e,(hl)
             inc  hl
             ld   d,(hl)
@@ -889,7 +889,7 @@ L4014a:     call k_ph_sz
             ld   a,(bK)
             add  a,a
             ld   hl,ARR_CC
-            rst  08h
+            rst  00h
             ld   e,(hl)
             inc  hl
             ld   d,(hl)
@@ -934,12 +934,12 @@ L4050:      ld   a,(bNF)                ; POKE &HCF99,NF: T2=USR3(0): NS=NF
 k_ph_sz:    ld   a,(bK)
             add  a,a
             ld   hl,ARR_PH
-            rst  08h
+            rst  00h
             ld   b,(hl)
             ld   a,(bK)
             add  a,a
             ld   hl,ARR_SZ
-            rst  08h
+            rst  00h
             ld   c,(hl)
             ret
 
@@ -1070,7 +1070,7 @@ L4095:      xor  a                      ; CF=0: FOR J=0 TO T-1: IF |TX(J)-C|+|TY
 L4095a:     ld   a,(bJ)
             add  a,a
             ld   hl,ARR_TX
-            rst  08h
+            rst  00h
             ld   a,(bC)
             sub  (hl)
             call absa
@@ -1078,7 +1078,7 @@ L4095a:     ld   a,(bJ)
             ld   a,(bJ)
             add  a,a
             ld   hl,ARR_TY
-            rst  08h
+            rst  00h
             ld   a,(bR)
             sub  (hl)
             call absa
@@ -1102,7 +1102,7 @@ L4096:      ld   a,(bCF)                ; IF CF=1 AND T2<40 THEN 4094
 L4096b:     ld   a,(bT)                 ; TX(T)=C: TY(T)=R
             add  a,a
             ld   hl,ARR_TX
-            rst  08h
+            rst  00h
             ld   a,(bC)
             ld   (hl),a
             inc  hl
@@ -1110,7 +1110,7 @@ L4096b:     ld   a,(bT)                 ; TX(T)=C: TY(T)=R
             ld   a,(bT)
             add  a,a
             ld   hl,ARR_TY
-            rst  08h
+            rst  00h
             ld   a,(bR)
             ld   (hl),a
             inc  hl
@@ -1136,7 +1136,7 @@ L4097:      ld   hl,0                   ; T=0: FOR K=1 TO ZT: OS(K)=T: LK=SZ(K):
 L4097a:     ld   a,(bK)
             add  a,a
             ld   hl,ARR_OS
-            rst  08h
+            rst  00h
             ld   a,(bT)
             ld   (hl),a
             inc  hl
@@ -1161,14 +1161,14 @@ L4097a:     ld   a,(bK)
             ld   a,(bK)
             add  a,a
             ld   hl,ARR_CT
-            rst  08h
+            rst  00h
             ld   (hl),e
             inc  hl
             ld   (hl),d
             ld   a,(bK)
             add  a,a
             ld   hl,ARR_CC
-            rst  08h
+            rst  00h
             ld   (hl),e
             inc  hl
             ld   (hl),d
@@ -1178,7 +1178,7 @@ L4097a:     ld   a,(bK)
             ld   a,(bK)
             add  a,a
             ld   hl,ARR_PD
-            rst  08h
+            rst  00h
             ld   (hl),0
             inc  hl
             ld   (hl),0
@@ -1230,7 +1230,7 @@ L4102:      ld   hl,bK
             jp   nc,L4099b
             ld   a,(bI)                 ; RU(I)=T
             ld   hl,ARR_RU
-            rst  08h
+            rst  00h
             ld   a,(bT)
             ld   (hl),a
             ld   hl,bI
@@ -1242,11 +1242,11 @@ L4102:      ld   hl,bK
 L4102a:     ld   b,0
 L4102b:     ld   a,c
             ld   hl,ARR_RU
-            rst  08h
+            rst  00h
             ld   d,(hl)
             ld   a,b
             ld   hl,ARR_RU
-            rst  08h
+            rst  00h
             ld   a,(hl)
             add  a,d
             push af
@@ -1258,7 +1258,7 @@ L4102b:     ld   a,c
             add  a,d
             add  a,b
             ld   hl,ENG_MC+13
-            rst  08h
+            rst  00h
             pop  af
             ld   (hl),a
             inc  b
@@ -1292,7 +1292,7 @@ L4104b:     ld   a,(bT)                 ; U=PX(K,T): V=PY(K,T)
             ld   a,(bK)
             add  a,b
             ld   hl,ARR_PX
-            rst  08h
+            rst  00h
             ld   a,(hl)
             ld   de,60
             add  hl,de
@@ -1454,7 +1454,7 @@ L4160a:     call L4156
 ; 4160: квадратики/номера корабля I с x0 = X9
 hs_row_sp:  ld   a,(bI)
             ld   hl,ARR_QH
-            rst  08h
+            rst  00h
             ld   a,(hl)
             ld   (hr_q),a
             ld   a,1
@@ -1496,7 +1496,7 @@ hsp_hit:     ld   a,(hr_j)               ; NV=HS(I,J-1)
             ld   a,(bI)
             add  a,b
             ld   hl,ARR_HS
-            rst  08h
+            rst  00h
             ld   a,(hl)
             ld   (bNV),a
             call L3810
@@ -1566,13 +1566,13 @@ L4320:      xor  a
 L4320a:     ld   a,(bK)                 ; IF PD(K)>0 OR CC(K)<>1 THEN 4329
             add  a,a
             ld   hl,ARR_PD
-            rst  08h
+            rst  00h
             call hl_pos
             jp   nz,L4329
             ld   a,(bK)
             add  a,a
             ld   hl,ARR_CC
-            rst  08h
+            rst  00h
             ld   a,(hl)
             cp   1
             jp   nz,L4329
@@ -1590,7 +1590,7 @@ L4321:      call k_ph_sz                ; LK=SZ(K): W=11-LK
             ld   a,(bK)                 ; найти единственного живого кандидата в FA(OS..OS+CT-1)
             add  a,a
             ld   hl,ARR_OS
-            rst  08h
+            rst  00h
             ld   e,(hl)
             inc  hl
             ld   d,(hl)
@@ -1600,7 +1600,7 @@ L4321:      call k_ph_sz                ; LK=SZ(K): W=11-LK
             ld   a,(bK)
             add  a,a
             ld   hl,ARR_CT
-            rst  08h
+            rst  00h
             ld   c,(hl)
             inc  hl
             ld   b,(hl)                 ; BC = CT(K)
@@ -1631,7 +1631,7 @@ L4323:      ld   hl,(bT2)               ; PD(K)=T2+1: FL=1
             ld   a,(bK)
             add  a,a
             ld   hl,ARR_PD
-            rst  08h
+            rst  00h
             ld   (hl),e
             inc  hl
             ld   (hl),d
@@ -1788,7 +1788,7 @@ L4338b:     push bc
             add  a,d
             add  a,b
             ld   hl,ENG_MC+13
-            rst  08h
+            rst  00h
             ld   a,(hl)
             or   a
             jp   nz,L4339

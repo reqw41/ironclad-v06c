@@ -4,6 +4,7 @@
 ; Образ .rom грузится с $0100 и стартует с $0100.
 ; ============================================================================
             DEVICE NOSLOT64K
+            include "macros.asm"
             IFDEF NOIMG
             DEFINE NOTITLE
             ENDIF
@@ -36,6 +37,10 @@ lz_1:       ld   (hl),0
             inc  hl
             dec  b
             jp   nz,lz_1
+            ld   hl,rst0_code           ; RST 0 = add_a_hl прямо в векторе (с nop,nop: слово по $0000 = 0)
+            ld   de,0
+            ld   bc,rst0_end-rst0_code
+            call memcpy
             ld   hl,rst_tab             ; векторы RST 1..6 -> частые подпрограммы
             ld   de,8
 rvs_1:       ld   a,(hl)
@@ -70,8 +75,18 @@ rvs_2:       ld   hl,tiles_zx0           ; тайлы и глифы -> плос�
             jp   setup_main
             ENDIF
 
-rst_tab:    dw add_a_hl, gfx_pset, gfx_puts, gfx_fill, ms_set, ms_cat
+rst_tab:    dw rst_ldv, gfx_pset, gfx_puts, gfx_fill, ms_set, rst_stv
             db 0
+; RST 0: HL += A. Два nop в начале: байты $0000/$0001 = 0 (нулевой указатель на строку = "")
+rst0_code:  nop
+            nop
+            add  a,l
+            ld   l,a
+            ret  nc
+            inc  h
+            ret
+rst0_end:
+add_a_hl    equ 2
             include "vec.asm"
             include "gfx.asm"
             include "snd.asm"
@@ -117,7 +132,7 @@ bss_start:
             include "bss.asm"
 bss_end:
             ASSERT bss_end <= 0FF00h            ; 256 Б на стек
-            ASSERT sMS-bKA <= 288               ; render_full сохраняет скаляры в ARR_MG
+            ASSERT bMI-bKA <= 288               ; render_full сохраняет скаляры в ARR_MG
 
             SAVEBIN "build/ironclad.rom", 100h, image_end-100h
             DISPLAY "образ: ", /D, image_end-100h, " Б (свободно до $8000: ", /D, 8000h-image_end, "); BSS: ", /D, bss_end-bss_start, " Б (свободно в $E000: ", /D, 10000h-bss_end, ")"

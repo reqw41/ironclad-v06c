@@ -86,7 +86,7 @@ sc_mul_rnd: ld   (sm_k),a
             ld   a,(sm_k)
             call rnd_n
             ld   hl,(bSC)
-            rst  08h
+            rst  00h
             ld   (bSC),hl
             ret
 
@@ -413,12 +413,12 @@ hscore:     ld   hl,0
 hs_k:       ld   a,(bK)
             ld   hl,ARR_PH
             add  a,a
-            rst  08h
+            rst  00h
             ld   d,(hl)                 ; PH(K)
             ld   a,(bK)
             ld   hl,ARR_SZ
             add  a,a
-            rst  08h
+            rst  00h
             ld   e,(hl)                 ; SZ(K)
             ld   a,d
             cp   e
@@ -444,7 +444,7 @@ hs_m:       cp   d
             sub  d
             inc  a                      ; M-T+1
             ld   hl,(bSC)
-            rst  08h
+            rst  00h
             ld   (bSC),hl
 hs_n:       ld   a,(bK)
             inc  a
@@ -485,12 +485,12 @@ L1902b:     ld   hl,0
 L1902c:     ld   a,(bK)                 ; IF PH(K)>=SZ(K) THEN 1905
             ld   hl,ARR_PH
             add  a,a
-            rst  08h
+            rst  00h
             ld   d,(hl)
             ld   a,(bK)
             ld   hl,ARR_SZ
             add  a,a
-            rst  08h
+            rst  00h
             ld   e,(hl)
             ld   a,d
             cp   e
@@ -515,7 +515,7 @@ L1904:      add  a,b                    ; IF X+Y-L+2>0 THEN T=T+X+Y-L+2
             jp   m,L1905
             jp   z,L1905
             ld   hl,(bT)
-            rst  08h
+            rst  00h
             ld   (bT),hl
 L1905:      ld   hl,bK
             inc  (hl)
@@ -1075,7 +1075,7 @@ L1961a:     ld   a,(bA)                 ; GA(0,A+1)=GA(0,A)+c
             add  a,a
             add  a,a
             ld   hl,ARR_GA
-            rst  08h
+            rst  00h
             ld   a,(hl)
             add  a,c
             ld   de,16
@@ -1133,7 +1133,7 @@ L1963a:     ld   a,(bB)                 ; GA(1,B+1)=GA(1,B)+c
             add  a,a
             add  a,a
             ld   hl,ARR_GA+2
-            rst  08h
+            rst  00h
             ld   a,(hl)
             add  a,c
             ld   de,16
@@ -1159,7 +1159,7 @@ L1964:      ld   a,1                    ; FOR K=1 TO 5: L=SZ(K): FOR M=0 TO L-1:
 L1964a:     ld   a,(bK)
             ld   hl,ARR_SZ
             add  a,a
-            rst  08h
+            rst  00h
             ld   a,(hl)
             ld   (bL),a
             xor  a
@@ -1186,7 +1186,7 @@ L1964c:     ld   a,b                    ; GA(0,M)
             add  a,a
             add  a,a
             ld   hl,ARR_GA
-            rst  08h
+            rst  00h
             ld   c,(hl)
             ld   a,(bN)                 ; + GA(1,N)
             add  a,a
@@ -1194,7 +1194,7 @@ L1964c:     ld   a,b                    ; GA(0,M)
             add  a,a
             add  a,a
             ld   hl,ARR_GA+2
-            rst  08h
+            rst  00h
             ld   a,(hl)
             add  a,c                    ; индекс n
             add  a,a
@@ -1202,7 +1202,7 @@ L1964c:     ld   a,b                    ; GA(0,M)
             add  a,a
             add  a,a                    ; n*16
             ld   hl,ARR_GB+14
-            rst  08h
+            rst  00h
             ld   e,(hl)
             inc  hl
             ld   d,(hl)

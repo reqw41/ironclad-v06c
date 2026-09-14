@@ -119,7 +119,7 @@ draw_layer_tp:
             rlca
             and  3
             ld   hl,glyph_fill
-            rst  08h
+            rst  00h
             ld   e,(hl)
             ld   a,b
             add  a,5
@@ -286,7 +286,7 @@ gd_1:       push bc
             push bc
             ld   a,(gh_i)
             ld   hl,gh_gt
-            rst  08h
+            rst  00h
             ld   a,(hl)
             call gfx_tile_tp
             pop  bc
@@ -447,10 +447,10 @@ ps_d11:     ld   b,a
             pop  de
             pop  hl
 ps_next:    ld   a,4
-            rst  08h
+            rst  00h
             ex   de,hl
             ld   a,4
-            rst  08h
+            rst  00h
             ex   de,hl
             inc  c
             ld   a,c

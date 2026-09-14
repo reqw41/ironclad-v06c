@@ -13,7 +13,7 @@ NPL         equ 3               ; плоскостей экрана
 col2bits:
             push hl
             ld   hl,(cur_cmap)
-            rst  08h
+            rst  00h
             ld   a,(hl)
             rrca
             rrca
@@ -792,7 +792,7 @@ rt_m2:      ld   c,a                    ; C = маска
             and  8
             add  a,a                    ; 0 или 16
             ld   hl,(rt_src)
-            rst  08h
+            rst  00h
             ld   de,15
             add  hl,de                  ; -> строка 15 (c = 0)
             ld   de,0                   ; D:E — новая строка (16 точек)
@@ -811,10 +811,10 @@ rt_c:       ld   a,(hl)
             jp   nz,rt_c
             ld   hl,(rt_dst)            ; левый байт -> столбец 0, правый -> столбец 1
             ld   a,(rt_r)
-            rst  08h
+            rst  00h
             ld   (hl),d
             ld   a,16
-            rst  08h
+            rst  00h
             ld   (hl),e
             ld   hl,rt_r
             inc  (hl)

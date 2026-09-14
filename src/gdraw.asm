@@ -257,7 +257,7 @@ L1160:      ld   a,(bN)                 ; C=PX(N,I): R=PY(N,I)
             add  a,c
             add  a,b
             ld   hl,ARR_PX
-            rst  08h
+            rst  00h
             ld   a,(hl)
             ld   (bC),a
             ld   de,ARR_PY-ARR_PX
@@ -268,7 +268,7 @@ L1160:      ld   a,(bN)                 ; C=PX(N,I): R=PY(N,I)
 L1162:      ld   a,(bN)
             ld   hl,ARR_SZ
             add  a,a
-            rst  08h
+            rst  00h
             ld   b,(hl)
             ld   hl,bI
             inc  (hl)
@@ -350,7 +350,7 @@ L1216a:     ld   a,(bI)
 L1220:      ld   a,(bI)                 ; NH=PH(I): IF P=0 THEN NH=0: IF QH(I)>=SZ(I) THEN NH=5
             ld   hl,ARR_PH
             add  a,a
-            rst  08h
+            rst  00h
             ld   a,(hl)
             ld   (bNH),a
             ld   a,(bP)
@@ -360,7 +360,7 @@ L1220:      ld   a,(bI)                 ; NH=PH(I): IF P=0 THEN NH=0: IF QH(I)>=
             ld   (bNH),a
             ld   a,(bI)
             ld   hl,ARR_QH
-            rst  08h
+            rst  00h
             ld   b,(hl)
             call sz_i
             ld   a,b
@@ -406,7 +406,7 @@ yi_2:       ld   a,(bY0)
 sz_i:       ld   a,(bI)
 sz_a:       ld   hl,ARR_SZ
             add  a,a
-            rst  08h
+            rst  00h
             ld   c,(hl)
             ret
 
@@ -818,7 +818,7 @@ L1473:      ld   a,(bCX)                ; CO$=CHR$(65+CX)+MID$(STR$(CY+1),2)
             add  a,a
             add  a,a
             ld   hl,at_rec
-            rst  08h
+            rst  00h
             ld   (hl),0
 L1475:      ld   a,(bFB)                ; IF (FB=0 AND DP<>1) OR (FB=1 AND DP<>0) THEN пусто
             ld   b,a
@@ -924,14 +924,14 @@ L1652b:     ld   a,d
 L1652c:     ld   a,c
             add  a,a
             ld   hl,ARR_TX
-            rst  08h
+            rst  00h
             ld   (hl),b
             inc  hl
             ld   (hl),0
             ld   a,c
             add  a,a
             ld   hl,ARR_TY
-            rst  08h
+            rst  00h
             ld   (hl),d
             inc  hl
             ld   (hl),0
@@ -1005,7 +1005,7 @@ L1659a:     ld   a,(bSH)
             ld   c,a
 L1660:      ld   a,(bI)
             ld   hl,ARR_GT
-            rst  08h
+            rst  00h
             ld   (hl),c
             ld   a,(bI)
             inc  a
@@ -1119,7 +1119,7 @@ L1684:      ld   a,(bE)                 ; U1=TX(0)-E: V1=TY(0)-E: U2=TX(TN-1)+E:
             dec  a
             add  a,a
             ld   hl,ARR_TX
-            rst  08h
+            rst  00h
             ld   a,(hl)
             add  a,c
             ld   (bU2),a
@@ -1127,7 +1127,7 @@ L1684:      ld   a,(bE)                 ; U1=TX(0)-E: V1=TY(0)-E: U2=TX(TN-1)+E:
             dec  a
             add  a,a
             ld   hl,ARR_TY
-            rst  08h
+            rst  00h
             ld   a,(hl)
             add  a,c
             ld   (bV2),a
@@ -1317,7 +1317,7 @@ L1775:      ld   hl,bV
             ret
 ; A = SH + I*12 -> B = X(база), D = Y(база+60)
 l1758_xy:   ld   hl,(rp_tmp+2)
-            rst  08h
+            rst  00h
             ld   b,(hl)
             ld   de,60
             add  hl,de
