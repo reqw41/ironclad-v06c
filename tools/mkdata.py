@@ -200,43 +200,53 @@ def build_tiles():
     png('tiles_check', sheet, rgb_of(PAL_GAME, 1), 3)
     return len(data), len(gl)
 
-# --------------------------------------------------------------------------- шрифт
-# Хранятся только знаки, которые печатает программа: из строк db "..." в src/*.asm и
-# знаки, что строятся счётом (цифры, A..V номера залпов, координаты, знак числа).
-# 64 ячейки на коды 32..95 (ячейка = код-32); строчные буквы занимают ячейки неиспользуемых
-# знаков 32..95, их номер берётся из таблицы lc_map (коды 96..127). Строка 7 у всех знаков
-# шрифта пустая — хранятся 7 строк (8-ю gfx_putc кладёт нулём). Данные сжаты ZX0 (font.zx0),
-# распаковываются на старте в font_data (BSS); таблица lc_map — в font.inc.
-FONT_DYN = set(' -/,[]:0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ')
+# Внутренняя кодировка текста (игра только на русском): 20h..40h — как ASCII (пробел, цифры,
+# знаки), буквы А..Я без Ё и Ъ — с 41h по алфавиту, Й — последней (5Fh): тогда 41h+i для
+# i = 0..9 — А Б В Г Д Е Ж З И К (столбцы русского морского боя), а буквы номеров залпов
+# CHR$(64+M) — А, Б, В ... Исходники пишут строки в UTF-8, в байты их переводит Lua-функция
+# U() в src/macros.asm по таблице ENC из build/data/dict.lua (её пишет build_text). Латиница
+# в строках — ошибка сборки. Ё пишется как Е.
+# Шрифт: 64 ячейки на коды 20h..5Fh (ячейка = код-20h), по 7 строк (8-ю gfx_putc кладёт нулём);
+# сжат ZX0 (font.zx0), распаковывается на старте в font_data (BSS).
+RU = font5x7.RU_ORDER
+ENC = {c: 0x41 + i for i, c in enumerate(RU)}
+ENC['Ё'] = ENC['Е']
+DEC = {v: k for k, v in ENC.items() if k != 'Ё'}
+def enc(s):
+    out = []
+    for ch in s:
+        if ch in ENC: out.append(ENC[ch])
+        elif 32 <= ord(ch) <= 0x40: out.append(ord(ch))
+        else: raise ValueError('знак вне шрифта: %r в строке %r' % (ch, s))
+    return ''.join(map(chr, out))
+# знаки, что строятся счётом: цифры, знак числа, разделители, все буквы (столбцы, номера залпов)
+FONT_DYN = set(' -/,():0123456789') | set(RU)
+TXT_RE = r'^\s*(?:[A-Za-z_]\w*:)?\s*(?:db|TXT|TXR)\s+(.*)$'
 def used_chars():
     import glob, re
     used = set(FONT_DYN)
     for f in glob.glob(os.path.join(ROOT, 'src', '*.asm')) + [os.path.join(OUT, 'version.inc')]:
         if '/engine/' in f or f.endswith('libtest.asm') or not os.path.exists(f): continue
         for l in open(f, encoding='utf8'):
-            m = re.match(r'^\s*(?:[A-Za-z_]\w*:)?\s*(?:db|TXT)\s+(.*)$', l)
+            m = re.match(TXT_RE, l)
             if m:
                 for t in re.findall(r'"([^"]*)"', m.group(1)): used |= set(t)
     return used
 def build_font():
     used = used_chars()
-    assert all(32 <= ord(c) < 128 for c in used), sorted(used)
-    slot = [chr(32 + i) if chr(32 + i) in used else None for i in range(64)]
-    free = [i for i in range(64) if slot[i] is None]
-    hi = sorted(c for c in used if ord(c) >= 96)
-    assert len(hi) <= len(free), ('знаков 96..127 больше, чем свободных ячеек', hi)
-    lc = [0] * 32
-    for c, i in zip(hi, free):
-        slot[i] = c; lc[ord(c) - 96] = i
+    codes = {ord(enc(c)) for c in used}
+    assert all(32 <= c < 96 for c in codes), sorted(codes)
     data = []
     for i in range(64):
-        r = font5x7.rows(slot[i]) if slot[i] else [0] * 8
-        assert r[7] == 0, slot[i]
+        c = 32 + i
+        ch = DEC.get(c, chr(c))
+        r = font5x7.rows(ch) if c in codes else [0] * 8
+        assert r[7] == 0, ch
         data += r[:7]
     zx0('font', data)
-    write('font.inc', '; сгенерировано tools/mkdata.py: номер ячейки шрифта (font_data) для кодов 96..127\n'
-          '; знаки: ' + ''.join(sorted(used)).replace(';', '') + '\n'
-          'lc_map: db ' + ','.join('%d' % v for v in lc) + '\n'
+    write('font.inc', '; сгенерировано tools/mkdata.py: шрифт — коды 20h..5Fh (font_data), lc_map не нужна\n'
+          '; знаки: ' + ''.join(sorted(used, key=lambda c: ord(enc(c)))).replace(';', '') + '\n'
+          'lc_map: db ' + ','.join(['0'] * 32) + '\n'
           'FONT_SIZE equ %d\n' % len(data))
     return bytes(data)
 
@@ -253,7 +263,7 @@ def txt_strings():
         if os.path.basename(f) in TXT_DICT_FILES: continue
         for l in open(f, encoding='utf8'):
             m = re.match(r'^\s*(?:[A-Za-z_]\w*:)?\s*TXT\s+"([^"]*)"', l)
-            if m: out.append(m.group(1))
+            if m: out.append(enc(m.group(1)))
     return out
 def txt_parse(s, words):
     """ДП: минимум байтов; при равенстве — меньше слов словаря (детерминированно, как в Lua)."""
@@ -311,7 +321,10 @@ def build_text():
             tt = total(ws)
             if tt <= t: words, t, changed = ws, tt, True
     raw = sum(len(x) + 1 for x in strs)
-    write('dict.lua', 'DICT = {\n' + ''.join('  "%s",\n' % w for w in words) + '}\n')
+    lua = lambda w: w.replace('\\', '\\\\').replace('"', '\\"')
+    write('dict.lua', '-- сгенерировано tools/mkdata.py: слова словаря (во внутренней кодировке) и ENC\n'
+          'DICT = {\n' + ''.join('  "%s",\n' % lua(w) for w in words) + '}\n'
+          'ENC = {' + ', '.join('[%d]=%d' % (ord(c), v) for c, v in sorted(ENC.items(), key=lambda x: x[1])) + '}\n')
     data = []
     for w in words: data += [ord(ch) for ch in w[:-1]] + [ord(w[-1]) | 0x80]
     write('dict.inc', '; сгенерировано tools/mkdata.py: словарь текстов (%d слов), последний знак слова | 80h\n'
@@ -499,7 +512,7 @@ def build_splash():
 if __name__ == '__main__':
     os.makedirs(OUT, exist_ok=True)
     ver = open(os.path.join(REF, 'VERSION')).read().strip()
-    write('version.inc', '        TXT "V%s"\n' % ver)
+    write('version.inc', '        TXT "В.%s"\n' % ver)
     build_text()
     fb = build_font()
     nf = len(fb)

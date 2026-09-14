@@ -141,7 +141,8 @@ function inGetkey() { const p = ipc(); return p >= L.getkey && p < L.getkey + 12
 // K$ ещё прежний — там не записывать
 function inPoll() { const p = ipc(); return p >= L.L1416 && p < L.L1425; }
 const trace = []; let seeded = false, shots = 0, step = 0, endScreens = 0, script = [];
-if (R === 3) script = ["r", "right", "down", "space", "u", "slash", "space", "tab", "tab", "z"];   // расстановка вручную, отмена, помощь, TAB
+// клавиши русской версии: А — авторасстановка (было Z), Б — буй (X), М — меню (Q); коды латинские
+if (R === 3) script = ["r", "right", "down", "space", "u", "slash", "space", "tab", "tab", "a"];   // расстановка вручную, отмена, помощь, TAB
 let menuDone = false, finished = false, guard = 0;
 // семена: ровно при первом исполнении L195 после меню (после L172 — зерно от таймера, до первого
 // RND партии) — подменить на постоянные: ГСЧ игры и движка (vSEED; иначе движок берёт семя из
@@ -172,8 +173,8 @@ while (!finished && frames < 400000 && guard++ < 2000000) {
     const cx = rd(L.bCX), cy = rd(L.bCY);
     if (tc < 0) k = "space";
     else if (cx < tc) k = "right"; else if (cx > tc) k = "left"; else if (cy < tr2) k = "down"; else if (cy > tr2) k = "up";
-    else { shots++; k = (shots % 11 === 5 && !rec.didx) ? "x" : "space"; if (shots % 13 === 7) k = "tab"; }
-  } else if (inPoll()) k = "z";
+    else { shots++; k = (shots % 11 === 5 && !rec.didx) ? "b" : "space"; if (shots % 13 === 7) k = "tab"; }
+  } else if (inPoll()) k = "a";
   else { const ra = nm(retaddr()); if (ra.startsWith("L226")) { endScreens++; k = endScreens % 4 === 0 ? "space" : "tab"; } else k = "space"; }
   rec.key = k; trace.push(rec); tap(k);
 }

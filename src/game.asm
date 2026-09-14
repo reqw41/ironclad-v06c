@@ -116,7 +116,7 @@ rcl_1:      ld   (hl),0FFh
             or   e
             jp   nz,rcl_1
             ld   hl,at_rec
-            ld   de,16
+            ld   de,32
             call memzero
             ZEROV gh_on
             ret
@@ -219,7 +219,7 @@ L365:       call L1615
 L370:       CPV  bLG,1
             jp   z,L380
 L375:       call msg1i
-            TXT  "BLOCKED"
+            TXT  "ЗАНЯТО"
             jp   L328
 L380:       call L1652
 L381:       call ship_to_ps
@@ -434,7 +434,7 @@ L501:       CPV  bDL,2  ; IF DL>1 AND GN=1 THEN MS$="COIN TOSS: "+MS$
             CPV  bGN,1
             jp   nz,L501a
             call ms_cati
-            TXT  "COIN TOSS: "
+            TXT  "ЖРЕБИЙ: "
 L501a:      pop  hl
             call ms_cat
 L502:       call L1305
@@ -563,7 +563,7 @@ L650:       call cm_cxcy                ; IF CM(CX,CY)>0 THEN "ALREADY FIRED"
             call hl_pos
             jp   z,L655
             call msg1i
-            TXT  "ALREADY FIRED"
+            TXT  "СЮДА УЖЕ СТРЕЛЯЛИ"
             jp   L620
 L655:       ZEROV bFB
             call L3322
@@ -664,7 +664,7 @@ mc_1:       add  a,'0'
 L702:       ld   hl,L3470               ; 702..704
             call nf_calc
 L710:       call msg2i
-            TXT  "ENEMY IS PLOTTING..."
+            TXT  "ВРАГ ЦЕЛИТСЯ..."
             SETV ai_left,AI_SHOW
 L715:       LDV  bDP
             or   a
@@ -755,7 +755,7 @@ L879:       call L2615
 L882:       call L1706
             call L2622
 L890:       call ms_seti
-            TXT  "SUNK - ENEMY "
+            TXT  "ВЫ ПОТОПИЛИ "
             call n_sh
             call ms_cat
             call L1305
@@ -943,7 +943,7 @@ L990:       INCV bEK
             call cat_sh3
             jp   L992
 L991:       call ms_seti
-            TXT  "ENEMY SANK YOUR "
+            TXT  "ВРАГ ПОТОПИЛ "
             call n_sh
             call ms_cat
             call L1315
@@ -951,8 +951,12 @@ L992:       CPV  bBD,1
             jp   z,L3884
             jp   L1280
 
-; первые 3 знака строки HL -> DE (DE на выходе -> нуль)
+; LEFT$(N$,3) -> DE (DE на выходе -> нуль): HL = имя корабля; по-русски вместо первых 3
+; букв — сокращение (АВН, ЛИН, ПЛ ...), оно лежит в 3 байтах перед именем (TXR, до 3 знаков)
 cat3:
+            dec  hl
+            dec  hl
+            dec  hl
             ld   b,3
 c3_1:       ld   a,(hl)
             or   a
@@ -1052,21 +1056,35 @@ ms_catd:
             jp   str_digits
 
 ; ---------------------------------------------------------------- тексты
-s_you_fire_first:   TXT  "YOU FIRE FIRST"
-s_enemy_fires_first: TXT  "ENEMY FIRES FIRST"
-s_you_fire:         TXT  "YOU FIRE "
-s_miss:             TXT  " - MISS"
-s_hit:              TXT  " - HIT"
-s_enemy_fires:      TXT  "ENEMY FIRES "
+s_you_fire_first:   TXT  "ВЫ СТРЕЛЯЕТЕ ПЕРВЫМ"
+s_enemy_fires_first: TXT  "ПЕРВЫМ СТРЕЛЯЕТ ВРАГ"
+s_you_fire:         TXT  "ВЫСТРЕЛ "
+s_miss:             TXT  " - МИМО"
+s_hit:              TXT  " - ПОПАДАНИЕ"
+s_enemy_fires:      TXT  "ВЫСТРЕЛ ВРАГА "
 
-sh_carrier:     db "CARRIER",0
-sh_battleship:  db "BATTLESHIP",0
-sh_cruiser:     db "CRUISER",0
-sh_submarine:   db "SUBMARINE",0
-sh_destroyer:   db "DESTROYER",0
-sh_bot:         db "BOT",0
-sh_frigate:     db "FRIGATE",0
-sh_corvette:    db "CORVETTE",0
-sh_cutter:      db "CUTTER",0
-sh_launch:      db "LAUNCH",0
-sh_skiff:       db "SKIFF",0
+; имена кораблей — в винительном падеже (всегда после глагола: СТАВЬТЕ, ВЫ ПОТОПИЛИ, ВРАГ
+; ПОТОПИЛ); перед каждым — сокращение для панели и списка потопленных (cat3), 3 байта
+            TXR  "АВН"
+sh_carrier:     TXT  "АВИАНОСЕЦ"
+            TXR  "ЛИН"
+sh_battleship:  TXT  "ЛИНКОР"
+            TXR  "КРС"
+sh_cruiser:     TXT  "КРЕЙСЕР"
+            TXR  "ПЛ"
+            db   0
+sh_submarine:   TXT  "ПОДЛОДКУ"
+            TXR  "ЭСМ"
+sh_destroyer:   TXT  "ЭСМИНЕЦ"
+            TXR  "БОТ"
+sh_bot:         TXT  "БОТ"
+            TXR  "ФРГ"
+sh_frigate:     TXT  "ФРЕГАТ"
+            TXR  "КРВ"
+sh_corvette:    TXT  "КОРВЕТ"
+            TXR  "КТР"
+sh_cutter:      TXT  "КАТЕР"
+            TXR  "БРК"
+sh_launch:      TXT  "БАРКАС"
+            TXR  "ЯЛК"
+sh_skiff:       TXT  "ЯЛИК"

@@ -364,14 +364,19 @@ pc_c:       ld   l,a
             ld   c,a                    ; сдвиг s
             ld   de,gc_rows
             ld   b,7
-pc_sh:      ld   a,(gfx_bold)           ; жирно: строка | строка>>1 (штрих 2 точки)
-            or   a
+pc_sh:      ld   a,(gfx_bold)           ; жирно: строка | (строка>>1 & ~строка<<1) — штрих 2 точки,
+            or   a                      ; но щель в 1 точку не заливается (Ш, Ж, Ф, Ю, Ы читаются)
             ld   a,(hl)
             jp   z,pc_nb
             push de
             ld   d,a
+            add  a,a
+            cpl
+            ld   e,a
+            ld   a,d
             or   a
             rra
+            and  e
             or   d
             pop  de
 pc_nb:      push hl
