@@ -173,8 +173,7 @@ klhit:
                 ld      a,b             ; j
                 call    jdec            ; HL = индекс первой клетки
 klset:
-                ld      (vKI),hl
-                pop     hl
+                ex      (sp),hl         ; HL = аргумент, в стеке — индекс для vIDX
                 ld      a,l
                 and     0Fh
                 ld      e,a             ; V
@@ -205,7 +204,7 @@ klset:
                 add     a,10
                 call    krow            ; вниз: строка FA номер 10 + x0
 k1end:
-                ld      hl,(vKI)
+                pop     hl
                 ld      (vIDX),hl
                 ld      hl,1
                 ld      (vSTEP),hl
@@ -227,12 +226,9 @@ krow:
                 jp      shrows
 
 ; A = m -> HL -> FA(OS(K) + m*W), A = m*W (байт); ставит vLK, vW.
-; Сохраняет BC.
 famw:
-                push    bc
-                push    af
-                call    shipset         ; HL -> FA(OS(K))
-                pop     bc              ; B = m
+                ld      b,a
+                call    shipset         ; HL -> FA(OS(K)); BC сохранён
                 ld      a,(vW)
                 ld      c,a
                 xor     a
@@ -246,7 +242,6 @@ fm2:
                 ld      e,a
                 ld      d,0
                 add     hl,de
-                pop     bc
                 ret
 
 ; корабль vK: vLK = SZ(K), vW = 11 - LK; DE = OS(K), HL -> FA(OS(K)).
@@ -1157,9 +1152,8 @@ place:
                 ld      a,8
                 ld      (vT2),a
 platt:
-                call    pldraw          ; vJ0 <- равномерно среди ЖИВЫХ
+                call    pldraw          ; vJ0 <- равномерно среди ЖИВЫХ, -> vIBB, vS9
                 jp      c,plnext        ; живых нет
-                call    decode          ; vJ0 -> vIBB, vS9
 ; vRK: найденные корабли этой партии доказали расстановку у края — кандидат,
 ; не касающийся края, получает до двух перерисовок в пользу края
                 ld      a,(vRK)
@@ -1173,7 +1167,7 @@ platt:
                 ld      (vRDL),a
 plrdo:                                  ; CC тот же, что у первого удачного
                 call    pldraw          ; pldraw — живой есть (у оригинала
-                call    decode          ; jr c,plrgive, не срабатывающий никогда)
+                                        ; jr c,plrgive, не срабатывающий никогда)
                 call    rimchk
                 jp      z,plcoll        ; у края — берём
                 ld      hl,vRDL
@@ -1300,12 +1294,9 @@ pldscan:
                 jp      nz,pldscan
                 ld      a,c
                 ld      (vJ0),a
-                or      a
-                ret
-
-; vJ0 (номер кандидата внутри корабля) -> vIBB, vS9, vC, vR
+; A = vJ0 (номер кандидата внутри корабля) -> vIBB, vS9, vC, vR.  NC: у
+; настоящего кандидата (X, Y <= 9) в pidx переноса нет.
 decode:
-                ld      a,(vJ0)
                 call    jdec
                 ld      (vIBB),hl
                 ld      l,b

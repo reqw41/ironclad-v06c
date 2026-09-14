@@ -68,7 +68,6 @@ vZX             ds      42      ; PARM+88  до 21 клетки выборки (
 vCCK            ds      2       ; PARM+131 CC(K) в probesel
 vNEED           ds      1       ; PARM+135 SZ-PH (только BARRAGE)
 vSMC            ds      1       ; (нов.)   mgseed: 0 = только дрожание, 1 = MC*8+дрожание
-vKI             ds      2       ; (нов.)   kill1: vIDX до снятия (klast)
 
 ; --- плоскости (бывшие FABUF 0D128h, MCBUF 0D098h, MOBUF 0D008h) ------------
 ; порядок FA, MC, MO, vST — для eng_fainit (одно заполнение) и bumpst

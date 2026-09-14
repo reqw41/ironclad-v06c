@@ -46,7 +46,7 @@ const MUT = [
   ['kill1: отсечка x0 < 11 вместо < 10', 'cp      10\n                jp      nc,k1end        ; клетка поля', 'cp      11\n                jp      nc,k1end        ; клетка поля'],
   ['kill1: без строки поперёк', 'push    bc\n                call    krow', 'push    bc\n                nop\n                nop\n                nop'],
   ['klast: j на единицу больше', 'klhit:\n                dec     b', 'klhit:\n                nop'],
-  ['kill1: vIDX не восстановлен', 'ld      hl,(vKI)\n                ld      (vIDX),hl', 'ld      hl,(vKI)\n                nop\n                nop\n                nop'],
+  ['kill1: vIDX не восстановлен', 'k1end:\n                pop     hl\n                ld      (vIDX),hl', 'k1end:\n                pop     hl\n                nop\n                nop\n                nop'],
   ['cand: sbc -> sub в CC (потерян заём)', 'ld      a,(hl)\n                sub     1\n                ld      (hl),a\n                inc     hl\n                ld      a,(hl)\n                sbc     a,0', 'ld      a,(hl)\n                sub     1\n                ld      (hl),a\n                inc     hl\n                ld      a,(hl)\n                sub     0'],
   // marg / div16 / probesel
   ['div16: частное на 1 больше', 'ld      bc,-1\ndvl:', 'ld      bc,0\ndvl:'],
