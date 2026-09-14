@@ -259,14 +259,18 @@ def build_images():
     ep = mpal(PAL_END)
     for nm, f in (('victory', 'VICTORY.SC5'), ('defeat', 'DEFEAT.SC5')):
         px = load_sc5(f)
+        # подписи (строки 168..203) нарисованы в картинке; полоса 162..211 — ровный фон 5,
+        # подписи печатает программа (end_captions)
+        line_bf(px, 0, 162, 255, 211, 5)
         n = IMG_COLORS[nm]
         cnt = collections.Counter(c for r in px for c in r)
         top = cnt.most_common(1)[0][0]
-        sl = pick_slots(cnt, ep, n, (top,))
+        sl = pick_slots(cnt, ep, n, (top, 2))     # 2 — цвет «TAB:»/«SPACE:» в подписях
         cm = cmap_of(sl, ep)
         if n == 4:
             res[nm] = zx0(nm, vram_planes(px, cm, 2))
             sl = sl + [1]                         # слот 4 — бордюр
+            cm = dict(cm); cm[1] = 4              # белый (бордюр, заголовок подписи) — слот 4
         else:
             res[nm] = zx0(nm, vram_planes(px, cm, 3))
         pals[nm] = (sl, cm)
@@ -282,6 +286,8 @@ def build_palettes(pals):
            'pal_defeat:', db_lines(pal8(pals['defeat'][0], mpal(PAL_END))),
            'cmap_game:', db_lines([CMAP_GAME[c] for c in range(16)]),
            'cmap_menu:', db_lines([pals['menu'][1][c] for c in range(16)]),
+           'cmap_victory:', db_lines([pals['victory'][1][c] for c in range(16)]),
+           'cmap_defeat:', db_lines([pals['defeat'][1][c] for c in range(16)]),
            'VICTORY_PLANES equ %d' % (3 if IMG_COLORS['victory'] == 8 else 2),
            'DEFEAT_PLANES equ %d' % (3 if IMG_COLORS['defeat'] == 8 else 2),
            '; 4-цветные: данные в $A000/$C000, бордюр — слот 4 (индекс 8), поля — плоскость $8000',

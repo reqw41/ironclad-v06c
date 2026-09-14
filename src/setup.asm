@@ -15,9 +15,7 @@ S120:       ld   a,3                    ; RP=0: DL=3: ...
             ld   (bDL),a
 S140:       call S3406
 S150:       call S3500
-S155:       call S3800                  ; COPY стр.2 (14,100)-(242,210) -> стр.0: панель загрузки
-            ld   a,DLY_LOADGAME         ; на MSX тут грузится программа игры с диска
-            call wait_frames
+S155:                                   ; панель загрузки (3800, 155) убрана по решению владельца
 S162:       ld   a,(bTU)                ; POKE настроек в «&HDDF5..&HE00»
             ld   (cfg_TU),a
             ld   a,(bAM)
@@ -49,7 +47,6 @@ S166:       ld   a,(bBD)                ; RUN BARRAGE/SALVOP/SALVO/IRONCLAD
             ld   (cfg_fam),a
             jp   game_run
 
-DLY_LOADGAME equ 60                     ; ~1.2 с
 
 ; 2300: выход «в BASIC» — у Вектора его нет: текст как на SCREEN 0 и ожидание клавиши
 S2300:      call disp_blank
@@ -70,6 +67,16 @@ S2300:      call disp_blank
             ld   (gfx_x),a
             ld   a,8
             ld   (gfx_y),a
+            ld   a,16                   ; подпись автора (была на панели загрузки 3814)
+            ld   (gfx_y),a
+            xor  a
+            ld   (gfx_x),a
+            ld   hl,s_author
+            rst  18h
+            xor  a
+            ld   (gfx_x),a
+            ld   a,24
+            ld   (gfx_y),a
             ld   hl,s_ok
             rst  18h
             call disp_on
@@ -85,7 +92,7 @@ S3406:      call disp_blank
             ld   (vec_border),a
             ld   hl,pal_menu
             call pal_set
-            IFNDEF NOIMG
+            IFNDEF NOTITLE
             ld   hl,img_title           ; BLOAD "IRONCLAD.SC5" (окно меню уже стёрто, QR — отдельно)
             ld   de,8000h
             call dzx0
@@ -118,8 +125,6 @@ S3500:      ld   a,1                    ; COLOR 1: PF=5: PE=3: PK=1: PC=3
             rst  10h
             ld   hl,s_loading_ver
             rst  18h
-            ld   a,15                   ; 3800 рисует страницу 2 — на MSX это заметная пауза
-            call wait_frames
             call S3520
 S3503:      call L3330
 S3504:      call S3540
@@ -563,37 +568,6 @@ S3706p:     ld   a,(bY0)
             pop  hl
             jp   gfx_puts
 
-; 3800 + 155: панель загрузки (на MSX рисуется на странице 2 и копируется на страницу 0)
-S3800:      ld   bc,14*256+100
-            ld   de,242*256+210
-            ld   a,PF
-            rst  20h
-            ld   bc,14*256+100
-            ld   de,242*256+210
-            ld   a,PE
-            call gfx_box
-                                        ; QR-код (3802) убран по решению владельца
-            ld   bc,88*256+118
-            ld   a,PK
-            rst  10h
-            ld   hl,s_free
-            rst  18h
-            ld   bc,88*256+130
-            ld   a,PK
-            rst  10h
-            ld   hl,s_coffee
-            rst  18h
-            ld   bc,88*256+156
-            ld   a,PK
-            rst  10h
-            ld   hl,s_loading_ver
-            rst  18h
-            ld   bc,38*256+196
-            ld   a,10
-            rst  10h
-            ld   hl,s_author
-            jp   gfx_puts
-
 rt_vars:    dw bTU,bAM,bXS,bSV,bFL,bQS,bBD
 ; 9100: наборы правил: RN$, TU,AM,XS,SV,FL,QS,BD, S1$,S2$,S3$
 RT_SIZE     equ 15
@@ -669,8 +643,6 @@ s_rules:    db "RULES",0
 s_qq:       db "Q",0
 s_exit:     db "EXIT",0
 s_exit_basic: db "EXIT TO BASIC? Q AGAIN",0
-s_free:     db "ALWAYS FREE,",0
-s_coffee:   db "RUNS ON COFFEE",0
 s_author:   db "A GAME BY MEHMET BELGIN",0
 s_signing_off: db "SIGNING OFF. THANKS FOR PLAYING.",0
 s_ok:       db "Ok",0

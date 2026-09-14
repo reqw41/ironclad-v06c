@@ -341,8 +341,17 @@ gfx_putc:
             ld   c,a                    ; сдвиг s
             ld   de,gc_rows
             ld   b,8
-pc_sh:      ld   a,(hl)                 ; строка -> (L,R) со сдвигом s вправо
-            push hl
+pc_sh:      ld   a,(gfx_bold)           ; жирно: строка | строка>>1 (штрих 2 точки)
+            or   a
+            ld   a,(hl)
+            jp   z,pc_nb
+            push de
+            ld   d,a
+            or   a
+            rra
+            or   d
+            pop  de
+pc_nb:      push hl
             ld   h,a
             ld   l,0
             ld   a,c
@@ -455,8 +464,10 @@ pc_nx:      ld   a,h
             dec  a
             ld   (gc_cnt),a
             jp   nz,pc_pl
+            ld   a,(gfx_pitch)          ; шаг знака: 8 (PRINT#1) или 6 (подписи экранов итога)
+            ld   b,a
             ld   a,(gfx_x)
-            add  a,8
+            add  a,b
             ld   (gfx_x),a
             ret
 ; правый байт знакоместа — в следующем столбце (если он есть на экране)

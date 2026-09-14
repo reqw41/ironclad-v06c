@@ -105,6 +105,7 @@ for (const cmd of (SCRIPT || "w100;s build/shot.png").split(";").map(s => s.trim
     case "p": { const [x, v] = a[1].split("="); wr(addr(x), parseInt(v)); break; }
     case "m": { const s = addr(a[1]), n = +(a[2] || 16); const out = [];
       for (let i = 0; i < n; i++) out.push(rd(s + i).toString(16).padStart(2, "0")); console.log(`${a[1]} (${s.toString(16)}): ${out.join(" ")}`); break; }
+    case "jp": cpu.pc = addr(a[1]); break;
     case "dump": { const b = Buffer.alloc(0x8000); for (let i = 0; i < 0x8000; i++) b[i] = rd(0x8000 + i); fs.writeFileSync(a[1], b); console.log(`кадр ${frames}: видеопамять -> ${a[1]}`); break; }
     case "pc": { const rw = a => rd(a) | (rd(a + 1) << 8); const nm = a => { let best = null, bv = -1; for (const k in L) if (L[k] <= a && L[k] > bv) { bv = L[k]; best = k; } return best + "+" + (a - bv); };
       const p = cpu.pc === 0x38 ? rw(cpu.sp) : cpu.pc; console.log(`кадр ${frames}: PC ${p.toString(16)} ${nm(p)}; стек: ${[0,2,4,6,8].map(i => nm(rw(cpu.sp + (cpu.pc === 0x38 ? 2 : 0) + i))).join(" ")}`); break; }

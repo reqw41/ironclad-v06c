@@ -4,6 +4,9 @@
 ; Образ .rom грузится с $0100 и стартует с $0100.
 ; ============================================================================
             DEVICE NOSLOT64K
+            IFDEF NOIMG
+            DEFINE NOTITLE
+            ENDIF
 
 ; Память (8-цветный режим): $0000..$00FF — вектор RST7, маска тайла, переменные библиотеки;
 ; $0100..$7FFF — код и данные (образ .rom); $8000..$DFFF — экран (3 плоскости);
@@ -57,6 +60,8 @@ rvs_2:       ld   hl,tiles_zx0           ; тайлы и глифы -> плос�
             call dzx0
             call rot_tiles
             call vec_init
+            ld   a,8
+            ld   (gfx_pitch),a
             ld   hl,1
             ld   (rnd_seed),hl
             IFDEF LIBTEST
@@ -97,7 +102,9 @@ rst_tab:    dw add_a_hl, gfx_pset, gfx_puts, gfx_fill, ms_set, ms_cat
             include "../build/data/tiles.inc"
 tiles_zx0:  incbin "../build/data/tiles.zx0"
             IFNDEF NOIMG
+            IFNDEF NOTITLE
 img_title:  incbin "../build/data/title.zx0"
+            ENDIF
 img_defeat: incbin "../build/data/defeat.zx0"
 img_victory: incbin "../build/data/victory.zx0"
             ENDIF

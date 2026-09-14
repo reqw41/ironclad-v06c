@@ -472,8 +472,75 @@ sei_3:      ld   de,8000h
 sei_2:      ld   (vec_border),a
             pop  hl
             call pal_set
+            call end_captions
             ENDIF
             jp   disp_on
+
+; подписи экрана итога (в оригинале нарисованы в картинке, строки 168..203):
+; заголовок — жирно с шагом 8, клавиши и пояснения — шагом 6, фон — цвет 5
+end_captions:
+            ld   hl,cmap_defeat
+            ld   de,cap_defeat
+            ld   a,(bWN)
+            cp   1
+            jp   nz,ec_1
+            ld   hl,cmap_victory
+            ld   de,cap_victory
+ec_1:       ld   (cur_cmap),hl
+            ld   a,5
+            ld   (gfx_bg),a
+            push de
+            call ec_line                ; заголовок
+            ld   hl,cap_keys
+ec_2:       ld   a,(hl)
+            or   a
+            jp   z,ec_3
+            ex   de,hl
+            call ec_line
+            ex   de,hl
+            jp   ec_2
+ec_3:       pop  de
+            ld   a,8
+            ld   (gfx_pitch),a
+            xor  a
+            ld   (gfx_bold),a
+            inc  a
+            ld   (gfx_bg),a
+            ret
+; DE -> x, y, цвет, жирно(0/1), текст, 0  ->  DE за нулём
+ec_line:    ex   de,hl
+            ld   b,(hl)
+            inc  hl
+            ld   c,(hl)
+            inc  hl
+            ld   a,(hl)
+            ld   (gfx_fg),a
+            inc  hl
+            ld   a,(hl)
+            ld   (gfx_bold),a
+            inc  hl
+            push hl
+            or   a
+            ld   a,6
+            jp   z,ecl_1
+            ld   a,8
+ecl_1:      ld   (gfx_pitch),a
+            ld   a,b
+            ld   (gfx_x),a
+            ld   a,c
+            ld   (gfx_y),a
+            pop  hl
+            rst  18h                    ; gfx_puts
+            inc  hl
+            ex   de,hl
+            ret
+cap_victory: db 52,168,1,1,"YOU ARE VICTORIOUS!",0
+cap_defeat:  db 8,168,1,1,"YOUR FLEET HAS BEEN DESTROYED.",0
+cap_keys:    db 68,186,2,0,"TAB:",0
+             db 98,186,7,0,"REVIEW THE BOARDS",0
+             db 56,197,2,0,"SPACE:",0
+             db 98,197,7,0,"CONTINUE",0
+             db 0
 
 ; плоскость $8000 для 4-цветной картинки: поля экрана (строки памяти 0..21 и 234..255) = FF
 end_margins:
