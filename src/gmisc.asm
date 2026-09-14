@@ -6,32 +6,8 @@
 ; ---------------------------------------------------------------- 381/2062: корабль SH в PS, PX, PY
 ship_to_ps:
             ZEROV bI
-stp_1:      call tx_i                   ; B = TX(I), C = TY(I)
-            push bc
-            LDV  bI
-            ld   hl,ARR_GT
-            rst  00h
-            ld   l,(hl)                 ; SH+16*GT(I)
-            ld   h,0
-            add  hl,hl
-            add  hl,hl
-            add  hl,hl
-            add  hl,hl
-            LDV  bSH
-            rst  00h
-            ex   de,hl
-            pop  bc
-            push bc
-            ld   a,b
-            push de
-            ld   e,c
-            ld   bc,ARR_PS
-            call w10
-            pop  de
-            ld   (hl),e
-            inc  hl
-            ld   (hl),d
-            pop  bc
+stp_1:      ld   hl,ARR_PS               ; PS(TX,TY)=SH+16*GT(I): PX(SH,I)=TX: PY(SH,I)=TY
+            call shgt_set
             call px_set
             INCV bI
             LDV  bTN
@@ -118,10 +94,7 @@ L2112a:     call pxy_off
             ld   (hl),0
             inc  hl
             ld   (hl),0
-            INCV bI
-            call sz_sh
-            LDV  bI
-            cp   c
+            call next_i_sz
             jp   c,L2112a
 L2114:      call L1694
 L2115:      CPV  bSH,2
@@ -602,11 +575,7 @@ L3462:      INCV bI
 L3470:      ZEROV bAL
             inc  a
             STV  bI
-L3470a:     LDV  bI
-            ld   hl,ARR_QH
-            rst  00h
-            ld   b,(hl)
-            call sz_i
+L3470a:     call i_qh_sz
             ld   a,b
             cp   c
             jp   nc,L3472

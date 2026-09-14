@@ -72,11 +72,7 @@ L1120:      ld   bc,ARR_BZ              ; IF BZ(C,R)=3 -> буй (Q,TR), TPSET
             or   a
             ret  nz
             LDV  bQ
-            rrca
-            rrca
-            rrca
-            rrca
-            and  0Fh
+            call sh4a
             ld   d,a
             ld   a,1
             jp   cr_tp
@@ -137,12 +133,7 @@ L1131:      CPV  bBD,1
 L1133:      ld   a,l
             cp   3
             jp   nz,L1136
-            ld   bc,ARR_CS              ; Q=CS(C,R)\16: IF Q>0 -> тайл корабля
-            call w10cr
-            call ld_hl_de
-            call shr4_de
-            ld   a,e
-            STV  bQ
+            call q_cs                   ; Q=CS(C,R)\16: IF Q>0 -> тайл корабля
             or   a
             jp   z,L1136
             and  31
@@ -194,6 +185,26 @@ L3950:      CPV  bM,-3
 L3950a:     xor  a
             jp   cr_tp
 
+; Q = CS(C,R)\16 -> A
+q_cs:       ld   bc,ARR_CS
+            call w10cr
+            call ld_hl_de
+            call shr4_de
+            ld   a,e
+            STV  bQ
+            ret
+; I=I+1: CY, если I < SZ(SH)
+next_i_sz:  INCV bI
+            call sz_sh
+            LDV  bI
+            cp   c
+            ret
+; B = QH(I), C = SZ(I)
+i_qh_sz:    LDV  bI
+            ld   hl,ARR_QH
+            rst  00h
+            ld   b,(hl)
+            jp   sz_i
 ; DE = (HL) int16
 ld_hl_de:   ld   e,(hl)
             inc  hl
@@ -329,11 +340,7 @@ L1220:      LDV  bI                 ; NH=PH(I): IF P=0 THEN NH=0: IF QH(I)>=SZ(I
             or   a
             jp   nz,L1225
             ZEROV bNH
-            LDV  bI
-            ld   hl,ARR_QH
-            rst  00h
-            ld   b,(hl)
-            call sz_i
+            call i_qh_sz
             ld   a,b
             cp   c
             jp   c,L1225
@@ -1085,10 +1092,7 @@ L1757b:     ld   de,ARR_PX              ; PM(PX,PY)=PM-(PM AND 3)+3
             ld   a,(hl)
             or   3
             ld   (hl),a
-L1758:      INCV bI
-            call sz_sh
-            LDV  bI
-            cp   c
+L1758:      call next_i_sz
             jp   c,L1757a
             call sz_sh                  ; концы корабля: элемент 0 и SZ-1
             dec  c
@@ -1187,10 +1191,7 @@ L1795a:     call pxy_off
             or   3
             ld   (hl),a
             call L1105
-            INCV bI
-            call sz_sh
-            LDV  bI
-            cp   c
+            call next_i_sz
             jp   c,L1795a
             ret
 

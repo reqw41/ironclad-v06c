@@ -35,6 +35,24 @@ cr_p0:      ld   a,c                    ; R*10 + C
             pop  de
             ret
 
+; B, C = клетка под курсором (cur_x, cur_y)
+cur_cell:   LDV  cur_x
+            call px2c
+            ld   b,a
+            LDV  cur_y
+            call py2c
+            ld   c,a
+            ret
+; A = клетка по координате y (py2c) / x (px2c); sh4a: A = A>>4
+py2c:       sub  GY-GX
+px2c:       sub  GX
+sh4a:       rrca
+            rrca
+            rrca
+            rrca
+            and  0Fh
+            ret
+
 ; B = C, C = R -> B = x, C = y клетки
 cell_xy:
             ld   a,b
@@ -242,22 +260,7 @@ cur_hide:
             LDV  pg_vis
             or   a
             ret  nz
-            LDV  cur_x              ; клетка под курсором
-            sub  GX
-            rrca
-            rrca
-            rrca
-            rrca
-            and  0Fh
-            ld   b,a
-            LDV  cur_y
-            sub  GY
-            rrca
-            rrca
-            rrca
-            rrca
-            and  0Fh
-            ld   c,a
+            call cur_cell               ; клетка под курсором
             jp   cell_redraw
 
 ; ---------------------------------------------------------------- призрак 1664-1668
@@ -453,22 +456,7 @@ ps_next:    ld   a,4
             LDV  cur_on             ; ушли со страницы 0: клетка под курсором
             or   a
             jp   z,ps_n
-            LDV  cur_x
-            sub  GX
-            rrca
-            rrca
-            rrca
-            rrca
-            and  0Fh
-            ld   b,a
-            LDV  cur_y
-            sub  GY
-            rrca
-            rrca
-            rrca
-            rrca
-            and  0Fh
-            ld   c,a
+            call cur_cell
             call cell_redraw
             call gh_draw
             jp   ps_n
@@ -485,35 +473,17 @@ ps_n:       jp   at_draw_vis
 ; RX,RY,RW,RH (как COPY со страницы 2 в 1662), а не по композиту: при повороте композит
 ; уже пересобран под новую ориентацию, а стирать надо старый прямоугольник
 gh_cells:   LDV  gh_rx
-            sub  GX
-            rrca
-            rrca
-            rrca
-            rrca
-            and  0Fh
+            call px2c
             STV  gh_c0
             ld   b,a
             LDV  gh_ry
-            sub  GY
-            rrca
-            rrca
-            rrca
-            rrca
-            and  0Fh
+            call py2c
             ld   c,a
             LDV  gh_rh
-            rrca
-            rrca
-            rrca
-            rrca
-            and  0Fh
+            call sh4a
             STV  gh_i               ; строк
 ghc_r:      LDV  gh_rw
-            rrca
-            rrca
-            rrca
-            rrca
-            and  0Fh
+            call sh4a
             STV  gh_n               ; столбцов
 ghc_c:      push bc
             call cell_redraw

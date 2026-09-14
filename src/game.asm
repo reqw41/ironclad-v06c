@@ -282,6 +282,45 @@ buoy_cr:    STV  bQ
             ZEROV bSD
             jp   L1105
 
+; массив HL (10x10, int16): элемент (TX(I),TY(I)) = SH+16*GT(I); B, C = TX(I), TY(I)
+shgt_set:   push hl
+            call tx_i
+            push bc
+            LDV  bI
+            ld   hl,ARR_GT
+            rst  00h
+            ld   l,(hl)
+            ld   h,0
+            add  hl,hl
+            add  hl,hl
+            add  hl,hl
+            add  hl,hl
+            LDV  bSH
+            rst  00h
+            ex   de,hl
+            pop  bc
+            pop  hl
+            push bc
+            push de
+            ld   a,b
+            ld   e,c
+            ld   b,h
+            ld   c,l
+            call w10
+            pop  de
+            ld   (hl),e
+            inc  hl
+            ld   (hl),d
+            pop  bc
+            ret
+; HL = &PD(K) / &CC(K) / &(массив HL)(K) — int16
+k_pd:       ld   hl,ARR_PD
+            jp   k_arr
+k_cc:       ld   hl,ARR_CC
+k_arr:      LDV  bK
+            add  a,a
+            jp   add_a_hl
+
 ; A = A*12 (портит C)
 x12:        add  a,a
             add  a,a
@@ -366,30 +405,8 @@ L470:       LDV  bLG
             jp   z,L440
 L480:       call L1652
 L482:       ZEROV bI  ; CS(TX,TY)=SH+16*GT
-L482a:      call tx_i
-            push bc
-            LDV  bI
-            ld   hl,ARR_GT
-            rst  00h
-            ld   l,(hl)
-            ld   h,0
-            add  hl,hl
-            add  hl,hl
-            add  hl,hl
-            add  hl,hl
-            LDV  bSH
-            rst  00h
-            ex   de,hl
-            pop  bc
-            ld   a,b
-            push de
-            ld   e,c
-            ld   bc,ARR_CS
-            call w10
-            pop  de
-            ld   (hl),e
-            inc  hl
-            ld   (hl),d
+L482a:      ld   hl,ARR_CS
+            call shgt_set
             INCV bI
             LDV  bTN
             cp   (hl)

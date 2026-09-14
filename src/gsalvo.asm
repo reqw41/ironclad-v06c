@@ -193,11 +193,7 @@ L3821:      LDV  bI                 ; LINE(190,37+(I-1)*PZ)-(255,44+(I-1)*10),1,
             ld   d,255
             ld   a,1
             call gfx_fill
-L3822:      LDV  bI                 ; SF: QH(I)>=SZ(I)
-            ld   hl,ARR_QH
-            rst  00h
-            ld   b,(hl)
-            call sz_i
+L3822:      call i_qh_sz                ; SF: QH(I)>=SZ(I)
             LDV  bI
             call pn_draw
 L3825:      SETV hr_x0,216              ; квадратики / номера залпов HS(I,J-1)
@@ -595,10 +591,7 @@ L4003a:     call k_ph_sz
             LDV  bZT
             cp   b
             jp   c,L4004
-            LDV  bK                 ; T5=T5+CC(K)*SZ(K)
-            add  a,a
-            ld   hl,ARR_CC
-            rst  00h
+            call k_cc                 ; T5=T5+CC(K)*SZ(K)
             ld   e,(hl)
             inc  hl
             ld   d,(hl)
@@ -631,10 +624,7 @@ L4005:      CPV  cfg_fam,2  ; 4005..4009 — только SALVO/BARRAGE
             ld   (bT3),hl
             ZEROV bKM
             SETV bK,1
-L4005a:     LDV  bK                 ; IF PD(K)=0 OR PH(K)=0 OR SZ(K)>3 OR SZ(K)<2 THEN 4009
-            add  a,a
-            ld   hl,ARR_PD
-            rst  00h
+L4005a:     call k_pd                 ; IF PD(K)=0 OR PH(K)=0 OR SZ(K)>3 OR SZ(K)<2 THEN 4009
             ld   e,(hl)
             inc  hl
             ld   d,(hl)
@@ -760,10 +750,7 @@ L4014a:     call k_ph_sz
             jp   z,L4015
             cp   c
             jp   nc,L4015
-            LDV  bK
-            add  a,a
-            ld   hl,ARR_CC
-            rst  00h
+            call k_cc
             ld   e,(hl)
             inc  hl
             ld   d,(hl)
@@ -977,10 +964,8 @@ absa:       or   a
 L4097:      ld   hl,0                   ; T=0: FOR K=1 TO ZT: OS(K)=T: LK=SZ(K): CT(K)=20*(11-LK): CC(K)=CT(K): T=T+CT(K): PD(K)=0
             ld   (bT),hl
             SETV bK,1
-L4097a:     LDV  bK
-            add  a,a
-            ld   hl,ARR_OS
-            rst  00h
+L4097a:     ld   hl,ARR_OS
+            call k_arr
             LDV  bT
             ld   (hl),a
             inc  hl
@@ -1002,27 +987,19 @@ L4097a:     LDV  bK
             add  hl,hl
             add  hl,de                  ; *20
             ex   de,hl
-            LDV  bK
-            add  a,a
             ld   hl,ARR_CT
-            rst  00h
+            call k_arr
             ld   (hl),e
             inc  hl
             ld   (hl),d
-            LDV  bK
-            add  a,a
-            ld   hl,ARR_CC
-            rst  00h
+            call k_cc
             ld   (hl),e
             inc  hl
             ld   (hl),d
             ld   hl,(bT)
             add  hl,de
             ld   (bT),hl
-            LDV  bK
-            add  a,a
-            ld   hl,ARR_PD
-            rst  00h
+            call k_pd
             ld   (hl),0
             inc  hl
             ld   (hl),0
@@ -1332,16 +1309,10 @@ L4301:      LDV  bNS                ; T2=USR0(NS)
             call eng_fold
 L4320:      ZEROV bFL
             SETV bK,1
-L4320a:     LDV  bK                 ; IF PD(K)>0 OR CC(K)<>1 THEN 4329
-            add  a,a
-            ld   hl,ARR_PD
-            rst  00h
+L4320a:     call k_pd                 ; IF PD(K)>0 OR CC(K)<>1 THEN 4329
             call hl_pos
             jp   nz,L4329
-            LDV  bK
-            add  a,a
-            ld   hl,ARR_CC
-            rst  00h
+            call k_cc
             ld   a,(hl)
             cp   1
             jp   nz,L4329
@@ -1356,20 +1327,16 @@ L4321:      call k_ph_sz                ; LK=SZ(K): W=11-LK
             ld   a,11
             sub  b
             STV  bW
-            LDV  bK                 ; найти единственного живого кандидата в FA(OS..OS+CT-1)
-            add  a,a
-            ld   hl,ARR_OS
-            rst  00h
+            ld   hl,ARR_OS                 ; найти единственного живого кандидата в FA(OS..OS+CT-1)
+            call k_arr
             ld   e,(hl)
             inc  hl
             ld   d,(hl)
             ex   de,hl
             ld   (bI),hl
             ex   de,hl
-            LDV  bK
-            add  a,a
             ld   hl,ARR_CT
-            rst  00h
+            call k_arr
             ld   c,(hl)
             inc  hl
             ld   b,(hl)                 ; BC = CT(K)
@@ -1397,10 +1364,7 @@ L4322:      ld   hl,(bJ)                ; T2=J
 L4323:      ld   hl,(bT2)               ; PD(K)=T2+1: FL=1
             inc  hl
             ex   de,hl
-            LDV  bK
-            add  a,a
-            ld   hl,ARR_PD
-            rst  00h
+            call k_pd
             ld   (hl),e
             inc  hl
             ld   (hl),d

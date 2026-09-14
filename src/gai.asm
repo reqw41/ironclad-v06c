@@ -728,10 +728,7 @@ L1930c:     call buoy_xy
             cp   b
             jp   m,L1930b
             jp   z,L1930b
-            INCV bI
-            call sz_sh
-            LDV  bI
-            cp   c
+            call next_i_sz
             jp   c,L1930a
             ret
 
