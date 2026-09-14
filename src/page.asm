@@ -119,7 +119,7 @@ draw_layer_tp:
             rlca
             and  3
             ld   hl,glyph_fill
-            call add_a_hl
+            rst  08h
             ld   e,(hl)
             ld   a,b
             add  a,5
@@ -155,7 +155,7 @@ cell_redraw:
             add  a,15
             ld   e,a
             ld   a,1
-            call gfx_fill
+            rst  20h
             jp   cd_done
 cd_t:       push bc
             call gfx_tile
@@ -286,7 +286,7 @@ gd_1:       push bc
             push bc
             ld   a,(gh_i)
             ld   hl,gh_gt
-            call add_a_hl
+            rst  08h
             ld   a,(hl)
             call gfx_tile_tp
             pop  bc
@@ -354,7 +354,7 @@ at_draw_vis:
             ld   bc,190*256+172
             ld   de,255*256+188
             ld   a,1
-            call gfx_fill
+            rst  20h
             call at_ptr
             ld   a,(hl)
             or   a
@@ -362,7 +362,7 @@ at_draw_vis:
             push hl
             ld   bc,192*256+174
             ld   a,9
-            call gfx_pset
+            rst  10h
             ld   a,15
             ld   (gfx_fg),a
             pop  hl
@@ -381,10 +381,10 @@ hdr_draw:
             ld   bc,24*256+4
             ld   de,119*256+11
             ld   a,1
-            call gfx_fill
+            rst  20h
             ld   bc,24*256+4
             ld   a,11
-            call gfx_pset
+            rst  10h
             ld   a,15
             ld   (gfx_fg),a
             ld   hl,s_enemy_waters
@@ -447,10 +447,10 @@ ps_d11:     ld   b,a
             pop  de
             pop  hl
 ps_next:    ld   a,4
-            call add_a_hl
+            rst  08h
             ex   de,hl
             ld   a,4
-            call add_a_hl
+            rst  08h
             ex   de,hl
             inc  c
             ld   a,c

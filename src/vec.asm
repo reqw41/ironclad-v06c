@@ -58,8 +58,8 @@ isr_pal:
             out  (PAL_PORT),a
             dec  c
             jp   p,isr_pal
-            xor  a
-            out  (PPI_B),a              ; бордюр = индекс 0 (цвет фона MSX)
+            ld   a,(vec_border)
+            out  (PPI_B),a              ; бордюр: индекс 0 (слот фона) или 8 (слот 4 экранов итога)
             ld   hl,(frame_cnt)
             inc  hl
             ld   (frame_cnt),hl
@@ -239,15 +239,15 @@ kbd_map:
             db 'X','Y','Z','[',5Ch,']','^',' '          ; ряд 7
 
 ; ---------------------------------------------------------------- экран
-; очистить всю видеопамять ($8000..$FFFF) нулями (индекс 0 = цвет фона)
+; очистить экран ($8000..$DFFF, 3 плоскости) нулями (слот 0 = цвет фона); $E000.. — память программы
 scr_clear_all:
             di
             ld   hl,0
             add  hl,sp
             ld   (sca_sp),hl
-            ld   sp,0                   ; первый push пишет $FFFE/$FFFF
+            ld   sp,0E000h              ; первый push пишет $DFFE/$DFFF
             ld   de,0
-            ld   b,0                    ; 256 * 64 push = 32 КБ
+            ld   b,192                  ; 192 * 64 push = 24 КБ
 sca_1:
             REPT 64
             push de

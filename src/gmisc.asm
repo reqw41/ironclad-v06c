@@ -11,7 +11,7 @@ stp_1:      call tx_i                   ; B = TX(I), C = TY(I)
             push bc
             ld   a,(bI)
             ld   hl,ARR_GT
-            call add_a_hl
+            rst  08h
             ld   l,(hl)                 ; SH+16*GT(I)
             ld   h,0
             add  hl,hl
@@ -19,7 +19,7 @@ stp_1:      call tx_i                   ; B = TX(I), C = TY(I)
             add  hl,hl
             add  hl,hl
             ld   a,(bSH)
-            call add_a_hl
+            rst  08h
             ex   de,hl
             pop  bc
             push bc
@@ -63,7 +63,7 @@ sd1_1:      xor  a
 L2010:      ld   hl,0
             ld   (bAT),hl
             ld   hl,s_placing
-            call ms_set
+            rst  28h
             call L1305
             ld   a,(bRW)
             or   a
@@ -78,7 +78,7 @@ L2020:      ld   hl,(bAT)
             add  hl,de
             jp   nc,L2030
             ld   hl,s_no_room
-            call ms_set
+            rst  28h
             jp   L1305
 L2030:      call L3440
 L2040:      call L1615
@@ -110,7 +110,7 @@ L2108:      ld   a,(bSH)
             cp   2
             jp   nc,L2110
             ld   hl,s_nothing_undo
-            call ms_set
+            rst  28h
             jp   L1305
 L2110:      ld   hl,bSH
             dec  (hl)
@@ -160,7 +160,7 @@ L2118:      ld   a,(bI)                 ; TX(I)=PX(N,I): TY(I)=PY(N,I)
             ld   a,(bN)
             add  a,b
             ld   hl,ARR_PX
-            call add_a_hl
+            rst  08h
             ld   b,(hl)
             ld   de,60
             add  hl,de
@@ -168,14 +168,14 @@ L2118:      ld   a,(bI)                 ; TX(I)=PX(N,I): TY(I)=PY(N,I)
             ld   a,(bI)
             add  a,a
             ld   hl,ARR_TX
-            call add_a_hl
+            rst  08h
             ld   (hl),b
             inc  hl
             ld   (hl),0
             ld   a,(bI)
             add  a,a
             ld   hl,ARR_TY
-            call add_a_hl
+            rst  08h
             ld   (hl),c
             inc  hl
             ld   (hl),0
@@ -204,7 +204,7 @@ L2126:      xor  a
 L2128:                                  ; COPY стр.1 -> стр.2: записи клеток
 L2130:      ld   a,(bSH)                ; CX=PX(SH,0): CY=PY(SH,0): OD=1: IF PX(SH,0)<>PX(SH,1) THEN OD=0
             ld   hl,ARR_PX
-            call add_a_hl
+            rst  08h
             ld   a,(hl)
             ld   (bCX),a
             ld   b,a
@@ -217,7 +217,7 @@ L2130:      ld   a,(bSH)                ; CX=PX(SH,0): CY=PY(SH,0): OD=1: IF PX(
             ld   a,(bSH)
             add  a,12
             ld   hl,ARR_PX
-            call add_a_hl
+            rst  08h
             ld   a,(hl)
             cp   b
             ret  z
@@ -407,7 +407,7 @@ L2268a:     call disp_blank
             call disp_on
             jp   L2260
 L2254:      ld   hl,s_loading_next
-            call ms_set
+            rst  28h
             call L1315
             ld   hl,bGN
             inc  (hl)
@@ -434,30 +434,63 @@ L2256:      ld   hl,ARR_PH              ; PH, QH, HS = 0
             call memzero
 L2257:      jp   L221
 L2270:      ld   hl,s_loading_menu
-            call ms_set
+            rst  28h
             call L1315
             jp   setup_run              ; RUN "SETUP.BAS"
 
 DLY_LOAD    equ 50                      ; ~1 с: картинка победы грузилась с диска
 
-; экран победы/поражения (страница 2): VICTORY.SC5 / DEFEAT.SC5 и палитра 9042
+; экран победы/поражения (страница 2): VICTORY.SC5 / DEFEAT.SC5 (GOSUB 2508 — палитра 9042)
+; 8 цв.: 3 плоскости с $8000. 4 цв.: 2 плоскости с $A000, в $8000 — поля экрана белым
+; (слот 4 = белый бордюр MSX), бордюр Вектора — индекс 8.
 show_end_image:
             call disp_blank
             ld   a,2
             ld   (pg_vis),a
             IFNDEF NOIMG
-            ld   hl,img_defeat
             ld   a,(bWN)
             cp   1
-            jp   nz,sei_1
-            ld   hl,img_victory
-            ENDIF
-sei_1:      IFNDEF NOIMG
-            ld   de,8000h
+            jp   z,sei_v
+            ld   hl,img_defeat
+            ld   de,pal_defeat
+            ld   a,DEFEAT_PLANES
+            jp   sei_1
+sei_v:      ld   hl,img_victory
+            ld   de,pal_victory
+            ld   a,VICTORY_PLANES
+sei_1:      push de
+            cp   3
+            jp   z,sei_3
+            ld   de,0A000h
             call dzx0
+            call end_margins
+            ld   a,BORDER_4C
+            jp   sei_2
+sei_3:      ld   de,8000h
+            call dzx0
+            xor  a
+sei_2:      ld   (vec_border),a
+            pop  hl
+            call pal_set
             ENDIF
-            call L2508
             jp   disp_on
+
+; плоскость $8000 для 4-цветной картинки: поля экрана (строки памяти 0..21 и 234..255) = FF
+end_margins:
+            ld   hl,8000h
+em_1:       ld   a,l
+            cp   22
+            jp   c,em_ff
+            cp   234
+            jp   nc,em_ff
+            ld   (hl),0
+            jp   em_2
+em_ff:      ld   (hl),0FFh
+em_2:       inc  hl
+            ld   a,h
+            cp   0A0h
+            jp   nz,em_1
+            ret
 
 ; HL, DE = длина: обнулить
 memzero:    ld   (hl),0
@@ -470,7 +503,7 @@ memzero:    ld   (hl),0
 
 ; ---------------------------------------------------------------- 2350: выход в меню
 L2350:      ld   hl,s_terminate
-            call ms_set
+            rst  28h
             call L1305
             xor  a
             ld   (bAB),a
@@ -484,14 +517,16 @@ L2354:      call upcase
 L2356:      call ms_clear
             jp   L1305
 L2360:      ld   hl,s_loading_menu
-            call ms_set
+            rst  28h
             call L1315
             jp   setup_run
 
 ; ---------------------------------------------------------------- 2505/2508: палитры
-L2505:      ld   hl,pal_game
-            jp   pal_set
-L2508:      ld   hl,pal_end
+L2505:      ld   hl,cmap_game           ; цвета игры (8 слотов), бордюр — слот 0
+            ld   (cur_cmap),hl
+            xor  a
+            ld   (vec_border),a
+            ld   hl,pal_game
             jp   pal_set
 
 ; ---------------------------------------------------------------- 2600: звуки
@@ -561,7 +596,7 @@ L3460:      xor  a
 L3460a:     ld   a,(bI)
             ld   hl,ARR_PH
             add  a,a
-            call add_a_hl
+            rst  08h
             ld   b,(hl)
             call sz_i
             ld   a,b
@@ -581,7 +616,7 @@ L3470:      xor  a
             ld   (bI),a
 L3470a:     ld   a,(bI)
             ld   hl,ARR_QH
-            call add_a_hl
+            rst  08h
             ld   b,(hl)
             call sz_i
             ld   a,b
@@ -606,11 +641,11 @@ L3900:      ld   a,2
             call gfx_box
             ld   bc,104*256+14
             ld   a,15
-            call gfx_pset
+            rst  10h
             ld   a,15
             ld   (gfx_fg),a
             ld   hl,s_keys
-            call gfx_puts
+            rst  18h
 L3901:      ld   a,36                   ; колонка 110 (в оригинале — в CX, см. docs)
             ld   (hk_y),a
             ld   hl,keys_tab
@@ -629,9 +664,9 @@ L3905:      push hl
             ld   a,(hk_y)
             ld   c,a
             ld   a,15
-            call gfx_pset
+            rst  10h
             pop  hl
-            call gfx_puts
+            rst  18h
             inc  hl
             push hl
             ld   a,':'
@@ -640,9 +675,9 @@ L3905:      push hl
             ld   c,a
             ld   b,126
             ld   a,5
-            call gfx_pset
+            rst  10h
             pop  hl
-            call gfx_puts
+            rst  18h
             inc  hl
             ld   a,(hk_y)
             add  a,18
@@ -650,9 +685,9 @@ L3905:      push hl
             jp   L3903
 L3910:      ld   bc,40*256+190
             ld   a,11
-            call gfx_pset
+            rst  10h
             ld   hl,s_press_key_back
-            call gfx_puts
+            rst  18h
 L3920:      call getkey
             ld   (bK_),a
 L3922:      ld   a,(bDP)
@@ -730,10 +765,10 @@ L3946:      ld   a,1
 
 ; 3960: MS$="PLACE "+N$(SH)+SPACE$(19-LEN(N$(SH)))+"?:HELP": ... подсказка клавиш
 L3960:      ld   hl,s_place
-            call ms_set
+            rst  28h
             call n_sh
             push hl
-            call ms_cat
+            rst  30h
             pop  hl
             call str_len
             ld   b,a
@@ -750,10 +785,10 @@ L3960a:     ld   a,b
             dec  b
             jp   L3960a
 L3960b:     ld   hl,s_help
-            call ms_cat
+            rst  30h
             call L1305
             ld   hl,s_place_keys
-            call ms_set
+            rst  28h
             jp   L1315
 
 ; ---------------------------------------------------------------- перерисовка страницы (порт)

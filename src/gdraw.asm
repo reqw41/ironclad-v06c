@@ -257,7 +257,7 @@ L1160:      ld   a,(bN)                 ; C=PX(N,I): R=PY(N,I)
             add  a,c
             add  a,b
             ld   hl,ARR_PX
-            call add_a_hl
+            rst  08h
             ld   a,(hl)
             ld   (bC),a
             ld   de,ARR_PY-ARR_PX
@@ -268,7 +268,7 @@ L1160:      ld   a,(bN)                 ; C=PX(N,I): R=PY(N,I)
 L1162:      ld   a,(bN)
             ld   hl,ARR_SZ
             add  a,a
-            call add_a_hl
+            rst  08h
             ld   b,(hl)
             ld   hl,bI
             inc  (hl)
@@ -286,7 +286,7 @@ L1164:      ret
 L1206:      ld   bc,190*256+16          ; LINE(190,16)-(255,160),1,BF
             ld   de,255*256+160
             ld   a,1
-            call gfx_fill
+            rst  20h
             xor  a
             ld   (bP),a
 L1208:      ld   a,(bP)                 ; Y0=70*P: CL=8+P
@@ -305,7 +305,7 @@ L1208a:     ld   (bY0),a
             ld   b,190
             ld   d,255
             ld   a,(bCL)
-            call gfx_fill
+            rst  20h
             ld   a,(bY0)                ; LINE(190,33+Y0)-(255,33+Y0),CL
             add  a,33
             ld   c,a
@@ -313,7 +313,7 @@ L1208a:     ld   (bY0),a
             ld   b,190
             ld   d,255
             ld   a,(bCL)
-            call gfx_fill
+            rst  20h
 L1212:      ld   a,(bCL)                ; COLOR CL: PSET(192,23+Y0): PRINT "ENEMY"/"YOURS"
             ld   (gfx_fg),a
             ld   a,(bY0)
@@ -321,13 +321,13 @@ L1212:      ld   a,(bCL)                ; COLOR CL: PSET(192,23+Y0): PRINT "ENEM
             ld   c,a
             ld   b,192
             ld   a,(bCL)
-            call gfx_pset
+            rst  10h
             ld   hl,s_enemy
             ld   a,(bP)
             or   a
             jp   z,L1212a
             ld   hl,s_yours
-L1212a:     call gfx_puts
+L1212a:     rst  18h
 L1215:      ld   a,15
             ld   (gfx_fg),a
             ld   a,(bBD)
@@ -340,17 +340,17 @@ L1216a:     ld   a,(bI)
             ld   c,a
             ld   b,192
             ld   a,15
-            call gfx_pset
+            rst  10h
             ld   a,(bI)
             call n_a
             ld   de,sT
             call cat3
             ld   hl,sT
-            call gfx_puts
+            rst  18h
 L1220:      ld   a,(bI)                 ; NH=PH(I): IF P=0 THEN NH=0: IF QH(I)>=SZ(I) THEN NH=5
             ld   hl,ARR_PH
             add  a,a
-            call add_a_hl
+            rst  08h
             ld   a,(hl)
             ld   (bNH),a
             ld   a,(bP)
@@ -360,7 +360,7 @@ L1220:      ld   a,(bI)                 ; NH=PH(I): IF P=0 THEN NH=0: IF QH(I)>=
             ld   (bNH),a
             ld   a,(bI)
             ld   hl,ARR_QH
-            call add_a_hl
+            rst  08h
             ld   b,(hl)
             call sz_i
             ld   a,b
@@ -406,7 +406,7 @@ yi_2:       ld   a,(bY0)
 sz_i:       ld   a,(bI)
 sz_a:       ld   hl,ARR_SZ
             add  a,a
-            call add_a_hl
+            rst  08h
             ld   c,(hl)
             ret
 
@@ -440,7 +440,7 @@ br_2:       ld   (bCL),a
             add  a,6
             ld   e,a
             ld   a,(bCL)
-            call gfx_fill
+            rst  20h
             ld   hl,br_j
             inc  (hl)
             ld   a,(br_n)
@@ -496,7 +496,7 @@ msg_draw_my:                            ; LINE(0,MY)-(255,MY+8),1,BF: COLOR MC: 
             ld   b,0
             ld   d,255
             ld   a,1
-            call gfx_fill
+            rst  20h
             ld   a,(bMY)
             call msg_slot
             ld   a,(hl)
@@ -512,9 +512,9 @@ msg_draw_my:                            ; LINE(0,MY)-(255,MY+8),1,BF: COLOR MC: 
             ld   c,a
             ld   b,4
             ld   a,(gfx_fg)
-            call gfx_pset
+            rst  10h
             pop  hl
-            call gfx_puts
+            rst  18h
 L1302:      ld   a,15
             ld   (gfx_fg),a
             ret
@@ -551,9 +551,9 @@ L1355:      call rec_clear
 ; общая часть 1370..1385 (без заголовка)
 L1355s:     ld   bc,232*256+4           ; PSET(232,4),12: PRINT "TAB"
             ld   a,12
-            call gfx_pset
+            rst  10h
             ld   hl,s_tab
-            call gfx_puts
+            rst  18h
 L1372:      ld   a,(bSB)
             cp   1
             call z,L1396
@@ -568,7 +568,7 @@ L1375a:     ld   a,(bI)
             ld   b,a
             ld   c,18
             ld   a,15
-            call gfx_pset
+            rst  10h
             ld   a,(bI)
             add  a,65
             call gfx_putc
@@ -588,7 +588,7 @@ L1380a:     ld   a,(bI)
             ld   c,a
             ld   b,2
             ld   a,15
-            call gfx_pset
+            rst  10h
             ld   a,(bI)
             inc  a
             cp   10
@@ -643,7 +643,7 @@ L1396b:     ld   a,(bGN)
 sl_print:   push hl
             ld   bc,128*256+4
             ld   a,9
-            call gfx_pset
+            rst  10h
             ld   hl,s_game
             ld   de,sT
             call str_copy
@@ -818,7 +818,7 @@ L1473:      ld   a,(bCX)                ; CO$=CHR$(65+CX)+MID$(STR$(CY+1),2)
             add  a,a
             add  a,a
             ld   hl,at_rec
-            call add_a_hl
+            rst  08h
             ld   (hl),0
 L1475:      ld   a,(bFB)                ; IF (FB=0 AND DP<>1) OR (FB=1 AND DP<>0) THEN пусто
             ld   b,a
@@ -924,14 +924,14 @@ L1652b:     ld   a,d
 L1652c:     ld   a,c
             add  a,a
             ld   hl,ARR_TX
-            call add_a_hl
+            rst  08h
             ld   (hl),b
             inc  hl
             ld   (hl),0
             ld   a,c
             add  a,a
             ld   hl,ARR_TY
-            call add_a_hl
+            rst  08h
             ld   (hl),d
             inc  hl
             ld   (hl),0
@@ -1005,7 +1005,7 @@ L1659a:     ld   a,(bSH)
             ld   c,a
 L1660:      ld   a,(bI)
             ld   hl,ARR_GT
-            call add_a_hl
+            rst  08h
             ld   (hl),c
             ld   a,(bI)
             inc  a
@@ -1119,7 +1119,7 @@ L1684:      ld   a,(bE)                 ; U1=TX(0)-E: V1=TY(0)-E: U2=TX(TN-1)+E:
             dec  a
             add  a,a
             ld   hl,ARR_TX
-            call add_a_hl
+            rst  08h
             ld   a,(hl)
             add  a,c
             ld   (bU2),a
@@ -1127,7 +1127,7 @@ L1684:      ld   a,(bE)                 ; U1=TX(0)-E: V1=TY(0)-E: U2=TX(TN-1)+E:
             dec  a
             add  a,a
             ld   hl,ARR_TY
-            call add_a_hl
+            rst  08h
             ld   a,(hl)
             add  a,c
             ld   (bV2),a
@@ -1317,7 +1317,7 @@ L1775:      ld   hl,bV
             ret
 ; A = SH + I*12 -> B = X(база), D = Y(база+60)
 l1758_xy:   ld   hl,(rp_tmp+2)
-            call add_a_hl
+            rst  08h
             ld   b,(hl)
             ld   de,60
             add  hl,de

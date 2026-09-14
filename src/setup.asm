@@ -56,7 +56,7 @@ S2300:      call disp_blank
             ld   bc,0
             ld   de,255*256+211
             ld   a,5
-            call gfx_fill
+            rst  20h
             ld   a,1
             ld   (gfx_fg),a
             ld   a,5
@@ -65,13 +65,13 @@ S2300:      call disp_blank
             ld   (gfx_x),a
             ld   (gfx_y),a
             ld   hl,s_signing_off
-            call gfx_puts
+            rst  18h
             xor  a
             ld   (gfx_x),a
             ld   a,8
             ld   (gfx_y),a
             ld   hl,s_ok
-            call gfx_puts
+            rst  18h
             call disp_on
             call L3330
             call getkey
@@ -79,7 +79,11 @@ S2300:      call disp_blank
 
 ; 3406: палитра, титул с диска на страницу 0 (пока видна пустая страница 1 цветом 5)
 S3406:      call disp_blank
-            ld   hl,pal_menu            ; COLOR 1,5,5: 3430
+            ld   hl,cmap_menu           ; COLOR 1,5,5: 3430 (8 слотов меню, бордюр — слот 0 = цвет 5)
+            ld   (cur_cmap),hl
+            xor  a
+            ld   (vec_border),a
+            ld   hl,pal_menu
             call pal_set
             IFNDEF NOIMG
             ld   hl,img_title           ; BLOAD "IRONCLAD.SC5" (окно меню уже стёрто, QR — отдельно)
@@ -89,7 +93,7 @@ S3406:      call disp_blank
             ld   bc,0                   ; без файла (ON ERROR GOTO 3424): пустая страница цветом 5
             ld   de,255*256+211
             ld   a,5
-            call gfx_fill
+            rst  20h
             ENDIF
             ld   a,2
             ld   (pg_vis),a
@@ -111,9 +115,9 @@ S3500:      ld   a,1                    ; COLOR 1: PF=5: PE=3: PK=1: PC=3
             ld   b,a
             ld   c,200
             ld   a,1
-            call gfx_pset
+            rst  10h
             ld   hl,s_loading_ver
-            call gfx_puts
+            rst  18h
             ld   a,15                   ; 3800 рисует страницу 2 — на MSX это заметная пауза
             call wait_frames
             call S3520
@@ -142,9 +146,9 @@ S3512:      push de
             sub  e
             ld   b,a
             ld   a,PK
-            call gfx_pset
+            rst  10h
             pop  hl
-            call gfx_puts
+            rst  18h
             ld   a,':'
             call gfx_putc
             pop  bc
@@ -152,7 +156,7 @@ S3512:      push de
             add  a,16
             ld   b,a
             ld   a,PC
-            call gfx_pset
+            rst  10h
             pop  hl
             jp   gfx_puts
 
@@ -165,7 +169,7 @@ PC          equ 3
 S3520:      ld   bc,34*256+150
             ld   de,222*256+210
             ld   a,PF
-            call gfx_fill
+            rst  20h
             ld   bc,34*256+150
             ld   de,222*256+210
             ld   a,PE
@@ -183,7 +187,7 @@ S3520:      ld   bc,34*256+150
 S3526:      ld   bc,38*256+156
             ld   de,218*256+192
             ld   a,PF
-            call gfx_fill
+            rst  20h
             xor  a
             ld   (bI),a
 S3527:      ld   a,PC                   ; CL=PC: IF I=MI THEN CL=PK
@@ -220,13 +224,13 @@ S3531:      ld   a,(bYP)                ; PSET(44,YR),CL: PRINT MID$("RULESETMAT
             ld   c,a
             ld   b,44
             ld   a,(bCL)
-            call gfx_pset
+            rst  10h
             ld   hl,s_ruleset
             ld   a,(bI)
             or   a
             jp   z,S3531a
             ld   hl,s_match
-S3531a:     call gfx_puts
+S3531a:     rst  18h
             ld   hl,bI
             inc  (hl)
             ld   a,(hl)
@@ -252,9 +256,9 @@ S3533p:     push bc
             push hl
             ld   c,e
             ld   a,2
-            call gfx_pset
+            rst  10h
             pop  hl
-            call gfx_puts
+            rst  18h
             pop  bc                     ; X=105: X2=205: GOSUB 3590
 ; 3590: треугольники-стрелки: FOR I=0 TO 3: LINE(X+I,Y+3-I)-(X+I,Y+3+I),2: LINE(X2+3-I,...)
 S3590:      ld   a,c
@@ -278,7 +282,7 @@ S3590a:     ld   a,(bJ)
             push bc
             push de
             ld   a,2
-            call gfx_fill
+            rst  20h
             pop  de
             pop  bc
             ld   a,(bJ)
@@ -288,7 +292,7 @@ S3590a:     ld   a,(bJ)
             ld   b,a
             ld   d,a
             ld   a,2
-            call gfx_fill
+            rst  20h
             ld   hl,bJ
             inc  (hl)
             ld   a,(hl)
@@ -378,12 +382,12 @@ S3582a:     ld   (bBI),a
 S3595:      ld   bc,38*256+192
             ld   de,218*256+208
             ld   a,PF
-            call gfx_fill
+            rst  20h
             ld   bc,44*256+196
             ld   a,PK
-            call gfx_pset
+            rst  10h
             ld   hl,s_exit_basic
-            call gfx_puts
+            rst  18h
             call getkey
             ld   (bK_),a
             call S3520
@@ -434,7 +438,7 @@ S3606:      ld   a,(bBI)                ; BO, SB, BM$
             add  a,a
             add  a,a
             ld   hl,match_tab
-            call add_a_hl
+            rst  08h
             ld   a,(hl)
             ld   (bBO),a
             inc  hl
@@ -455,7 +459,7 @@ S3700:      call disp_blank
             ld   bc,0
             ld   de,255*256+211
             ld   a,PF
-            call gfx_fill
+            rst  20h
             ld   bc,6*256+6
             ld   de,249*256+205
             ld   a,PE
@@ -470,9 +474,9 @@ S3702:      ld   a,(hl)                 ; x, y, текст (0 в x = конец)
             inc  hl
             push hl
             ld   a,PK
-            call gfx_pset
+            rst  10h
             pop  hl
-            call gfx_puts
+            rst  18h
             inc  hl
             jp   S3702
 S3704:      ld   a,44                   ; Y=44: 7 наборов
@@ -530,9 +534,9 @@ S3708a:     push bc
             ld   a,(bY0)
             ld   c,a
             ld   a,PC
-            call gfx_pset
+            rst  10h
             pop  hl
-            call gfx_puts
+            rst  18h
             inc  hl
             ld   a,(bY0)
             add  a,11
@@ -542,9 +546,9 @@ S3708a:     push bc
             jp   nz,S3708a
 S3720:      ld   bc,40*256+196
             ld   a,PK
-            call gfx_pset
+            rst  10h
             ld   hl,s_press_key_back
-            call gfx_puts
+            rst  18h
             call disp_on
 S3722:      call getkey
 S3724:      call S3406                  ; SET PAGE 0,0: титул с меню снова на экране
@@ -555,7 +559,7 @@ S3706p:     ld   a,(bY0)
             ld   c,a
             push de
             ld   a,PC
-            call gfx_pset
+            rst  10h
             pop  hl
             jp   gfx_puts
 
@@ -563,90 +567,32 @@ S3706p:     ld   a,(bY0)
 S3800:      ld   bc,14*256+100
             ld   de,242*256+210
             ld   a,PF
-            call gfx_fill
+            rst  20h
             ld   bc,14*256+100
             ld   de,242*256+210
             ld   a,PE
             call gfx_box
-            call qr_draw                ; COPY(0,0)-(57,57),2 TO (22,108),2
+                                        ; QR-код (3802) убран по решению владельца
             ld   bc,88*256+118
             ld   a,PK
-            call gfx_pset
+            rst  10h
             ld   hl,s_free
-            call gfx_puts
+            rst  18h
             ld   bc,88*256+130
             ld   a,PK
-            call gfx_pset
+            rst  10h
             ld   hl,s_coffee
-            call gfx_puts
+            rst  18h
             ld   bc,88*256+156
             ld   a,PK
-            call gfx_pset
+            rst  10h
             ld   hl,s_loading_ver
-            call gfx_puts
+            rst  18h
             ld   bc,38*256+196
             ld   a,10
-            call gfx_pset
+            rst  10h
             ld   hl,s_author
             jp   gfx_puts
-
-; QR 58x58 в (22,108): точки цвета QR_C1 на фоне QR_C0
-qr_draw:    ld   bc,22*256+108
-            ld   de,79*256+165
-            ld   a,QR_C0
-            call gfx_fill
-            ld   hl,qr_data
-            ld   c,108
-qd_1:       push hl
-            push bc
-            ld   b,0                    ; 8 байт строки = 64 точки с x=22
-qd_2:       ld   a,(hl)
-            push hl
-            push bc
-            ld   (qd_b),a
-            ld   a,b
-            add  a,a
-            add  a,a
-            add  a,a
-            add  a,22
-            ld   (qd_x),a
-            ld   a,(qd_b)
-            or   a
-            jp   z,qd_3
-            ld   a,(qd_x)               ; 8 точек байта: сдвиг 22&7 = 6
-            and  7
-            ld   (gs_n),a
-            ld   a,(qd_b)
-            call shift_bits
-            ld   a,(qd_x)
-            rrca
-            rrca
-            rrca
-            and  1Fh
-            ld   h,a
-            pop  bc
-            push bc
-            ld   a,MSX_TOP
-            sub  c
-            ld   l,a
-            ld   c,QR_C1
-            call put_bits
-qd_3:       pop  bc
-            pop  hl
-            inc  hl
-            inc  b
-            ld   a,b
-            cp   8
-            jp   c,qd_2
-            pop  bc
-            pop  hl
-            ld   de,8
-            add  hl,de
-            inc  c
-            ld   a,c
-            cp   108+58
-            jp   c,qd_1
-            ret
 
 rt_vars:    dw bTU,bAM,bXS,bSV,bFL,bQS,bBD
 ; 9100: наборы правил: RN$, TU,AM,XS,SV,FL,QS,BD, S1$,S2$,S3$

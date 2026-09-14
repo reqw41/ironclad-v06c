@@ -1,10 +1,25 @@
 ; ============================================================================
 ; gfx.asm — графические примитивы в координатах экрана MSX (x 0..255, y 0..211).
-; Строка MSX y -> строка памяти Вектора 233-y (сдвиг 22 строки вниз), столбец = x>>3,
-; плоскость p (0..3) = бит (3-p) номера цвета, страница H = $80 + p*$20 + столбец.
+; Строка MSX y -> строка памяти Вектора 233-y (сдвиг 22 строки вниз), столбец = x>>3.
+; 8-цветный режим: экран — плоскости $8000/$A000/$C000, в них биты 2/1/0 номера СЛОТА;
+; номер цвета MSX переводится в слот таблицей текущего экрана cur_cmap (col2bits).
+; Плоскость $E000 — память программы, её рисование не трогает.
 ; ============================================================================
 
 MSX_TOP     equ 233             ; строка памяти для y = 0
+NPL         equ 3               ; плоскостей экрана
+
+; A = цвет MSX -> A = слот<<5 (биты 7,6,5 — плоскости $8000,$A000,$C000). HL сохраняется.
+col2bits:
+            push hl
+            ld   hl,(cur_cmap)
+            rst  08h
+            ld   a,(hl)
+            rrca
+            rrca
+            rrca
+            pop  hl
+            ret
 tmask       equ 0040h           ; маска прозрачности тайла: 32 байта в свободной памяти под $0100
 
 ; ---------------------------------------------------------------- LINE ...,BF
@@ -100,12 +115,9 @@ fill_col:
             add  a,80h
             ld   h,a
             ld   a,(gf_col)
-            rlca
-            rlca
-            rlca
-            rlca
+            call col2bits
             ld   c,a
-            ld   a,4
+            ld   a,NPL
             ld   (fc_pl),a
 fc_pl_lp:
             ld   a,(gf_row)
@@ -144,12 +156,9 @@ fill_full:
             add  a,80h
             ld   h,a
             ld   a,(gf_col)
-            rlca
-            rlca
-            rlca
-            rlca
+            call col2bits
             ld   c,a
-            ld   e,4
+            ld   e,NPL
 ff_pl:      ld   a,(gf_row)
             ld   l,a
             ld   a,(gf_h)
@@ -189,21 +198,21 @@ gfx_box:
             push de
             ld   a,(gb_col)
             ld   e,c                    ; верх: (x1,y1)-(x2,y1)
-            call gfx_fill
+            rst  20h
             pop  de
             pop  bc
             push bc
             push de
             ld   c,e                    ; низ: (x1,y2)-(x2,y2)
             ld   a,(gb_col)
-            call gfx_fill
+            rst  20h
             pop  de
             pop  bc
             push bc
             push de
             ld   d,b                    ; лево: (x1,y1)-(x1,y2)
             ld   a,(gb_col)
-            call gfx_fill
+            rst  20h
             pop  de
             pop  bc
             ld   b,d                    ; право: (x2,y1)-(x2,y2)
@@ -250,12 +259,9 @@ put_bits:
             add  a,80h
             ld   h,a
             ld   a,c
-            rlca
-            rlca
-            rlca
-            rlca
+            call col2bits
             ld   c,a
-            ld   b,4
+            ld   b,NPL
 pb_1:       ld   a,c
             rlca
             ld   c,a
@@ -384,19 +390,13 @@ pc_s0:      ld   a,h
             sub  b
             ld   l,a
             ld   (gc_y),a
-            ld   a,(gfx_fg)             ; цвета: биты плоскостей в старшую тетраду
-            rlca
-            rlca
-            rlca
-            rlca
+            ld   a,(gfx_fg)             ; цвета: биты плоскостей в старшие биты
+            call col2bits
             ld   (gc_f),a
             ld   a,(gfx_bg)
-            rlca
-            rlca
-            rlca
-            rlca
+            call col2bits
             ld   (gc_b),a
-            ld   a,4
+            ld   a,NPL
             ld   (gc_cnt),a
 pc_pl:      ld   a,(gc_f)               ; вид цикла по битам (знак, фон) плоскости
             rlca
@@ -634,9 +634,11 @@ tile_addr:                              ; -> DE = данные тайла, HL = 
             add  hl,hl
             add  hl,hl
             add  hl,hl
-            add  hl,hl
-            add  hl,hl
-            add  hl,hl                  ; *128
+            add  hl,hl                  ; *32
+            ld   d,h
+            ld   e,l
+            add  hl,hl                  ; *64
+            add  hl,de                  ; *96
             ld   de,tiles_data
             add  hl,de
             ex   de,hl
@@ -656,7 +658,7 @@ gfx_tile:
             call tile_addr
             ld   a,l
             ld   (gt_row),a
-            ld   c,4                    ; плоскости
+            ld   c,NPL                  ; плоскости
 gt_pl:
             REPT 16
             ld   a,(de)
@@ -698,8 +700,6 @@ tm_1:       push hl
             or   (hl)
             add  hl,bc
             or   (hl)
-            add  hl,bc
-            or   (hl)
             ld   (de),a
             pop  hl
             inc  hl
@@ -712,7 +712,7 @@ tm_1:       push hl
             ex   de,hl                  ; DE = данные тайла
             pop  hl                     ; HL = видео
             ; проход 2: vram = (vram & ~m) | d
-            ld   a,4
+            ld   a,NPL
             ld   (gt_pln),a
 tp_pl:      ld   bc,tmask
 tp_col:     ld   a,(bc)
@@ -741,4 +741,88 @@ tp_col:     ld   a,(bc)
             dec  a
             ld   (gt_pln),a
             jp   nz,tp_pl
+            ret
+
+; ---------------------------------------------------------------- поворот тайлов
+; вертикальные тайлы кораблей = горизонтальные, повёрнутые на 90° по часовой:
+; новая точка (строка r, столбец c) = старая (строка 15-c, столбец r); по плоскостям
+rot_tiles:
+            ld   hl,rot_pairs
+rt_pair:    ld   a,(hl)
+            cp   255
+            ret  z
+            inc  hl
+            push hl
+            call rt_addr
+            ex   de,hl
+            ld   (rt_src),hl
+            pop  hl
+            ld   a,(hl)
+            inc  hl
+            push hl
+            call rt_addr
+            ex   de,hl
+            ld   (rt_dst),hl
+            ld   a,NPL
+            ld   (rt_pl),a
+rt_plane:   xor  a
+            ld   (rt_r),a
+rt_row:     ld   a,(rt_r)               ; маска бита столбца r и столбец-байт (r>>3)*16
+            and  7
+            ld   b,a
+            ld   a,80h
+            inc  b
+rt_m:       dec  b
+            jp   z,rt_m2
+            rrca
+            jp   rt_m
+rt_m2:      ld   c,a                    ; C = маска
+            ld   a,(rt_r)
+            and  8
+            add  a,a                    ; 0 или 16
+            ld   hl,(rt_src)
+            rst  08h
+            ld   de,15
+            add  hl,de                  ; -> строка 15 (c = 0)
+            ld   de,0                   ; D:E — новая строка (16 точек)
+            ld   b,16
+rt_c:       ld   a,(hl)
+            and  c
+            add  a,0FFh                 ; CY = точка
+            ld   a,e
+            rla
+            ld   e,a
+            ld   a,d
+            rla
+            ld   d,a
+            dec  hl
+            dec  b
+            jp   nz,rt_c
+            ld   hl,(rt_dst)            ; левый байт -> столбец 0, правый -> столбец 1
+            ld   a,(rt_r)
+            rst  08h
+            ld   (hl),d
+            ld   a,16
+            rst  08h
+            ld   (hl),e
+            ld   hl,rt_r
+            inc  (hl)
+            ld   a,(hl)
+            cp   16
+            jp   c,rt_row
+            ld   hl,(rt_src)            ; следующая плоскость: +32
+            ld   de,32
+            add  hl,de
+            ld   (rt_src),hl
+            ld   hl,(rt_dst)
+            add  hl,de
+            ld   (rt_dst),hl
+            ld   hl,rt_pl
+            dec  (hl)
+            jp   nz,rt_plane
+            pop  hl
+            jp   rt_pair
+; A = тайл -> DE = адрес его данных
+rt_addr:    ld   b,0
+            call tile_addr
             ret

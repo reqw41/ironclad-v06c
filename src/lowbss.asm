@@ -8,6 +8,12 @@ frame_cnt:  ds 2
 vec_pal:    ds 16               ; текущая палитра (индекс 0 = фон/бордюр)
 vec_pal_live: ds 16             ; то, что ISR льёт в цветогенератор
 disp_off:   ds 1
+vec_border: ds 1
+cur_cmap:   ds 2
+rt_src:     ds 2
+rt_dst:     ds 2
+rt_pl:      ds 1
+rt_r:       ds 1
 kbd_last:   ds 1
 kbd_rep:    ds 1
 kq_head:    ds 1
