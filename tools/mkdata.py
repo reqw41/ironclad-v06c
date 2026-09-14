@@ -317,7 +317,11 @@ def build_splash():
         what = 'data/splash.png'
     else:
         t = load_sc5('IRONCLAD.SC5')
-        line_bf(t, 36, 152, 93, 209, 5)           # QR убран
+        # QR (36,152)-(93,209) убран: на его место — зеркальная копия правой стороны
+        # (картинка почти симметрична относительно линкора)
+        for y in range(152, 210):
+            for x in range(36, 94):
+                t[y][x] = t[y][255 - x]
         vp = pal16(PAL_MENU, 5)
         def rows(row):
             y = 255 - TOP - row
