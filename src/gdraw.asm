@@ -661,8 +661,8 @@ L1441:      LDV  bK_
             jp   nz,L1444
 L1441a:     SETV bAC,1
             ret
-L1444:      call upcase                 ; R -> AC=2, X -> 7, Q -> 3, Z -> 4, U -> 5
-            ld   hl,t1444-1
+L1444:      ld   hl,t1444-1             ; R -> AC=2, B -> 7, M -> 3, A -> 4, U -> 5 (UCASE не нужен:
+                                        ; kbd_code строчных не даёт, коды <= 5Fh)
 L1444a:     inc  hl
             ld   b,(hl)
             inc  b
@@ -680,12 +680,6 @@ L1451:      cp   '?'
             ZEROV bAC
             ret
 t1444:      db   'R',2,'B',7,'M',3,'A',4,'U',5,0   ; клавиши Р, Б, М, А, У (коды латинские)
-upcase:     cp   'a'
-            ret  c
-            cp   'z'+1
-            ret  nc
-            sub  32
-            ret
 
 ; ---------------------------------------------------------------- 1473: поле AT:
 L1473:      LDV  bCX                ; CO$=CHR$(65+CX)+MID$(STR$(CY+1),2)

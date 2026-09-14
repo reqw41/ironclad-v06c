@@ -221,8 +221,7 @@ L2350:      call msg1i
             ZEROV bAB
 L2352:      call getkey
             STV  bK_
-L2354:      call upcase
-            cp   'M'                    ; клавиша М (было Q)
+L2354:      cp   'M'                    ; клавиша М (было Q); UCASE не нужен — строчных кодов нет
             jp   nz,L2356
             SETV bAB,1
 L2356:      call ms_clear

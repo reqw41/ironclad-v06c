@@ -244,9 +244,8 @@ def build_font():
         assert r[7] == 0, ch
         data += r[:7]
     zx0('font', data)
-    write('font.inc', '; сгенерировано tools/mkdata.py: шрифт — коды 20h..5Fh (font_data), lc_map не нужна\n'
+    write('font.inc', '; сгенерировано tools/mkdata.py: шрифт — коды 20h..5Fh (font_data)\n'
           '; знаки: ' + ''.join(sorted(used, key=lambda c: ord(enc(c)))).replace(';', '') + '\n'
-          'lc_map: db ' + ','.join(['0'] * 32) + '\n'
           'FONT_SIZE equ %d\n' % len(data))
     return bytes(data)
 

@@ -344,11 +344,9 @@ putsi:      pop  hl
 gfx_putc:
             sub  32
             ret  c
-            cp   64                     ; коды 96..127 — ячейка из таблицы (строчные)
+            cp   64                     ; коды 60h и выше (буквы залпов M >= 32) — пробел: строчных нет
             jp   c,pc_c
-            sub  64
-            ld   hl,lc_map
-            call tab_a
+            xor  a
 pc_c:       ld   l,a
             ld   h,0
             ld   d,h
