@@ -70,6 +70,10 @@ vZX             ds      42      ; PARM+88  до 21 клетки выборки (
 vCCK            ds      2       ; PARM+131 CC(K) в probesel
 vNEED           ds      1       ; PARM+135 SZ-PH (только BARRAGE)
 vSMC            ds      1       ; (нов.)   mgseed: 0 = только дрожание, 1 = MC*8+дрожание
+vKFA            ds      2       ; (нов.)   kill1: -> FA(OS(K))
+vKCC            ds      2       ; (нов.)   kill1: -> CC(K)
+vKX             ds      1       ; (нов.)   kill1: столбец клетки
+vKY             ds      1       ; (нов.)   kill1: строка клетки
 
 ; --- плоскости (бывшие MOBUF 0D008h, MCBUF 0D098h, FABUF 0D128h) ------------
 MOBUF           ds      144     ; метки ходов, байт на клетку 12x12
