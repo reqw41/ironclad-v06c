@@ -214,7 +214,7 @@ def used_chars():
     for f in glob.glob(os.path.join(ROOT, 'src', '*.asm')) + [os.path.join(OUT, 'version.inc')]:
         if '/engine/' in f or f.endswith('libtest.asm') or not os.path.exists(f): continue
         for l in open(f, encoding='utf8'):
-            m = re.match(r'^\s*(?:[A-Za-z_]\w*:)?\s*db\s+(.*)$', l)
+            m = re.match(r'^\s*(?:[A-Za-z_]\w*:)?\s*(?:db|TXT)\s+(.*)$', l)
             if m:
                 for t in re.findall(r'"([^"]*)"', m.group(1)): used |= set(t)
     return used
@@ -239,6 +239,84 @@ def build_font():
           'lc_map: db ' + ','.join('%d' % v for v in lc) + '\n'
           'FONT_SIZE equ %d\n' % len(data))
     return bytes(data)
+
+# --------------------------------------------------------------------------- тексты
+# Строки TXT "..." в src/*.asm сжимаются словарём: байт >= 80h = слово номер (b-80h).
+# Словарь — частые куски (жадно по выигрышу, как BPE); разбор строки — оптимальный (ДП по
+# числу байтов), его же повторяет Lua-функция T() в src/macros.asm при сборке.
+# dict.lua — слова для T(); dict.inc — слова подряд, у последнего знака слова бит 7.
+TXT_DICT_FILES = os.environ.get('TXT_DICT_SKIP', '').split(',')   # эти файлы в выборе слов не участвуют
+def txt_strings():
+    import glob, re
+    out = []
+    for f in sorted(glob.glob(os.path.join(ROOT, 'src', '*.asm'))):
+        if os.path.basename(f) in TXT_DICT_FILES: continue
+        for l in open(f, encoding='utf8'):
+            m = re.match(r'^\s*(?:[A-Za-z_]\w*:)?\s*TXT\s+"([^"]*)"', l)
+            if m: out.append(m.group(1))
+    return out
+def txt_parse(s, words):
+    """ДП: минимум байтов; при равенстве — меньше слов словаря (детерминированно, как в Lua)."""
+    n = len(s); best = [(0, 0)] * (n + 1); choice = [None] * (n + 1)
+    for i in range(n - 1, -1, -1):
+        b = (best[i + 1][0] + 1, best[i + 1][1]); c = None
+        for k, w in enumerate(words):
+            if s.startswith(w, i):
+                cand = (best[i + len(w)][0] + 1, best[i + len(w)][1] + 1)
+                if cand < b: b, c = cand, k
+        best[i] = b; choice[i] = c
+    out = []; i = 0
+    while i < n:
+        c = choice[i]
+        if c is None: out.append(ord(s[i])); i += 1
+        else: out.append(0x80 + c); i += len(words[c])
+    return out
+def build_text():
+    strs = txt_strings()
+    words = []
+    cur = [list(t) for t in strs]
+    while len(words) < 128:
+        cnt = collections.Counter()
+        for seq in cur:
+            n = len(seq)
+            for i in range(n):
+                w = ''
+                for j in range(i, min(n, i + 12)):
+                    if not isinstance(seq[j], str): break
+                    w += seq[j]
+                    if len(w) >= 2: cnt[w] += 1
+        best = None
+        for w, c in cnt.items():
+            g = c * (len(w) - 1) - len(w)
+            if g > 0 and (best is None or (g, w) > best[:2]): best = (g, w)
+        if not best: break
+        w = best[1]; words.append(w); k = len(words) - 1
+        new = []
+        for seq in cur:
+            o = []; i = 0
+            while i < len(seq):
+                if all(isinstance(x, str) for x in seq[i:i+len(w)]) and ''.join(seq[i:i+len(w)]) == w:
+                    o.append(('W', k)); i += len(w)
+                else: o.append(seq[i]); i += 1
+            new.append(o)
+        cur = new
+    # убрать слова, что при оптимальном разборе не окупаются
+    def total(ws): return sum(len(txt_parse(t, ws)) + 1 for t in strs) + sum(len(w) for w in ws)
+    t = total(words)
+    changed = True
+    while changed:
+        changed = False
+        for w in list(words):
+            ws = [x for x in words if x != w]
+            tt = total(ws)
+            if tt <= t: words, t, changed = ws, tt, True
+    raw = sum(len(x) + 1 for x in strs)
+    write('dict.lua', 'DICT = {\n' + ''.join('  "%s",\n' % w for w in words) + '}\n')
+    data = []
+    for w in words: data += [ord(ch) for ch in w[:-1]] + [ord(w[-1]) | 0x80]
+    write('dict.inc', '; сгенерировано tools/mkdata.py: словарь текстов (%d слов), последний знак слова | 80h\n'
+          'dict:\n' % len(words) + (db_lines(data) if data else '') + '\n')
+    print('тексты: %d строк, %d Б -> %d Б (словарь %d слов, %d Б)' % (len(strs), raw, t, len(words), len(data)))
 
 # --------------------------------------------------------------------------- картинки
 def vram_image(px, slotmap, planes):
@@ -331,6 +409,7 @@ if __name__ == '__main__':
     os.makedirs(OUT, exist_ok=True)
     ver = open(os.path.join(REF, 'VERSION')).read().strip()
     write('version.inc', '        db "V%s"\n' % ver)
+    build_text()
     fb = build_font()
     nf = len(fb)
     nt, ng = build_tiles()

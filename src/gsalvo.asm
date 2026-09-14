@@ -1319,8 +1319,30 @@ L4170:      ld   hl,bBL
             dec  (hl)
             ret
 ; 9031: подписи панели SALVO PLUS (y, текст)
-panel_sp:   db 34,"CAR",0, 42,"BAT",0, 50,"CRU",0, 58,"SUB",0, 66,"DES",0, 82,"BOT",0
-            db 105,"CAR",0, 113,"BAT",0, 121,"CRU",0, 129,"SUB",0, 137,"DES",0, 153,"BOT",0
+panel_sp:   db   34
+            TXT  "CAR"
+            db   42
+            TXT  "BAT"
+            db   50
+            TXT  "CRU"
+            db   58
+            TXT  "SUB"
+            db   66
+            TXT  "DES"
+            db   82
+            TXT  "BOT"
+            db   105
+            TXT  "CAR"
+            db   113
+            TXT  "BAT"
+            db   121
+            TXT  "CRU"
+            db   129
+            TXT  "SUB"
+            db   137
+            TXT  "DES"
+            db   153
+            TXT  "BOT"
 
 ; ---------------------------------------------------------------- 4300: разбор отчёта о прошлом залпе
 L4301:      LDV  bNS                ; T2=USR0(NS)
@@ -1551,12 +1573,12 @@ L4339:      pop  bc
             jp   c,L4338a
             ret
 
-s_hits:         db "HITS:",0
-s_lbr:          db " [",0
-s_sank:         db " SANK: ",0
-s_press_space:  db "Press SPACE to continue ...",0
-s_reviews:      db "ENEMY REVIEWS LAST SALVO ...",0
-s_enemy_hits:   db "ENEMY HITS:",0
-s_undo:         db "UNDO ",0
-s_probes:       db "ENEMY PROBES OPEN SEA ...",0
-s_closes:       db "ENEMY CLOSES IN ...",0
+s_hits:         TXT  "HITS:"
+s_lbr:          TXT  " ["
+s_sank:         TXT  " SANK: "
+s_press_space:  TXT  "Press SPACE to continue ..."
+s_reviews:      TXT  "ENEMY REVIEWS LAST SALVO ..."
+s_enemy_hits:   TXT  "ENEMY HITS:"
+s_undo:         TXT  "UNDO "
+s_probes:       TXT  "ENEMY PROBES OPEN SEA ..."
+s_closes:       TXT  "ENEMY CLOSES IN ..."

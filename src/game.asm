@@ -1192,18 +1192,18 @@ ms_catd:
             jp   str_digits
 
 ; ---------------------------------------------------------------- тексты
-s_blocked:          db "BLOCKED",0
-s_you_fire_first:   db "YOU FIRE FIRST",0
-s_enemy_fires_first: db "ENEMY FIRES FIRST",0
-s_coin_toss:        db "COIN TOSS: ",0
-s_already_fired:    db "ALREADY FIRED",0
-s_enemy_plotting:   db "ENEMY IS PLOTTING...",0
-s_you_fire:         db "YOU FIRE ",0
-s_miss:             db " - MISS",0
-s_hit:              db " - HIT",0
-s_sunk_enemy:       db "SUNK - ENEMY ",0
-s_enemy_fires:      db "ENEMY FIRES ",0
-s_enemy_sank:       db "ENEMY SANK YOUR ",0
+s_blocked:          TXT  "BLOCKED"
+s_you_fire_first:   TXT  "YOU FIRE FIRST"
+s_enemy_fires_first: TXT  "ENEMY FIRES FIRST"
+s_coin_toss:        TXT  "COIN TOSS: "
+s_already_fired:    TXT  "ALREADY FIRED"
+s_enemy_plotting:   TXT  "ENEMY IS PLOTTING..."
+s_you_fire:         TXT  "YOU FIRE "
+s_miss:             TXT  " - MISS"
+s_hit:              TXT  " - HIT"
+s_sunk_enemy:       TXT  "SUNK - ENEMY "
+s_enemy_fires:      TXT  "ENEMY FIRES "
+s_enemy_sank:       TXT  "ENEMY SANK YOUR "
 
 ; 9020..9030: флоты (имя, размер)
 ships_std:  dw sh_carrier

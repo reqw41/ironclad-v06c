@@ -383,8 +383,8 @@ hdr_draw:
             jp   z,gfx_puts
             ld   hl,s_your_fleet
             jp   gfx_puts
-s_enemy_waters: db "ENEMY WATERS",0
-s_your_fleet:   db "YOUR FLEET",0
+s_enemy_waters: TXT  "ENEMY WATERS"
+s_your_fleet:   TXT  "YOUR FLEET"
 
 ; ---------------------------------------------------------------- SET PAGE DP,DP
 ; A = страница 0/1. Если на экране другая страница игры — перерисовать своё;

@@ -315,12 +315,29 @@ sb_1:       ld   a,d
 ; Строка HL (0 в конце) с графического курсора (gfx_x, gfx_y): знак — цветом gfx_fg,
 ; остальное знакоместо 8x8 — цветом фона gfx_bg (COLOR fg,bg): так рисует SCREEN 5 MSX2,
 ; точка PSET перед PRINT на скриншотах оригинала не видна. Курсор +8 точек на знак.
+; Слова словаря (байт >= 80h, TXT) раскрываются. HL на выходе -> нуль строки.
 gfx_puts:
             ld   a,(hl)
             or   a
             ret  z
+            jp   m,gp_w
             push hl
             call gfx_putc
+            pop  hl
+            inc  hl
+            jp   gfx_puts
+gp_w:       push hl
+            call dict_word
+gp_w1:      ld   a,(hl)
+            push hl
+            push af
+            and  7Fh
+            call gfx_putc
+            pop  af
+            pop  hl
+            inc  hl
+            or   a
+            jp   p,gp_w1
             pop  hl
             inc  hl
             jp   gfx_puts

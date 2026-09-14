@@ -115,6 +115,7 @@ add_a_hl    equ 2
 ; ---------------------------------------------------------------- данные
             include "../build/data/palettes.inc"
             include "../build/data/font.inc"
+            include "../build/data/dict.inc"
             include "../build/data/tiles.inc"
 tiles_zx0:  incbin "../build/data/tiles.zx0"
 font_zx0:   incbin "../build/data/font.zx0"

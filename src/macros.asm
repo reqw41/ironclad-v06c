@@ -36,3 +36,39 @@
             db   low (adr)
             ASSERT high (adr) == high varpage
             ENDM
+
+; ---------------------------------------------------------------- тексты
+; TXT "строка" — строка, сжатая словарём (build/data/dict.lua, строит tools/mkdata.py):
+; байт >= 80h — слово словаря (dict в dict.inc), 0 — конец. Разбор — оптимальный (ДП).
+            LUA PASS1
+            dofile("build/data/dict.lua")
+            function T(s)
+              s = s:match('^"(.*)"$') or s
+              local n = #s
+              local bc, bw, ch = {}, {}, {}
+              bc[n + 1], bw[n + 1] = 0, 0
+              for i = n, 1, -1 do
+                local c, w, k0 = bc[i + 1] + 1, bw[i + 1], nil
+                for k, wd in ipairs(DICT) do
+                  local l = #wd
+                  if s:sub(i, i + l - 1) == wd then
+                    local c2, w2 = bc[i + l] + 1, bw[i + l] + 1
+                    if c2 < c or (c2 == c and w2 < w) then c, w, k0 = c2, w2, k end
+                  end
+                end
+                bc[i], bw[i], ch[i] = c, w, k0
+              end
+              local i = 1
+              while i <= n do
+                if ch[i] then _pc("db " .. (127 + ch[i])); i = i + #DICT[ch[i]]
+                else _pc("db " .. s:byte(i)); i = i + 1 end
+              end
+              _pc("db 0")
+            end
+            ENDLUA
+            MACRO TXT str
+            DEFINE+ _TXTA str
+            LUA ALLPASS
+            T(sj.get_define("_TXTA"))
+            ENDLUA
+            ENDM

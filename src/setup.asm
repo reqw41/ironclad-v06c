@@ -595,30 +595,35 @@ sm_bo3:     db "BEST OF 3",0
 sm_bo5:     db "BEST OF 5",0
 sm_bo7:     db "BEST OF 7",0
 ; 3700..3702: заголовки таблицы (x, y, текст)
-rules_hdr:  db 104,12,"RULES",0
-            db 8,28,"RULESET",0
-            db 104,28,"SHOT",0
-            db 168,28,"REPORT",0
-            db 228,28,"T",0
+rules_hdr:  db   104,12
+            TXT  "RULES"
+            db   8,28
+            TXT  "RULESET"
+            db   104,28
+            TXT  "SHOT"
+            db   168,28
+            TXT  "REPORT"
+            db   228,28
+            TXT  "T"
             db 0
 ; 9130
 rules_legend:
-            db "C = HITS PER SHIP PER SALVO",0
-            db "M = HIT OR MISS PER SHOT",0
-            db "S = SINKINGS ANNOUNCED",0
-            db "1/SHIP = ONE PER SHIP AFLOAT",0
-            db "+ = EXTRA SHOT AFTER A HIT",0
-            db "T = SHIPS MAY TOUCH",0
-s_ruleset:  db "RULESET",0
-s_match:    db "MATCH",0
-s_q:        db "?",0
-s_rules:    db "RULES",0
-s_qq:       db "Q",0
-s_exit:     db "EXIT",0
-s_exit_basic: db "EXIT TO BASIC? Q AGAIN",0
-s_author:   db "A GAME BY MEHMET BELGIN",0
-s_signing_off: db "SIGNING OFF. THANKS FOR PLAYING.",0
-s_ok:       db "Ok",0
+            TXT  "C = HITS PER SHIP PER SALVO"
+            TXT  "M = HIT OR MISS PER SHOT"
+            TXT  "S = SINKINGS ANNOUNCED"
+            TXT  "1/SHIP = ONE PER SHIP AFLOAT"
+            TXT  "+ = EXTRA SHOT AFTER A HIT"
+            TXT  "T = SHIPS MAY TOUCH"
+s_ruleset:  TXT  "RULESET"
+s_match:    TXT  "MATCH"
+s_q:        TXT  "?"
+s_rules:    TXT  "RULES"
+s_qq:       TXT  "Q"
+s_exit:     TXT  "EXIT"
+s_exit_basic: TXT  "EXIT TO BASIC? Q AGAIN"
+s_author:   TXT  "A GAME BY MEHMET BELGIN"
+s_signing_off: TXT  "SIGNING OFF. THANKS FOR PLAYING."
+s_ok:       TXT  "Ok"
 s_loading_ver: db "LOADING "
             include "../build/data/version.inc"
-            db " ...",0
+            TXT  " ..."

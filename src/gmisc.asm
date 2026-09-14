@@ -467,12 +467,18 @@ ecl_1:      ld   (gfx_pitch),a
             inc  hl
             ex   de,hl
             ret
-cap_victory: db 52,168,1,1,"YOU ARE VICTORIOUS!",0
-cap_defeat:  db 8,168,1,1,"YOUR FLEET HAS BEEN DESTROYED.",0
-cap_keys:    db 68,186,2,0,"TAB:",0
-             db 98,186,7,0,"REVIEW THE BOARDS",0
-             db 56,197,2,0,"SPACE:",0
-             db 98,197,7,0,"CONTINUE",0
+cap_victory: db   52,168,1,1
+             TXT  "YOU ARE VICTORIOUS!"
+cap_defeat:  db   8,168,1,1
+             TXT  "YOUR FLEET HAS BEEN DESTROYED."
+cap_keys:    db   68,186,2,0
+             TXT  "TAB:"
+             db   98,186,7,0
+             TXT  "REVIEW THE BOARDS"
+             db   56,197,2,0
+             TXT  "SPACE:"
+             db   98,197,7,0
+             TXT  "CONTINUE"
              db 0
 
 ; плоскость $8000 для 4-цветной картинки: поля экрана (строки памяти 0..21 и 234..255) = FF
@@ -853,26 +859,34 @@ rf_3:       call at_draw_vis
             jp   disp_on
 
 
-s_placing:      db "PLACING FLEET ...",0
-s_no_room:      db "NO ROOM",0
-s_nothing_undo: db "NOTHING TO UNDO",0
-s_enemy_wins:   db "ENEMY WINS",0
-s_you_win:      db "YOU WIN",0
-s_loading_next: db "LOADING NEXT GAME ...",0
-s_loading_menu: db "LOADING MENU ...",0
-s_terminate:    db "TERMINATE GAME? Q AGAIN",0
-s_keys:         db "KEYS",0
-s_press_key_back: db "Press a key to go back",0
-s_place:        db "PLACE ",0
-s_help:         db "?:HELP",0
-s_place_keys:   db "SPC:DROP R:TURN U:UNDO Z:AUTO",0
+s_placing:      TXT  "PLACING FLEET ..."
+s_no_room:      TXT  "NO ROOM"
+s_nothing_undo: TXT  "NOTHING TO UNDO"
+s_enemy_wins:   TXT  "ENEMY WINS"
+s_you_win:      TXT  "YOU WIN"
+s_loading_next: TXT  "LOADING NEXT GAME ..."
+s_loading_menu: TXT  "LOADING MENU ..."
+s_terminate:    TXT  "TERMINATE GAME? Q AGAIN"
+s_keys:         TXT  "KEYS"
+s_press_key_back: TXT  "Press a key to go back"
+s_place:        TXT  "PLACE "
+s_help:         TXT  "?:HELP"
+s_place_keys:   TXT  "SPC:DROP R:TURN U:UNDO Z:AUTO"
 ; 9070: подписи клавиш (пары строк, "!" — конец)
-keys_tab:   db "ARROWS",0,"MOVE",0
-            db "SPACE",0,"FIRE OR DROP",0
-            db "R",0,"TURN SHIP",0
-            db "U",0,"UNDO",0
-            db "Z",0,"AUTO-PLACE",0
-            db "X",0,"BUOY MARK",0
-            db "TAB",0,"SWITCH VIEW",0
-            db "Q",0,"MENU (TWICE)",0
-            db "!",0
+keys_tab:   TXT  "ARROWS"
+            TXT  "MOVE"
+            TXT  "SPACE"
+            TXT  "FIRE OR DROP"
+            TXT  "R"
+            TXT  "TURN SHIP"
+            TXT  "U"
+            TXT  "UNDO"
+            TXT  "Z"
+            TXT  "AUTO-PLACE"
+            TXT  "X"
+            TXT  "BUOY MARK"
+            TXT  "TAB"
+            TXT  "SWITCH VIEW"
+            TXT  "Q"
+            TXT  "MENU (TWICE)"
+            TXT  "!"

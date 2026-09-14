@@ -1245,8 +1245,8 @@ L1795a:     call pxy_off
             jp   c,L1795a
             ret
 
-s_enemy:    db "ENEMY",0
-s_yours:    db "YOURS",0
-s_tab:      db "TAB",0
-s_game:     db "GAME",0
-s_at:       db "AT:",0
+s_enemy:    TXT  "ENEMY"
+s_yours:    TXT  "YOURS"
+s_tab:      TXT  "TAB"
+s_game:     TXT  "GAME"
+s_at:       TXT  "AT:"

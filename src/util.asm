@@ -252,15 +252,45 @@ sd_1:       push de
             pop  de
             jp   str_copy
 
-; копировать строку HL -> DE (с нулём); DE на выходе -> нуль
+; копировать строку HL -> DE (с нулём); слова словаря (байт >= 80h, TXT) раскрываются.
+; HL на выходе -> нуль источника, DE -> нуль приёмника
 str_copy:
             ld   a,(hl)
-            ld   (de),a
             or   a
+            jp   m,sc_w
+            ld   (de),a
             ret  z
             inc  hl
             inc  de
             jp   str_copy
+sc_w:       push hl
+            call dict_word
+sc_w1:      ld   a,(hl)
+            and  7Fh
+            ld   (de),a
+            inc  de
+            ld   a,(hl)
+            inc  hl
+            or   a
+            jp   p,sc_w1
+            pop  hl
+            inc  hl
+            jp   str_copy
+
+; A = байт-слово (>= 80h) -> HL = первый знак слова в dict (у последнего знака слова бит 7)
+dict_word:  ld   hl,dict
+            and  7Fh
+            ret  z
+            push bc
+            ld   b,a
+dw_1:       ld   a,(hl)
+            inc  hl
+            or   a
+            jp   p,dw_1
+            dec  b
+            jp   nz,dw_1
+            pop  bc
+            ret
 
 ; DE -> конец строки (на нуль)
 str_end:
@@ -270,15 +300,26 @@ str_end:
             inc  de
             jp   str_end
 
-; A = длина строки HL
+; A = длина строки HL (слова словаря раскрываются); HL на выходе -> нуль
 str_len:
             ld   b,0
 sl_1:       ld   a,(hl)
             or   a
+            jp   m,sl_w
             ld   a,b
             ret  z
             inc  hl
             inc  b
+            jp   sl_1
+sl_w:       push hl
+            call dict_word
+sl_w1:      inc  b
+            ld   a,(hl)
+            inc  hl
+            or   a
+            jp   p,sl_w1
+            pop  hl
+            inc  hl
             jp   sl_1
 
 ; сравнение строк HL и DE: Z = равны
