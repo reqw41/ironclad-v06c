@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Загрузочная дискета дисковой версии: build/ironclad.fdd (+ стенд картинок build/disk/pictest.fdd).
 
-    ./build.sh && python3 tools/build_fdd.py
+    tools/build_disk.sh               # собирает игру -DDISK и зовёт этот скрипт
+    python3 tools/build_fdd.py --layout   # только build/disk/layout.inc (до сборки игры)
 
 Образ — 800 КБ, геометрия MicroDOS Вектора: 80 дорожек x 2 стороны x 5 секторов x 1024 Б; в файле
 .fdd секторы идут подряд: (дорожка*2 + сторона)*5 + (сектор-1). Здесь «сектор в дорожке» 0..9 —
@@ -14,7 +15,7 @@ X ложится в $0080+X, вход — $0100 (БЛК+СБР). Грузим 1 
 
     0         загрузочный сектор: дескриптор + загрузчик (build/disk/boot.bin, до 896 Б)
     1..32     заставка 16 цв. — 32 КБ видеопамяти $8000..$FFFF (из образа картриджа)
-    33..64    игра — образ $0100.. из build/ironclad.rom (под неё всегда 32 сектора)
+    33..64    игра — образ $0100.. дисковой версии build/disk/game.rom (под неё всегда 32 сектора)
     65..96    титул 16 цв.     (build/disk/title.vram, tools/mkdisk.py)
     97..128   победа 16 цв.    (victory.vram)
     129..160  поражение 16 цв. (defeat.vram)
@@ -52,27 +53,41 @@ def label(sld, name):
     sys.exit('!! нет метки %s в %s' % (name, sld))
 
 
+def write_layout(n_game=32):
+    inc = ['; сгенерировано tools/build_fdd.py: позиции на дискете (дорожка*256 + сектор в дорожке 0..9)']
+    for nm, lba, n in LAYOUT:
+        if nm == 'GAME':
+            n = n_game
+        t, s = pos(lba)
+        inc.append('FD_%s equ %d*256+%d' % (nm, t, s))
+        inc.append('FD_%s_N equ %d' % (nm, n))
+    inc.append('FD_PIC_N equ 32')
+    txt = '\n'.join(inc) + '\n'
+    f = os.path.join(OUTD, 'layout.inc')
+    if not os.path.exists(f) or open(f).read() != txt:
+        open(f, 'w').write(txt)
+
+
 def main():
     os.makedirs(OUTD, exist_ok=True)
+    if '--layout' in sys.argv:
+        write_layout()
+        return
     # --- данные
     import mkdisk
     mkdisk.build()
-    rom = open(os.path.join(ROOT, 'build', 'ironclad.rom'), 'rb').read()
-    iend = label(os.path.join(ROOT, 'build', 'ironclad.sld'), 'image_end')
+    rom = open(os.path.join(OUTD, 'game.rom'), 'rb').read()
+    iend = label(os.path.join(OUTD, 'game.sld'), 'image_end')
     game_len = iend - 0x100
-    if len(rom) >= 0xFF00:
-        splash = rom[0x7F00:0xFF00]             # экран заставки из образа картриджа ($8000..)
-    else:
-        splash = open(os.path.join(ROOT, 'build', 'data', 'splash.bin'), 'rb').read()
-        print('!! build/ironclad.rom собран без заставки (NOSPLASH): игра её не покажет')
+    assert len(rom) == game_len, (len(rom), game_len)
+    splash = open(os.path.join(ROOT, 'build', 'data', 'splash.bin'), 'rb').read()
     assert len(splash) == 0x8000
     n_game = (game_len + SEC - 1) // SEC
-    assert n_game <= 32, n_game
     # последний сектор игры пишет байты до $0100 + n*1024; если это за $8000 — там должны
-    # лежать байты заставки (экран уже на месте), в образе 64 КБ они там и лежат
-    mem = bytearray(rom[:0xFF00].ljust(0xFF00, b'\0'))
-    if len(rom) < 0xFF00:
-        mem[0x7F00:0xFF00] = splash
+    # лежать байты заставки (экран уже на месте)
+    mem = bytearray(rom.ljust(0xFF00, b'\0'))
+    mem[0x7F00:0xFF00] = splash
+    assert n_game <= 32 and not any(rom[0x7F00:]), n_game
     game = bytes(mem[:n_game * SEC])
     over = 0x100 + n_game * SEC - 0x8000
     files = {
@@ -82,16 +97,9 @@ def main():
         'VICTORY': open(os.path.join(OUTD, 'victory.vram'), 'rb').read(),
         'DEFEAT': open(os.path.join(OUTD, 'defeat.vram'), 'rb').read(),
     }
-    # --- таблица размещения -> layout.inc
-    inc = ['; сгенерировано tools/build_fdd.py: позиции на дискете (дорожка*256 + сектор в дорожке 0..9)']
-    for nm, lba, n in LAYOUT:
-        if nm == 'GAME':
-            n = n_game
-        t, s = pos(lba)
-        inc.append('FD_%s equ %d*256+%d' % (nm, t, s))
-        inc.append('FD_%s_N equ %d' % (nm, n))
-    inc.append('FD_PIC_N equ 32')
-    open(os.path.join(OUTD, 'layout.inc'), 'w').write('\n'.join(inc) + '\n')
+    # --- таблица размещения -> layout.inc (для загрузчика — с настоящей длиной игры; игра берёт
+    # из неё только позиции картинок, они от длины не зависят)
+    write_layout(n_game)
     # --- загрузчик: обычный и стенд картинок
     boots = {}
     for tag, defs in (('boot', []), ('boot_pictest', ['-DPICTEST'])):

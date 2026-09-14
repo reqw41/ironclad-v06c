@@ -15,7 +15,7 @@
 //   eject          — вынуть дискету (проверка пути ошибки: NOT READY)
 //   cmp FILE ADDR [OFS [LEN]] — сверить память с ADDR с файлом (с байта OFS, LEN байт; по умолчанию весь)
 // Метки — из .sld: по умолчанию build/disk/boot.sld (или boot_pictest.sld для pictest.fdd) и
-// build/ironclad.sld; свой список — переменная VFDD_SLD=a.sld,b.sld. Метка модуля — res.fdd_read.
+// build/disk/game.sld (игра дисковой версии); свой список — переменная VFDD_SLD=a.sld,b.sld. Метка модуля — res.fdd_read.
 "use strict";
 const fs = require("fs"), vm = require("vm"), zlib = require("zlib"), path = require("path");
 const base = "/Users/boris/projects/vector06js";
@@ -23,7 +23,7 @@ const [FDD, SCRIPT] = process.argv.slice(2);
 if (!FDD) { console.error("usage: vfdd.js image.fdd 'script'"); process.exit(2); }
 const ROOT = path.dirname(__dirname);
 const slds = (process.env.VFDD_SLD ? process.env.VFDD_SLD.split(",") :
-  [path.join(ROOT, "build/disk", /pictest/.test(FDD) ? "boot_pictest.sld" : "boot.sld"), path.join(ROOT, "build/ironclad.sld")]);
+  [path.join(ROOT, "build/disk", /pictest/.test(FDD) ? "boot_pictest.sld" : "boot.sld"), path.join(ROOT, "build/disk/game.sld")]);
 const L = {};
 for (const f of slds) if (fs.existsSync(f)) for (const l of fs.readFileSync(f, "latin1").split("\n")) {
   const p = l.split("|"); if (p.length >= 8 && p[6] === "L") { const q = p[7].split(","); const n = (q[0] ? q[0] + "." : "") + q[1];
