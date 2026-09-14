@@ -541,15 +541,9 @@ L615:       CPV  bDP,1
             ZEROV bDP
             call page_show
 L617:       call L1473
-L620:       LDV  bCX                ; KX=GX+CX*16: KY=GY+CY*16: FL=0
-            ld   b,a
-            LDV  bCY
-            ld   c,a
-            call cell_xy
-            ld   a,b
-            STV  bKX
-            ld   a,c
-            STV  bKY
+L620:       ld   hl,bCX                 ; KX=GX+CX*16: KY=GY+CY*16: FL=0
+            ld   de,bKX
+            call cxy_pair
             ZEROV bFL
 L622:       call cur_show               ; PUT SPRITE 0,(KX,KY-1),11 на странице 0
 L630:       call L1410

@@ -94,7 +94,7 @@ bRY: ds 1
 bRH: ds 1
 bSY: ds 1
 bSX: ds 1
-            ASSERT bSX-bRW == 5 && bAY == bAX+1
+            ASSERT bSX-bRW == 5 && bAY == bAX+1 && bCY == bCX+1 && bDY == bDX+1 && bRY == bRX+1
 bCL: ds 1
 bDP: ds 1
 bKX: ds 1
@@ -123,6 +123,7 @@ bSH: ds 1
 bSD: ds 1
 bC:  ds 1       ; со знаком (1960: C=X-U1 бывает -1)
 bR:  ds 1
+            ASSERT bR == bC+1 && bKY == bKX+1
 bAP: ds 1
 bK:  ds 1
 bP:  ds 1

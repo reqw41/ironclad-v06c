@@ -25,15 +25,9 @@ w10cr:      LDV  bR
             jp   w10
 
 ; ---------------------------------------------------------------- 1105: клетка (C,R)
-L1105:      LDV  bC
-            ld   b,a
-            LDV  bR
-            ld   c,a
-            call cell_xy
-            ld   a,b
-            STV  bDX
-            ld   a,c
-            STV  bDY
+L1105:      ld   hl,bC                  ; DX, DY = пиксели клетки (C,R)
+            ld   de,bDX
+            call cxy_pair
 L1110:      CPV  bSD,1
             jp   z,L1130
 L1115:      ld   a,1                    ; вода, стр. 1
@@ -327,6 +321,16 @@ L1231:      INCV bP
             jp   c,L1208
 L1255:      ret
 
+; (DE), (DE+1) = x, y клетки ((HL), (HL+1)) — пары соседних переменных
+cxy_pair:   ld   b,(hl)
+            inc  hl
+            ld   c,(hl)
+            call cell_xy
+            ex   de,hl
+            ld   (hl),b
+            inc  hl
+            ld   (hl),c
+            ret
 ; LINE(190,C)-(255,E),A,BF — полоса панели флотов
 pfill:      ld   b,190
             ld   d,255
@@ -860,15 +864,9 @@ L1660:      LDV  bI
 L1662:      LDV  bRW                ; IF RW>0 THEN восстановить из «страницы 2»
             or   a
             call nz,gh_erase
-L1664:      LDV  bAX                ; RX=GX+AX*16: RY=GY+AY*16
-            ld   b,a
-            LDV  bAY
-            ld   c,a
-            call cell_xy
-            ld   a,b
-            STV  bRX
-            ld   a,c
-            STV  bRY
+L1664:      ld   hl,bAX                 ; RX=GX+AX*16: RY=GY+AY*16
+            ld   de,bRX
+            call cxy_pair
             LDV  bS                 ; RW=S*16: RH=16: SY=32: SX=0: IF OD=1 THEN RW=16: RH=S*16: SY=48
             add  a,a
             add  a,a
