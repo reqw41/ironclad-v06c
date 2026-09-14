@@ -58,10 +58,13 @@ function key(k, down) {
 }
 // ---- прогон
 let frames = 0, frc = 0, tacc = 0, steps = 0, hit = null;
+// VMARK=метка,метка — печатать кадр (с долями), когда исполняется метка (замер загрузки картинок)
+const vmark = {}; if (process.env.VMARK) for (const m of process.env.VMARK.split(",")) if (L[m] !== undefined) vmark[L[m]] = m;
 function frame(n, stopAt) {
   for (let f = 0; f < n; f++) {
     while (frc < 59904) {
       if (stopAt !== undefined && cpu.pc === stopAt) { hit = stopAt; return; }
+      if (vmark[cpu.pc] !== undefined) console.log(`кадр ${(frames + frc / 59904).toFixed(2)}: ${vmark[cpu.pc]}`);
       const c = (cpu.instruction(), cpu.vcycles); steps++; frc += c; tacc += c;
       if (tacc > 1) { const tn = tacc >> 1; tacc -= tn * 2; timer.Count(tn); }
       if (cpu.last_opcode === 0xd3) io.commit();
