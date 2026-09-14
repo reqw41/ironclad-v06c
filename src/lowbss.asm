@@ -64,9 +64,7 @@ mus_cnt:    ds 2
 mv_v:       ds 1
 ; zx0
 zx_bits:    ds 1
-zx_bt:      ds 1
 zx_off:     ds 2
-zx_lsb:     ds 1
 ; util
 rnd_seed:   ds 2
 rn_n:       ds 1
