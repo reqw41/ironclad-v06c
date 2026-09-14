@@ -14,10 +14,7 @@ col2bits:
             push hl
             ld   hl,(cur_cmap)
             rst  00h
-            ld   a,(hl)
-            rrca
-            rrca
-            rrca
+            ld   a,(hl)                 ; таблица — уже слот<<5 (mkdata.py)
             pop  hl
             ret
 tmask       equ 0040h           ; маска прозрачности тайла: 32 байта в свободной памяти под $0100
