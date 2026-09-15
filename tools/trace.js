@@ -122,7 +122,12 @@ const names = Object.keys(L).filter(n => /^(b[A-Z][A-Z0-9_]*|s[A-Z][A-Z0-9]?|ARR
 const ends = names.map((n, i) => (i + 1 < names.length ? L[names[i + 1]] : L.game_vars_end));
 // переменные-указатели на данные в ПЗУ сравниваются по содержимому (адреса сдвигаются вместе с кодом)
 const PTR1 = { sRN: 1, sBM: 1 }, PTRARR = { ARR_N: 12 };
-function cstr(p) { let t = ""; for (let k = 0; k < 40; k++) { const c = rd(p + k); if (!c) break; t += String.fromCharCode(c); } return t; }
+// строка в образе -> текст: слова словаря (байт >= 80h, TXT) раскрываются — сверка по тексту, а не по
+// байтам (у сборок разные словари)
+function dword(n) { let a = L.dict; while (n) { if (rd(a++) & 0x80) n--; } let t = "";
+  for (;;) { const b = rd(a++); t += String.fromCharCode(b & 0x7f); if (b & 0x80) return t; } }
+function cstr(p) { let t = ""; for (let k = 0; k < 40; k++) { const c = rd(p + k); if (!c) break;
+  t += c >= 0x80 && L.dict !== undefined ? dword(c & 0x7f) : String.fromCharCode(c); } return t; }
 function snapVars() { const o = {}; names.forEach((n, i) => {
   if (n === "bRT") { o[n] = cstr(rw(rw(L.bRT))); return; }                 // запись таблицы правил -> имя набора
   if (PTR1[n]) { o[n] = cstr(rw(L[n])); return; }
@@ -143,8 +148,12 @@ function inGetkey() { const p = ipc(); return p >= L.getkey && p < L.getkey + 12
 // K$ ещё прежний — там не записывать
 function inPoll() { const p = ipc(); return p >= L.L1416 && p < L.L1425; }
 const trace = []; let seeded = false, shots = 0, step = 0, endScreens = 0, script = [];
-// клавиши русской версии: А — авторасстановка (было Z), Б — буй (X), М — меню (Q); коды латинские
-if (R === 3) script = ["r", "right", "down", "space", "u", "slash", "space", "tab", "tab", "a"];   // расстановка вручную, отмена, помощь, TAB
+// клавиши игры — из её таблицы t1444 (код, действие): у русской сборки А/Б/М, у английской Z/X/Q
+function gameKeys() { const k = { auto: "a", buoy: "b", menu: "m" }, A = { 4: "auto", 7: "buoy", 3: "menu" };
+  if (L.t1444 !== undefined) for (let p = L.t1444; rd(p); p += 2) { const n = A[rd(p + 1)]; if (n) k[n] = String.fromCharCode(rd(p)).toLowerCase(); }
+  return k; }
+const KEYS = gameKeys();
+if (R === 3) script = ["r", "right", "down", "space", "u", "slash", "space", "tab", "tab", KEYS.auto];   // расстановка вручную, отмена, помощь, TAB
 let menuDone = false, finished = false, guard = 0;
 // семена: ровно при первом исполнении L195 после меню (после L172 — зерно от таймера, до первого
 // RND партии) — подменить на постоянные: ГСЧ игры и движка (vSEED; иначе движок берёт семя из
@@ -175,8 +184,8 @@ while (!finished && frames < 400000 && guard++ < 2000000) {
     const cx = rd(L.bCX), cy = rd(L.bCY);
     if (tc < 0) k = "space";
     else if (cx < tc) k = "right"; else if (cx > tc) k = "left"; else if (cy < tr2) k = "down"; else if (cy > tr2) k = "up";
-    else { shots++; k = (shots % 11 === 5 && !rec.didx) ? "b" : "space"; if (shots % 13 === 7) k = "tab"; }
-  } else if (inPoll()) k = "a";
+    else { shots++; k = (shots % 11 === 5 && !rec.didx) ? KEYS.buoy : "space"; if (shots % 13 === 7) k = "tab"; }
+  } else if (inPoll()) k = KEYS.auto;
   else { const ra = nm(retaddr()); if (ra.startsWith("L226")) { endScreens++; k = endScreens % 4 === 0 ? "space" : "tab"; } else k = "space"; }
   rec.key = k; trace.push(rec); tap(k);
 }

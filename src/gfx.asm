@@ -376,18 +376,22 @@ pc_c:       ld   l,a
             ld   de,gc_rows
             ld   b,7
 pc_sh:      ld   a,(gfx_bold)           ; жирно: строка | (строка>>1 & ~строка<<1) — штрих 2 точки,
-            or   a                      ; но щель в 1 точку не заливается (Ш, Ж, Ф, Ю, Ы читаются)
-            ld   a,(hl)
-            jp   z,pc_nb
+            or   a                      ; но щель в 1 точку не заливается (Ш, Ж, Ф, Ю, Ы читаются);
+            ld   a,(hl)                 ; английская — как оригинал: строка | строка>>1 (PRINT дважды
+            jp   z,pc_nb                ; со сдвигом на точку)
             push de
             ld   d,a
+            IFNDEF LANG_EN
             add  a,a
             cpl
             ld   e,a
             ld   a,d
+            ENDIF
             or   a
             rra
+            IFNDEF LANG_EN
             and  e
+            ENDIF
             or   d
             pop  de
 pc_nb:      push hl

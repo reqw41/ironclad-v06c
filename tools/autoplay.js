@@ -108,6 +108,11 @@ const rw = a => rd(a) | (rd(a + 1) << 8);
 const need = ["getkey", "L1415a", "S3540", "bFB", "bCX", "bCY", "ARR_CM", "kq_head", "kq_tail", "L2260", "L3857", "game_run"];
 for (const n of need) if (L[n] === undefined) throw new Error("нет метки " + n);
 let phase = "menu", rules = +(RULES || 3), shots = 0, games = 0, ends = 0, lastShotFrame = 0, snap = 0;
+// клавиши игры — из её таблицы t1444 (код, действие): у русской сборки А/Б/М, у английской Z/X/Q
+function gameKeys() { const k = { auto: "a", buoy: "b", menu: "m" }, A = { 4: "auto", 7: "buoy", 3: "menu" };
+  if (L.t1444 !== undefined) for (let p = L.t1444; rd(p); p += 2) { const n = A[rd(p + 1)]; if (n) k[n] = String.fromCharCode(rd(p)).toLowerCase(); }
+  return k; }
+const KEYS = gameKeys();
 function tap(k) { key(k, true); frame(2); key(k, false); frame(2); }
 function qEmpty() { return rd(L.kq_head) === rd(L.kq_tail); }
 function ipc() { return cpu.pc === 0x38 ? rw(cpu.sp) : cpu.pc; }   // прерванный адрес
@@ -142,7 +147,7 @@ while (frames < maxf) {
   } else {
     // расстановка (L1410 при FB=0 внутри 305) — Z; остальные ожидания — пробел
     const pc = ipc();
-    if (pc >= L.L1415a && pc < L.L1415a + 40 && rd(L.bSH) >= 1 && rd(L.bNP) < rd(L.bNK) && rd(L.bTE) === 0 && rd(L.bTP) === 0 && shots === 0) { tap("a"); }   // А — авторасстановка (было Z)
+    if (pc >= L.L1415a && pc < L.L1415a + 40 && rd(L.bSH) >= 1 && rd(L.bNP) < rd(L.bNK) && rd(L.bTE) === 0 && rd(L.bTP) === 0 && shots === 0) { tap(KEYS.auto); }   // авторасстановка: А / Z
     else { if (ipc() >= L.getkey && ipc() < L.getkey + 12) { const ret = retaddr(); if (ret >= L.L2260 && ret < L.L2260 + 8) { ends++; shot(out + "/end" + ends + ".png"); } }
       tap("space"); }
   }
