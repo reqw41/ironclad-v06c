@@ -5,6 +5,47 @@
 ; ============================================================================
             DEVICE NOSLOT64K
             include "macros.asm"
+            include "lang.asm"
+; Файлы сборки: издание (картридж / -DDISK) x язык (русский / -DLANG_EN, tools/build_all.sh).
+; Данные языка — build/data/ или build/data/en/ (tools/mkdata.py); выход — build/ (картридж),
+; build/disk/ (дискета) и build/en/, build/disk_en/ для английской сборки.
+            IFDEF LANG_EN
+            DEFINE F_FONT_INC "../build/data/en/font.inc"
+            DEFINE F_DICT_INC "../build/data/en/dict.inc"
+            DEFINE F_FONT_ZX0 "../build/data/en/font.zx0"
+            IFDEF DISK
+            DEFINE F_OVB_MENU "build/disk_en/ovl_menu.bin"
+            DEFINE F_OVB_END "build/disk_en/ovl_end.bin"
+            DEFINE F_OVL_MENU "../build/disk_en/ovl_menu.zx0"
+            DEFINE F_OVL_END "../build/disk_en/ovl_end.zx0"
+            DEFINE F_LAYOUT "../build/disk_en/layout.inc"
+            DEFINE F_IMAGE "build/disk_en/game.rom"
+            ELSE
+            DEFINE F_OVB_MENU "build/en/ovl_menu.bin"
+            DEFINE F_OVB_END "build/en/ovl_end.bin"
+            DEFINE F_OVL_MENU "../build/en/ovl_menu.zx0"
+            DEFINE F_OVL_END "../build/en/ovl_end.zx0"
+            DEFINE F_IMAGE "build/ironclad_en.rom"
+            ENDIF
+            ELSE
+            DEFINE F_FONT_INC "../build/data/font.inc"
+            DEFINE F_DICT_INC "../build/data/dict.inc"
+            DEFINE F_FONT_ZX0 "../build/data/font.zx0"
+            IFDEF DISK
+            DEFINE F_OVB_MENU "build/disk/ovl_menu.bin"
+            DEFINE F_OVB_END "build/disk/ovl_end.bin"
+            DEFINE F_OVL_MENU "../build/disk/ovl_menu.zx0"
+            DEFINE F_OVL_END "../build/disk/ovl_end.zx0"
+            DEFINE F_LAYOUT "../build/disk/layout.inc"
+            DEFINE F_IMAGE "build/disk/game.rom"
+            ELSE
+            DEFINE F_OVB_MENU "build/ovl_menu.bin"
+            DEFINE F_OVB_END "build/ovl_end.bin"
+            DEFINE F_OVL_MENU "../build/ovl_menu.zx0"
+            DEFINE F_OVL_END "../build/ovl_end.zx0"
+            DEFINE F_IMAGE "build/ironclad.rom"
+            ENDIF
+            ENDIF
             IFDEF NOIMG
             DEFINE NOTITLE
             ENDIF
@@ -137,15 +178,15 @@ add_a_hl    equ 2
             ELSE
             include "../build/data/palettes.inc"
             ENDIF
-            include "../build/data/font.inc"
-            include "../build/data/dict.inc"
+            include F_FONT_INC
+            include F_DICT_INC
             include "../build/data/tiles.inc"
             IFDEF DISK
 tiles_zx0:  incbin "../build/disk/tiles16.zx0"
             ELSE
 tiles_zx0:  incbin "../build/data/tiles.zx0"
             ENDIF
-font_zx0:   incbin "../build/data/font.zx0"
+font_zx0:   incbin F_FONT_ZX0
             IFNDEF NOIMG
             IFNDEF DISK
             IFNDEF NOTITLE
@@ -157,13 +198,8 @@ img_victory: incbin "../build/data/victory.zx0"
             ENDIF
             IFNDEF LIBTEST
             IFNDEF OVL_PASS1
-            IFDEF DISK
-ovl_menu_zx0: incbin "../build/disk/ovl_menu.zx0"
-ovl_end_zx0: incbin "../build/disk/ovl_end.zx0"
-            ELSE
-ovl_menu_zx0: incbin "../build/ovl_menu.zx0"   ; оверлеи (последними: адреса выше не зависят от их размеров)
-ovl_end_zx0: incbin "../build/ovl_end.zx0"
-            ENDIF
+ovl_menu_zx0: incbin F_OVL_MENU            ; оверлеи (последними: адреса выше не зависят от их размеров)
+ovl_end_zx0: incbin F_OVL_END
             ENDIF
             ENDIF
 
@@ -196,27 +232,19 @@ ovl_menu:
             include "setup.asm"
 ovl_menu_end:
             ASSERT ovl_menu_end <= OVL_END
-            IFDEF DISK
-            SAVEBIN "build/disk/ovl_menu.bin", ovl_menu, ovl_menu_end-ovl_menu
-            ELSE
-            SAVEBIN "build/ovl_menu.bin", ovl_menu, ovl_menu_end-ovl_menu
-            ENDIF
+            SAVEBIN F_OVB_MENU, ovl_menu, ovl_menu_end-ovl_menu
             ; оверлей 2: помощь и конец партии — за оверлеем меню в том же буфере
             org  ovl_menu_end
 ovl_end:
             include "ovl_end.asm"
 ovl_end_end:
             ASSERT ovl_end_end <= OVL_END
-            IFDEF DISK
-            SAVEBIN "build/disk/ovl_end.bin", ovl_end, ovl_end_end-ovl_end
-            ELSE
-            SAVEBIN "build/ovl_end.bin", ovl_end, ovl_end_end-ovl_end
-            ENDIF
+            SAVEBIN F_OVB_END, ovl_end, ovl_end_end-ovl_end
             ENDIF
 
             IFDEF DISK
             ; дисковая версия: только образ $0100..image_end (заставку кладёт на экран загрузчик)
-            SAVEBIN "build/disk/game.rom", 100h, image_end-100h
+            SAVEBIN F_IMAGE, 100h, image_end-100h
             DISPLAY "образ: ", /D, image_end-100h, " Б; BSS: ", /D, bss_end-bss_start, " Б (", /H, bss_start, "..", /H, bss_end, "); стек 256 Б; свободно: ", /D, DISK_BSS-image_end, " + ", /D, STACK_TOP-256-bss_end
             ELSE
             IFNDEF NOSPLASH
@@ -224,9 +252,9 @@ ovl_end_end:
             ; (записывается поверх нулей BSS в памяти ассемблера — в образ BSS не попадает)
             org  8000h
             incbin "../build/data/splash.bin"
-            SAVEBIN "build/ironclad.rom", 100h, 0FF00h
+            SAVEBIN F_IMAGE, 100h, 0FF00h
             ELSE
-            SAVEBIN "build/ironclad.rom", 100h, image_end-100h
+            SAVEBIN F_IMAGE, 100h, image_end-100h
             ENDIF
             DISPLAY "образ: ", /D, image_end-100h, " Б (свободно до $8000: ", /D, 8000h-image_end, "); BSS: ", /D, bss_end-bss_start, " Б (свободно в $E000: ", /D, 10000h-bss_end, ")"
             ENDIF

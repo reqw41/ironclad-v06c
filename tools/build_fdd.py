@@ -3,6 +3,8 @@
 
     tools/build_disk.sh               # собирает игру -DDISK и зовёт этот скрипт
     python3 tools/build_fdd.py --layout   # только build/disk/layout.inc (до сборки игры)
+    --en — английская дискета build/ironclad_en.fdd: игра, загрузчик и layout.inc — в build/disk_en/,
+           картинки — те же, из build/disk/ (стенд картинок pictest.fdd — только у русской)
 
 Образ — 800 КБ, геометрия MicroDOS Вектора: 80 дорожек x 2 стороны x 5 секторов x 1024 Б; в файле
 .fdd секторы идут подряд: (дорожка*2 + сторона)*5 + (сектор-1). Здесь «сектор в дорожке» 0..9 —
@@ -29,7 +31,10 @@ ROOT = os.path.dirname(HERE)
 sys.path.insert(0, HERE)
 SEC = 1024
 DISK = 80 * 2 * 5 * SEC
-OUTD = os.path.join(ROOT, 'build', 'disk')
+OUTD = os.path.join(ROOT, 'build', 'disk')      # картинки (от языка не зависят), русская игра
+EN = '--en' in sys.argv                         # английская дискета: игра, загрузчик, раскладка —
+GAMED = os.path.join(ROOT, 'build', 'disk_en' if EN else 'disk')   # в build/disk_en/
+FDD_OUT = os.path.join(ROOT, 'build', 'ironclad_en.fdd' if EN else 'ironclad.fdd')
 SJASM = os.path.join(ROOT, 'tools', 'sjasmplus')
 
 LAYOUT = [                      # имя, первый сектор, секторов
@@ -63,21 +68,22 @@ def write_layout(n_game=32):
         inc.append('FD_%s_N equ %d' % (nm, n))
     inc.append('FD_PIC_N equ 32')
     txt = '\n'.join(inc) + '\n'
-    f = os.path.join(OUTD, 'layout.inc')
+    f = os.path.join(GAMED, 'layout.inc')
     if not os.path.exists(f) or open(f).read() != txt:
         open(f, 'w').write(txt)
 
 
 def main():
     os.makedirs(OUTD, exist_ok=True)
+    os.makedirs(GAMED, exist_ok=True)
     if '--layout' in sys.argv:
         write_layout()
         return
     # --- данные
     import mkdisk
     mkdisk.build()
-    rom = open(os.path.join(OUTD, 'game.rom'), 'rb').read()
-    iend = label(os.path.join(OUTD, 'game.sld'), 'image_end')
+    rom = open(os.path.join(GAMED, 'game.rom'), 'rb').read()
+    iend = label(os.path.join(GAMED, 'game.sld'), 'image_end')
     game_len = iend - 0x100
     assert len(rom) == game_len, (len(rom), game_len)
     splash = open(os.path.join(ROOT, 'build', 'data', 'splash.bin'), 'rb').read()
@@ -102,15 +108,17 @@ def main():
     write_layout(n_game)
     # --- загрузчик: обычный и стенд картинок
     boots = {}
-    for tag, defs in (('boot', []), ('boot_pictest', ['-DPICTEST'])):
+    gd = os.path.relpath(GAMED, ROOT)
+    for tag, defs in ((('boot', ['-DLANG_EN']),) if EN else (('boot', []), ('boot_pictest', ['-DPICTEST']))):
         r = subprocess.run([SJASM, '--i8080', '--fullpath'] + defs +
-                           ['--sld=build/disk/%s.sld' % tag, '--lst=build/disk/%s.lst' % tag, 'src/boot.asm'],
+                           ['--sld=%s/%s.sld' % (gd if tag == 'boot' else 'build/disk', tag),
+                            '--lst=%s/%s.lst' % (gd if tag == 'boot' else 'build/disk', tag), 'src/boot.asm'],
                            cwd=ROOT, capture_output=True, text=True)
         msg = [l for l in (r.stdout + r.stderr).splitlines() if 'загрузчик' in l or 'rror' in l]
         if r.returncode:
             sys.exit('\n'.join(msg) or r.stdout + r.stderr)
         print(tag + ':', ' '.join(m.strip('> ') for m in msg if 'загрузчик' in m))
-        boots[tag] = open(os.path.join(OUTD, tag + '.bin'), 'rb').read()
+        boots[tag] = open(os.path.join(GAMED if tag == 'boot' else OUTD, tag + '.bin'), 'rb').read()
         assert len(boots[tag]) <= SEC - 0x80
     # --- образы
     def image(bootbin, out):
@@ -133,10 +141,11 @@ def main():
             img[lba * SEC:lba * SEC + len(d)] = d
         open(out, 'wb').write(img)
         return img
-    image(boots['boot'], os.path.join(ROOT, 'build', 'ironclad.fdd'))
-    image(boots['boot_pictest'], os.path.join(OUTD, 'pictest.fdd'))
+    image(boots['boot'], FDD_OUT)
+    if not EN:
+        image(boots['boot_pictest'], os.path.join(OUTD, 'pictest.fdd'))
     # --- отчёт
-    print('дискета: build/ironclad.fdd (%d Б); стенд картинок: build/disk/pictest.fdd' % DISK)
+    print('дискета: %s (%d Б)%s' % (os.path.relpath(FDD_OUT, ROOT), DISK, '' if EN else '; стенд картинок: build/disk/pictest.fdd'))
     print('  %-8s %6s %8s  %s' % ('файл', 'сектор', 'байт', 'дорожка/сектор (начало..конец)'))
     print('  %-8s %6d %8d  0/0' % ('boot', 0, len(boots['boot'])))
     for nm, lba, n in LAYOUT:

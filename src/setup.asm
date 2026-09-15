@@ -69,10 +69,10 @@ S3406f:
             push af
             ld   a,PC
             ld   (gfx_fg),a
-            ld   bc,20*256+216
+            ld   bc,X_AUTHOR*256+216
             call gfx_pset               ; (y >= 212 — точку не ставит, только курсор)
             call putsi
-            TXT  "ИГРА МЕХМЕТА БЕЛГИНА, "
+            TXT  "ИГРА МЕХМЕТА БЕЛГИНА, ","A GAME BY MEHMET BELGIN  "
             call putsi
             include "../build/data/version.inc"
             pop  af
@@ -156,7 +156,7 @@ S3520:      ld   bc,34*256+150
             call gfx_box
             ld   hl,s_q                 ; «?: ПРАВИЛА» по центру окна (выхода в BASIC у Вектора нет)
             ld   de,s_rules
-            ld   bc,96*256+198
+            ld   bc,X_QRULES*256+198
             call S3512
             ; fallthrough
 ; 3526: строки RULESET / MATCH
@@ -480,7 +480,7 @@ S3708a:     push bc
             pop  bc
             dec  b
             jp   nz,S3708a
-S3720:      ld   bc,44*256+196
+S3720:      ld   bc,X_PRESSKEY*256+196
             ld   a,PK
             call gfx_pset
             ld   hl,s_press_key_back
@@ -523,22 +523,22 @@ rules_tab:  dw rs_salvo
             dw rs_anka
             db 0,1,1,0,0,0,0
             dw rs_1p,rs_ms,rs_n
-rs_salvo:   TXT  "ЗАЛП"
-rs_salvop:  TXT  "ЗАЛП ПЛЮС"
-rs_barrage: TXT  "ШКВАЛ"
-rs_classic: TXT  "КЛАССИКА"
-rs_pursuit: TXT  "ПОГОНЯ"
-rs_stealth: TXT  "СКРЫТНО"
-rs_anka:    TXT  "АНКА (ДЕТИ)"
-rs_3:       TXT  "3"
-rs_1:       TXT  "1"
-rs_1p:      TXT  "1+"
-rs_1ship:   TXT  "1/КОР"
-rs_cs:      TXT  "К/П"
-rs_ms:      TXT  "Р/П"
-rs_m:       TXT  "Р"
-rs_n:       TXT  "Н"
-rs_y:       TXT  "Д"
+rs_salvo:   TXT  "ЗАЛП","SALVO"
+rs_salvop:  TXT  "ЗАЛП ПЛЮС","SALVO PLUS"
+rs_barrage: TXT  "ШКВАЛ","BARRAGE"
+rs_classic: TXT  "КЛАССИКА","CLASSIC"
+rs_pursuit: TXT  "ПОГОНЯ","PURSUIT"
+rs_stealth: TXT  "СКРЫТНО","STEALTH"
+rs_anka:    TXT  "АНКА (ДЕТИ)","ANKA (KIDS)"
+rs_3:       TXN  "3"
+rs_1:       TXN  "1"
+rs_1p:      TXN  "1+"
+rs_1ship:   TXT  "1/КОР","1/SHIP"
+rs_cs:      TXT  "К/П","C/S"
+rs_ms:      TXT  "Р/П","M/S"
+rs_m:       TXT  "Р","M"
+rs_n:       TXT  "Н","N"
+rs_y:       TXT  "Д","Y"
 ; 3606..3612
 match_tab:  db 1,0
             dw sm_single
@@ -548,34 +548,34 @@ match_tab:  db 1,0
             dw sm_bo5
             db 7,1
             dw sm_bo7
-sm_single:  TXT  "ОДНА ИГРА"
-sm_bo3:     TXT  "ИЗ 3 ПАРТИЙ"
-sm_bo5:     TXT  "ИЗ 5 ПАРТИЙ"
-sm_bo7:     TXT  "ИЗ 7 ПАРТИЙ"
+sm_single:  TXT  "ОДНА ИГРА","SINGLE GAME"
+sm_bo3:     TXT  "ИЗ 3 ПАРТИЙ","BEST OF 3"
+sm_bo5:     TXT  "ИЗ 5 ПАРТИЙ","BEST OF 5"
+sm_bo7:     TXT  "ИЗ 7 ПАРТИЙ","BEST OF 7"
 ; 3700..3702: заголовки таблицы (x, y, текст)
-rules_hdr:  db   100,12
-            TXT  "ПРАВИЛА"
+rules_hdr:  db   X_RULES_HDR,12
+            TXT  "ПРАВИЛА","RULES"
             db   8,28
-            TXT  "ВАРИАНТ"
+            TXT  "ВАРИАНТ","RULESET"
             db   104,28
-            TXT  "ВЫСТР"
+            TXT  "ВЫСТР","SHOT"
             db   168,28
-            TXT  "ОТЧЕТ"
+            TXT  "ОТЧЕТ","REPORT"
             db   228,28
-            TXT  "С"
+            TXT  "С","T"
             db 0
 ; 9130
 rules_legend:
-            TXT  "К = ПОПАДАНИЯ ПО КОР. ЗА ЗАЛП"     ; строка — не длиннее 30 знаков (рамка)
-            TXT  "Р = РЕЗУЛЬТАТ КАЖДОГО ВЫСТРЕЛА"
-            TXT  "П = СООБЩАЮТ О ПОТОПЛЕНИИ"
-            TXT  "1/КОР = ПО ВЫСТРЕЛУ С КОРАБЛЯ"
-            TXT  "+ = ЗА ПОПАДАНИЕ ЕЩЕ ВЫСТРЕЛ"
-            TXT  "С = КОРАБЛИ МОГУТ КАСАТЬСЯ"
-s_ruleset:  TXT  "ВАРИАНТ"
-s_match:    TXT  "МАТЧ"
-s_q:        TXT  "?"
-s_rules:    TXT  "ПРАВИЛА"
+            TXT  "К = ПОПАДАНИЯ ПО КОР. ЗА ЗАЛП","C = HITS PER SHIP PER SALVO"     ; строка — не длиннее 30 знаков (рамка)
+            TXT  "Р = РЕЗУЛЬТАТ КАЖДОГО ВЫСТРЕЛА","M = HIT OR MISS PER SHOT"
+            TXT  "П = СООБЩАЮТ О ПОТОПЛЕНИИ","S = SINKINGS ANNOUNCED"
+            TXT  "1/КОР = ПО ВЫСТРЕЛУ С КОРАБЛЯ","1/SHIP = ONE PER SHIP AFLOAT"
+            TXT  "+ = ЗА ПОПАДАНИЕ ЕЩЕ ВЫСТРЕЛ","+ = EXTRA SHOT AFTER A HIT"
+            TXT  "С = КОРАБЛИ МОГУТ КАСАТЬСЯ","T = SHIPS MAY TOUCH"
+s_ruleset:  TXT  "ВАРИАНТ","RULESET"
+s_match:    TXT  "МАТЧ","MATCH"
+s_q:        TXN  "?"
+s_rules:    TXT  "ПРАВИЛА","RULES"
 
 
 ; переменные настроек в порядке cfg_TU..cfg_SB (161/162)

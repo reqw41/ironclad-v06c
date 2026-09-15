@@ -17,12 +17,12 @@ o2_help:    SETV pg_vis,2
             ld   de,249*256+205
             ld   a,3
             call gfx_box
-            ld   bc,100*256+14
+            ld   bc,X_KEYS_HDR*256+14
             ld   a,15
             call gfx_pset
             call fg15
             call putsi
-            TXT  "КЛАВИШИ"
+            TXT  "КЛАВИШИ","KEYS"
 L3901:      SETV hk_y,36  ; колонка 110 (в оригинале — в CX, см. docs)
             ld   hl,keys_tab
 L3903:      ld   a,(hl)
@@ -34,7 +34,7 @@ L3905:      push hl
             add  a,a
             add  a,a
             ld   b,a
-            ld   a,94
+            ld   a,X_HELP_KEY
             sub  b
             ld   b,a
             LDV  hk_y
@@ -49,7 +49,7 @@ L3905:      push hl
             call gfx_putc
             LDV  hk_y
             ld   c,a
-            ld   b,110
+            ld   b,X_HELP_TXT
             ld   a,5
             call gfx_pset
             pop  hl
@@ -59,7 +59,7 @@ L3905:      push hl
             add  a,18
             STV  hk_y
             jp   L3903
-L3910:      ld   bc,44*256+190
+L3910:      ld   bc,X_PRESSKEY*256+190
             ld   a,11
             call gfx_pset
             ld   hl,s_press_key_back
@@ -69,23 +69,23 @@ L3920:      call getkey
             ret
 
 ; 9070: подписи клавиш (пары строк, "!" — конец)
-keys_tab:   TXT  "СТРЕЛКИ"
-            TXT  "КУРСОР"
-            TXT  "ПРОБЕЛ"
-            TXT  "ОГОНЬ / ПОСТАВИТЬ"
-            TXT  "Р"
-            TXT  "РАЗВЕРНУТЬ"
-            TXT  "У"
-            TXT  "УБРАТЬ ПОСЛЕДНИЙ"
-            TXT  "А"
-            TXT  "АВТОРАССТАНОВКА"
-            TXT  "Б"
-            TXT  "БУЙ (МЕТКА)"
-            TXT  "ТАБ"
-            TXT  "ДРУГОЕ ПОЛЕ"
-            TXT  "М"
-            TXT  "МЕНЮ (ДВАЖДЫ)"
-            TXT  "!"
+keys_tab:   TXT  "СТРЕЛКИ","ARROWS"
+            TXT  "КУРСОР","MOVE"
+            TXT  "ПРОБЕЛ","SPACE"
+            TXT  "ОГОНЬ / ПОСТАВИТЬ","FIRE OR DROP"
+            TXT  "Р","R"
+            TXT  "РАЗВЕРНУТЬ","TURN SHIP"
+            TXT  "У","U"
+            TXT  "УБРАТЬ ПОСЛЕДНИЙ","UNDO"
+            TXT  "А","Z"
+            TXT  "АВТОРАССТАНОВКА","AUTO-PLACE"
+            TXT  "Б","X"
+            TXT  "БУЙ (МЕТКА)","BUOY MARK"
+            TXT  "ТАБ","TAB"
+            TXT  "ДРУГОЕ ПОЛЕ","SWITCH VIEW"
+            TXT  "М","Q"
+            TXT  "МЕНЮ (ДВАЖДЫ)","MENU (TWICE)"
+            TXN  "!"
 
 ; ---------------------------------------------------------------- 2235..2270: конец партии
 o2_L2235:
@@ -320,18 +320,18 @@ ecl_1:      ld   (gfx_pitch),a
             inc  hl
             ex   de,hl
             ret
-cap_victory: db   68,168,1,1              ; по центру: x = (256 - 8*длина)/2
-             TXT  "ПОБЕДА ЗА ВАМИ!"
-cap_defeat:  db   52,168,1,1
-             TXT  "ВАШ ФЛОТ УНИЧТОЖЕН."
-cap_keys:    db   77,186,2,0              ; клавиши кончаются на x=101, пояснения с 107 (блок по центру)
-             TXT  "ТАБ:"
-             db   107,186,7,0
-             TXT  "ПОСМОТРЕТЬ ПОЛЯ"
-             db   59,197,2,0
-             TXT  "ПРОБЕЛ:"
-             db   107,197,7,0
-             TXT  "ДАЛЬШЕ"
+cap_victory: db   X_CAP_WIN,168,1,1              ; по центру: x = (256 - 8*длина)/2
+             TXT  "ПОБЕДА ЗА ВАМИ!","YOU ARE VICTORIOUS!"
+cap_defeat:  db   X_CAP_LOSE,168,1,1
+             TXT  "ВАШ ФЛОТ УНИЧТОЖЕН.","YOUR FLEET HAS BEEN DESTROYED."
+cap_keys:    db   X_CAP_TAB,186,2,0              ; клавиши кончаются на x=101, пояснения с 107 (блок по центру)
+             TXT  "ТАБ:","TAB:"
+             db   X_CAP_TXT,186,7,0
+             TXT  "ПОСМОТРЕТЬ ПОЛЯ","REVIEW THE BOARDS"
+             db   X_CAP_SPC,197,2,0
+             TXT  "ПРОБЕЛ:","SPACE:"
+             db   X_CAP_TXT,197,7,0
+             TXT  "ДАЛЬШЕ","CONTINUE"
              db 0
 
 ; поля экрана (строки памяти 0..21 и 234..255) — цвет слота A во всех плоскостях (данные

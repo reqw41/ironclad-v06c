@@ -200,69 +200,108 @@ def build_tiles():
     png('tiles_check', sheet, rgb_of(PAL_GAME, 1), 3)
     return len(data), len(gl)
 
-# Внутренняя кодировка текста (игра только на русском): 20h..40h — как ASCII (пробел, цифры,
-# знаки), буквы А..Я без Ё и Ъ — с 41h по алфавиту, Й — последней (5Fh): тогда 41h+i для
-# i = 0..9 — А Б В Г Д Е Ж З И К (столбцы русского морского боя), а буквы номеров залпов
-# CHR$(64+M) — А, Б, В ... Исходники пишут строки в UTF-8, в байты их переводит Lua-функция
-# U() в src/macros.asm по таблице ENC из build/data/dict.lua (её пишет build_text). Латиница
-# в строках — ошибка сборки. Ё пишется как Е.
+# Язык выбирается при сборке (без флага — русский, -DLANG_EN — английский). Каждая переводимая
+# строка стоит в исходнике парой: TXT "РУССКАЯ","English" (ABR — то же для сокращений имён);
+# TXN "..." — строка без букв, одна на оба языка. Здесь из пар берётся строка своего языка:
+# словарь, шрифт и таблица lc_map строятся отдельно для каждого языка — русские в build/data/,
+# английские в build/data/en/ (dict.lua, dict.inc, font.inc, font.zx0).
+#
+# Русская кодировка — внутренняя кодировка шрифта: 20h..40h — как ASCII (пробел, цифры, знаки),
+# буквы А..Я без Ё и Ъ — с 41h по алфавиту, Й — последней (5Fh): тогда 41h+i для i = 0..9 —
+# А Б В Г Д Е Ж З И К (столбцы русского морского боя), а буквы номеров залпов CHR$(64+M) — А, Б,
+# В ... Строки в UTF-8 переводит в байты Lua-функция U() в src/macros.asm по таблице ENC из
+# build/data/dict.lua (её пишет build_text). Латиница в русской строке — ошибка сборки. Ё = Е.
+# Английская — ASCII, как в оригинале: строчные (коды 60h..7Fh) рисуются из свободных ячеек шрифта
+# по таблице lc_map (font.inc английской сборки); кириллица в английской строке — ошибка сборки.
 # Шрифт: 64 ячейки на коды 20h..5Fh (ячейка = код-20h), по 7 строк (8-ю gfx_putc кладёт нулём);
 # сжат ZX0 (font.zx0), распаковывается на старте в font_data (BSS).
+LANGS = ('ru', 'en')
+LDIR = {'ru': '', 'en': 'en/'}          # подкаталог build/data для файлов языка
 RU = font5x7.RU_ORDER
 ENC = {c: 0x41 + i for i, c in enumerate(RU)}
 ENC['Ё'] = ENC['Е']
 DEC = {v: k for k, v in ENC.items() if k != 'Ё'}
-def enc(s):
+def enc(s, lang='ru'):
     out = []
     for ch in s:
-        if ch in ENC: out.append(ENC[ch])
+        if lang == 'en':
+            if 32 <= ord(ch) < 128: out.append(ord(ch))
+            else: raise ValueError('знак вне шрифта (англ.): %r в строке %r' % (ch, s))
+        elif ch in ENC: out.append(ENC[ch])
         elif 32 <= ord(ch) <= 0x40: out.append(ord(ch))
         else: raise ValueError('знак вне шрифта: %r в строке %r' % (ch, s))
     return ''.join(map(chr, out))
 # знаки, что строятся счётом: цифры, знак числа, разделители, все буквы (столбцы, номера залпов)
-FONT_DYN = set(' -/,():0123456789') | set(RU)
-TXT_RE = r'^\s*(?:[A-Za-z_]\w*:)?\s*(?:db|TXT|TXR)\s+(.*)$'
-def used_chars():
-    import glob, re
-    used = set(FONT_DYN)
-    for f in glob.glob(os.path.join(ROOT, 'src', '*.asm')) + [os.path.join(OUT, 'version.inc')]:
-        if '/engine/' in f or f.endswith('libtest.asm') or not os.path.exists(f): continue
+FONT_DYN = {'ru': set(' -/,():0123456789') | set(RU),
+            'en': set(' -/,[]:0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ')}   # как до перевода ([A] залпа)
+import re as _re
+TXT_RE = _re.compile(r'^\s*(?:[A-Za-z_]\w*:)?\s*(TXT|TXN|ABR|db)\s+(.*)$')
+def pick(mac, rest, lang):
+    """Строки языка lang из строки исходника: TXT/ABR "ru","en" -> одна; TXN/db — как есть."""
+    qs = _re.findall(r'"([^"]*)"', rest.split(';')[0] if mac != 'db' else rest)
+    if mac in ('TXT', 'ABR'):
+        assert len(qs) == 2, ('нужна пара RU/EN', mac, rest)
+        return [qs[0] if lang == 'ru' else qs[1]]
+    return qs
+def src_lines():
+    import glob
+    for f in sorted(glob.glob(os.path.join(ROOT, 'src', '*.asm'))):
+        if '/engine/' in f or f.endswith('libtest.asm'): continue
         for l in open(f, encoding='utf8'):
-            m = re.match(TXT_RE, l)
-            if m:
-                for t in re.findall(r'"([^"]*)"', m.group(1)): used |= set(t)
+            yield f, l
+def used_chars(lang):
+    used = set(FONT_DYN[lang])
+    ver = os.path.join(OUT, 'version.inc')
+    lines = list(src_lines()) + ([(ver, l) for l in open(ver, encoding='utf8')] if os.path.exists(ver) else [])
+    for f, l in lines:
+        m = TXT_RE.match(l)
+        if m:
+            for t in pick(m.group(1), m.group(2), lang): used |= set(t)
     return used
-def build_font():
-    used = used_chars()
-    codes = {ord(enc(c)) for c in used}
-    assert all(32 <= c < 96 for c in codes), sorted(codes)
+def build_font(lang):
+    used = used_chars(lang)
     data = []
-    for i in range(64):
-        c = 32 + i
-        ch = DEC.get(c, chr(c))
-        r = font5x7.rows(ch) if c in codes else [0] * 8
+    if lang == 'ru':
+        codes = {ord(enc(c)) for c in used}
+        assert all(32 <= c < 96 for c in codes), sorted(codes)
+        cells = [DEC.get(32 + i, chr(32 + i)) if 32 + i in codes else None for i in range(64)]
+        extra = ''
+    else:
+        # как до перевода: коды 20h..5Fh — своя ячейка, строчные (60h..7Fh) — в свободные ячейки
+        assert all(32 <= ord(c) < 128 for c in used), sorted(used)
+        cells = [chr(32 + i) if chr(32 + i) in used else None for i in range(64)]
+        free = [i for i in range(64) if cells[i] is None]
+        hi = sorted(c for c in used if ord(c) >= 96)
+        assert len(hi) <= len(free), ('знаков 60h..7Fh больше, чем свободных ячеек', hi)
+        lc = [0] * 32
+        for c, i in zip(hi, free):
+            cells[i] = c; lc[ord(c) - 96] = i
+        extra = 'lc_map: db ' + ','.join('%d' % v for v in lc) + '\n'
+    for ch in cells:
+        r = font5x7.rows(ch) if ch else [0] * 8
         assert r[7] == 0, ch
         data += r[:7]
-    zx0('font', data)
-    write('font.inc', '; сгенерировано tools/mkdata.py: шрифт — коды 20h..5Fh (font_data)\n'
-          '; знаки: ' + ''.join(sorted(used, key=lambda c: ord(enc(c)))).replace(';', '') + '\n'
-          'FONT_SIZE equ %d\n' % len(data))
+    zx0(LDIR[lang] + 'font', data)
+    write(LDIR[lang] + 'font.inc', '; сгенерировано tools/mkdata.py: шрифт — коды 20h..5Fh (font_data)%s\n'
+          % ('' if lang == 'ru' else ', английский; lc_map — ячейка для кодов 60h..7Fh') +
+          '; знаки: ' + ''.join(sorted(used, key=lambda c: ord(enc(c, lang)))).replace(';', '') + '\n' +
+          extra + 'FONT_SIZE equ %d\n' % len(data))
     return bytes(data)
 
 # --------------------------------------------------------------------------- тексты
 # Строки TXT "..." в src/*.asm сжимаются словарём: байт >= 80h = слово номер (b-80h).
 # Словарь — частые куски (жадно по выигрышу, как BPE); разбор строки — оптимальный (ДП по
-# числу байтов), его же повторяет Lua-функция T() в src/macros.asm при сборке.
+# числу байтов), его же повторяет Lua-функция T() в src/macros.asm при сборке. Словарь у каждого
+# языка свой — по строкам этого языка.
 # dict.lua — слова для T(); dict.inc — слова подряд, у последнего знака слова бит 7.
 TXT_DICT_FILES = os.environ.get('TXT_DICT_SKIP', '').split(',')   # эти файлы в выборе слов не участвуют
-def txt_strings():
-    import glob, re
+def txt_strings(lang):
     out = []
-    for f in sorted(glob.glob(os.path.join(ROOT, 'src', '*.asm'))):
+    for f, l in src_lines():
         if os.path.basename(f) in TXT_DICT_FILES: continue
-        for l in open(f, encoding='utf8'):
-            m = re.match(r'^\s*(?:[A-Za-z_]\w*:)?\s*TXT\s+"([^"]*)"', l)
-            if m: out.append(enc(m.group(1)))
+        m = TXT_RE.match(l)
+        if m and m.group(1) in ('TXT', 'TXN'):
+            out += [enc(t, lang) for t in pick(m.group(1), m.group(2), lang)]
     return out
 def txt_parse(s, words):
     """ДП: минимум байтов; при равенстве — меньше слов словаря (детерминированно, как в Lua)."""
@@ -280,8 +319,8 @@ def txt_parse(s, words):
         if c is None: out.append(ord(s[i])); i += 1
         else: out.append(0x80 + c); i += len(words[c])
     return out
-def build_text():
-    strs = txt_strings()
+def build_text(lang):
+    strs = txt_strings(lang)
     words = []
     cur = [list(t) for t in strs]
     while len(words) < 128:
@@ -321,14 +360,15 @@ def build_text():
             if tt <= t: words, t, changed = ws, tt, True
     raw = sum(len(x) + 1 for x in strs)
     lua = lambda w: w.replace('\\', '\\\\').replace('"', '\\"')
-    write('dict.lua', '-- сгенерировано tools/mkdata.py: слова словаря (во внутренней кодировке) и ENC\n'
-          'DICT = {\n' + ''.join('  "%s",\n' % lua(w) for w in words) + '}\n'
-          'ENC = {' + ', '.join('[%d]=%d' % (ord(c), v) for c, v in sorted(ENC.items(), key=lambda x: x[1])) + '}\n')
+    write(LDIR[lang] + 'dict.lua', '-- сгенерировано tools/mkdata.py: слова словаря (во внутренней кодировке) и ENC\n'
+          'DICT = {\n' + ''.join('  "%s",\n' % lua(w) for w in words) + '}\n' +
+          ('ENC = {' + ', '.join('[%d]=%d' % (ord(c), v) for c, v in sorted(ENC.items(), key=lambda x: x[1])) + '}\n'
+           if lang == 'ru' else ''))
     data = []
     for w in words: data += [ord(ch) for ch in w[:-1]] + [ord(w[-1]) | 0x80]
-    write('dict.inc', '; сгенерировано tools/mkdata.py: словарь текстов (%d слов), последний знак слова | 80h\n'
+    write(LDIR[lang] + 'dict.inc', '; сгенерировано tools/mkdata.py: словарь текстов (%d слов), последний знак слова | 80h\n'
           'dict:\n' % len(words) + (db_lines(data) if data else '') + '\n')
-    print('тексты: %d строк, %d Б -> %d Б (словарь %d слов, %d Б)' % (len(strs), raw, t, len(words), len(data)))
+    print('тексты (%s): %d строк, %d Б -> %d Б (словарь %d слов, %d Б)' % (lang, len(strs), raw, t, len(words), len(data)))
 
 # --------------------------------------------------------------------------- картинки
 def vram_image(px, slotmap, planes):
@@ -511,9 +551,11 @@ def build_splash():
 if __name__ == '__main__':
     os.makedirs(OUT, exist_ok=True)
     ver = open(os.path.join(REF, 'VERSION')).read().strip()
-    write('version.inc', '        TXT "В.%s"\n' % ver)
-    build_text()
-    fb = build_font()
+    os.makedirs(os.path.join(OUT, 'en'), exist_ok=True)
+    write('version.inc', '        TXT "В.%s","V%s"\n' % (ver, ver))
+    for lang in LANGS:
+        build_text(lang)
+        fb = build_font(lang)
     nf = len(fb)
     nt, ng = build_tiles()
     im, pals = build_images()

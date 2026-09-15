@@ -20,7 +20,11 @@
 ; прерыванию, как будет в игре) и держит каждую PIC_HOLD кадров.
 ; ============================================================================
             DEVICE NOSLOT64K
-            include "../build/disk/layout.inc"  ; позиции файлов на дискете (пишет build_fdd.py)
+            IFDEF LANG_EN                       ; позиции файлов на дискете (пишет build_fdd.py):
+            include "../build/disk_en/layout.inc" ; у английской дискеты игра своей длины
+            ELSE
+            include "../build/disk/layout.inc"
+            ENDIF
 
 RES_TOP     equ 0F0h                    ; резидент $0000..$00EF, под ним стек до $0100
 PIC_HOLD    equ 100                     ; PICTEST: кадров на картинку
@@ -203,6 +207,10 @@ boot_end:
             IFDEF PICTEST
             SAVEBIN "build/disk/boot_pictest.bin", 100h, boot_end-100h
             ELSE
+            IFDEF LANG_EN
+            SAVEBIN "build/disk_en/boot.bin", 100h, boot_end-100h
+            ELSE
             SAVEBIN "build/disk/boot.bin", 100h, boot_end-100h
+            ENDIF
             ENDIF
             DISPLAY "загрузчик: ", /D, boot_end-100h, " Б (из 896), резидент: ", /D, res.res_end-res.res_beg, " Б (из ", /D, RES_TOP, ")"

@@ -349,9 +349,17 @@ putsi:      pop  hl
 gfx_putc:
             sub  32
             ret  c
+            IFDEF LANG_EN
+            cp   64                     ; коды 60h..7Fh — ячейка из таблицы lc_map (строчные, font.inc)
+            jp   c,pc_c
+            sub  64
+            ld   hl,lc_map
+            call tab_a
+            ELSE
             cp   64                     ; коды 60h и выше (буквы залпов M >= 32) — пробел: строчных нет
             jp   c,pc_c
             xor  a
+            ENDIF
 pc_c:       ld   l,a
             ld   h,0
             ld   d,h

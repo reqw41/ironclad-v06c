@@ -487,7 +487,7 @@ L1355s:     ld   bc,232*256+4           ; PSET(232,4),12: PRINT "TAB"
             ld   a,12
             call gfx_pset
             call putsi
-            TXT  "ТАБ"
+            TXT  "ТАБ","TAB"
 L1375:      ZEROV bI  ; FOR I=0 TO 9: PSET(GX+I*16+4,18),15: PRINT CHR$(65+I)
 L1375a:     LDV  bI                 ; 1380 (тем же циклом): PSET(2,GY+I*16+4),15: PRINT RIGHT$(STR$(I+1),2)
             add  a,a
@@ -679,7 +679,7 @@ L1451:      cp   '?'
             call L3900
             ZEROV bAC
             ret
-t1444:      db   'R',2,'B',7,'M',3,'A',4,'U',5,0   ; клавиши Р, Б, М, А, У (коды латинские)
+t1444:      db   'R',2,K_BUOY,7,K_MENU,3,K_AUTO,4,'U',5,0   ; клавиши Р, Б/X, М/Q, А/Z, У (коды латинские)
 
 ; ---------------------------------------------------------------- 1473: поле AT:
 L1473:      LDV  bCX                ; CO$=CHR$(65+CX)+MID$(STR$(CY+1),2)
@@ -1100,7 +1100,7 @@ L1795a:     call pxy_off
             jp   c,L1795a
             ret
 
-s_enemy:    TXT  "ВРАГ"
-s_yours:    TXT  "ВАШИ"
-s_game:     TXT  "ИГРА"
-s_at:       TXT  "ЦЕЛЬ:"
+s_enemy:    TXT  "ВРАГ","ENEMY"
+s_yours:    TXT  "ВАШИ","YOURS"
+s_game:     TXT  "ИГРА","GAME"
+s_at:       TXT  "ЦЕЛЬ:","AT:"

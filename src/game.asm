@@ -219,7 +219,7 @@ L365:       call L1615
 L370:       CPV  bLG,1
             jp   z,L380
 L375:       call msg1i
-            TXT  "ЗАНЯТО"
+            TXT  "ЗАНЯТО","BLOCKED"
             jp   L328
 L380:       call L1652
 L381:       call ship_to_ps
@@ -434,7 +434,7 @@ L501:       CPV  bDL,2  ; IF DL>1 AND GN=1 THEN MS$="COIN TOSS: "+MS$
             CPV  bGN,1
             jp   nz,L501a
             call ms_cati
-            TXT  "ЖРЕБИЙ: "
+            TXT  "ЖРЕБИЙ: ","COIN TOSS: "
 L501a:      pop  hl
             call ms_cat
 L502:       call L1305
@@ -563,7 +563,7 @@ L650:       call cm_cxcy                ; IF CM(CX,CY)>0 THEN "ALREADY FIRED"
             call hl_pos
             jp   z,L655
             call msg1i
-            TXT  "СЮДА УЖЕ СТРЕЛЯЛИ"
+            TXT  "СЮДА УЖЕ СТРЕЛЯЛИ","ALREADY FIRED"
             jp   L620
 L655:       ZEROV bFB
             call L3322
@@ -664,7 +664,7 @@ mc_1:       add  a,'0'
 L702:       ld   hl,L3470               ; 702..704
             call nf_calc
 L710:       call msg2i
-            TXT  "ВРАГ ЦЕЛИТСЯ..."
+            TXT  "ВРАГ ЦЕЛИТСЯ...","ENEMY IS PLOTTING..."
             SETV ai_left,AI_SHOW
 L715:       LDV  bDP
             or   a
@@ -755,7 +755,7 @@ L879:       call L2615
 L882:       call L1706
             call L2622
 L890:       call ms_seti
-            TXT  "ВЫ ПОТОПИЛИ "
+            TXT  "ВЫ ПОТОПИЛИ ","SUNK - ENEMY "
             call n_sh
             call ms_cat
             call L1305
@@ -943,7 +943,7 @@ L990:       INCV bEK
             call cat_sh3
             jp   L992
 L991:       call ms_seti
-            TXT  "ВРАГ ПОТОПИЛ "
+            TXT  "ВРАГ ПОТОПИЛ ","ENEMY SANK YOUR "
             call n_sh
             call ms_cat
             call L1315
@@ -952,7 +952,7 @@ L992:       CPV  bBD,1
             jp   L1280
 
 ; LEFT$(N$,3) -> DE (DE на выходе -> нуль): HL = имя корабля; по-русски вместо первых 3
-; букв — сокращение (АВН, ЛИН, ПЛ ...), оно лежит в 3 байтах перед именем (TXR, до 3 знаков)
+; букв — сокращение (АВН, ЛИН, ПЛ ...), оно лежит в 3 байтах перед именем (ABR)
 cat3:
             dec  hl
             dec  hl
@@ -1056,35 +1056,35 @@ ms_catd:
             jp   str_digits
 
 ; ---------------------------------------------------------------- тексты
-s_you_fire_first:   TXT  "ВЫ СТРЕЛЯЕТЕ ПЕРВЫМ"
-s_enemy_fires_first: TXT  "ПЕРВЫМ СТРЕЛЯЕТ ВРАГ"
-s_you_fire:         TXT  "ВЫСТРЕЛ "
-s_miss:             TXT  " - МИМО"
-s_hit:              TXT  " - ПОПАДАНИЕ"
-s_enemy_fires:      TXT  "ВЫСТРЕЛ ВРАГА "
+s_you_fire_first:   TXT  "ВЫ СТРЕЛЯЕТЕ ПЕРВЫМ","YOU FIRE FIRST"
+s_enemy_fires_first: TXT  "ПЕРВЫМ СТРЕЛЯЕТ ВРАГ","ENEMY FIRES FIRST"
+s_you_fire:         TXT  "ВЫСТРЕЛ ","YOU FIRE "
+s_miss:             TXT  " - МИМО"," - MISS"
+s_hit:              TXT  " - ПОПАДАНИЕ"," - HIT"
+s_enemy_fires:      TXT  "ВЫСТРЕЛ ВРАГА ","ENEMY FIRES "
 
-; имена кораблей — в винительном падеже (всегда после глагола: СТАВЬТЕ, ВЫ ПОТОПИЛИ, ВРАГ
-; ПОТОПИЛ); перед каждым — сокращение для панели и списка потопленных (cat3), 3 байта
-            TXR  "АВН"
-sh_carrier:     TXT  "АВИАНОСЕЦ"
-            TXR  "ЛИН"
-sh_battleship:  TXT  "ЛИНКОР"
-            TXR  "КРС"
-sh_cruiser:     TXT  "КРЕЙСЕР"
-            TXR  "ПЛ"
-            db   0
-sh_submarine:   TXT  "ПОДЛОДКУ"
-            TXR  "ЭСМ"
-sh_destroyer:   TXT  "ЭСМИНЕЦ"
-            TXR  "БОТ"
-sh_bot:         TXT  "БОТ"
-            TXR  "ФРГ"
-sh_frigate:     TXT  "ФРЕГАТ"
-            TXR  "КРВ"
-sh_corvette:    TXT  "КОРВЕТ"
-            TXR  "КТР"
-sh_cutter:      TXT  "КАТЕР"
-            TXR  "БРК"
-sh_launch:      TXT  "БАРКАС"
-            TXR  "ЯЛК"
-sh_skiff:       TXT  "ЯЛИК"
+; имена кораблей: по-русски — в винительном падеже (всегда после глагола: СТАВЬТЕ, ВЫ ПОТОПИЛИ,
+; ВРАГ ПОТОПИЛ), по-английски — как в оригинале. Перед каждым — сокращение для панели и списка
+; потопленных (cat3), 3 байта; английское — первые 3 буквы (LEFT$(N$,3) оригинала)
+            ABR  "АВН","CAR"
+sh_carrier:     TXT  "АВИАНОСЕЦ","CARRIER"
+            ABR  "ЛИН","BAT"
+sh_battleship:  TXT  "ЛИНКОР","BATTLESHIP"
+            ABR  "КРС","CRU"
+sh_cruiser:     TXT  "КРЕЙСЕР","CRUISER"
+            ABR  "ПЛ","SUB"
+sh_submarine:   TXT  "ПОДЛОДКУ","SUBMARINE"
+            ABR  "ЭСМ","DES"
+sh_destroyer:   TXT  "ЭСМИНЕЦ","DESTROYER"
+            ABR  "БОТ","BOT"
+sh_bot:         TXT  "БОТ","BOT"
+            ABR  "ФРГ","FRI"
+sh_frigate:     TXT  "ФРЕГАТ","FRIGATE"
+            ABR  "КРВ","COR"
+sh_corvette:    TXT  "КОРВЕТ","CORVETTE"
+            ABR  "КТР","CUT"
+sh_cutter:      TXT  "КАТЕР","CUTTER"
+            ABR  "БРК","LAU"
+sh_launch:      TXT  "БАРКАС","LAUNCH"
+            ABR  "ЯЛК","SKI"
+sh_skiff:       TXT  "ЯЛИК","SKIFF"

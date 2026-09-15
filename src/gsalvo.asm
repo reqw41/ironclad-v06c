@@ -46,7 +46,7 @@ L3801:      LDV  bSL                ; NV=SL: GOSUB 3810
             ld   hl,s_hits
             call hits_msg
             ld   hl,sSS                 ; IF SS$<>"" THEN MS$=MS$+" SANK: "+LEFT$(SS$,LEN(SS$)-1)
-            ld   de,11                  ; сокращение: LEFT$(MS$,11)+MID$(MS$,16) — «ПОПАЛИ: 3/5» (было 9/14 для «HITS:»)
+            ld   de,N_HITS_CUT          ; сокращение: LEFT$(MS$,11)+MID$(MS$,16) — «ПОПАЛИ: 3/5» (EN: 9/14, «HITS:»)
             call salvo_sank
 L3803:      call L1305
             LDV  bSK
@@ -72,10 +72,10 @@ hits_msg:   push bc
             pop  af
             call ms_catd
             call ms_cati
-            TXT  " ("
+            TXT  " ("," ["
             ld   hl,sS1
             call ms_cat
-            ld   a,')'                  ; скобки круглые: коды [ ] заняты буквами Ь Ю
+            ld   a,C_RBR                ; по-русски скобки круглые: коды [ ] заняты буквами Ь Ю
             jp   ms_catc
 
 ; MS$ += " НА ДНЕ: " + SS$ без последней запятой; если длиннее 31 — вырезать 4 знака « (А)»
@@ -87,7 +87,7 @@ salvo_sank:
             push de
             push hl
             call ms_cati
-            TXT  " НА ДНЕ: "
+            TXT  " НА ДНЕ: "," SANK: "
             pop  hl
             call ms_cat
             ld   de,sMS                 ; убрать завершающую запятую
@@ -284,7 +284,7 @@ L3840:      ZEROV bEK
             jp   nz,L3843
             ZEROV bFP
             call msg2i
-            TXT  "ВРАГ ИЗУЧАЕТ ЗАЛП ..."
+            TXT  "ВРАГ ИЗУЧАЕТ ЗАЛП ...","ENEMY REVIEWS LAST SALVO ..."
             SETV ai_left,AI_SHOW
             call L4301
 L3843:      call L4000
@@ -445,7 +445,7 @@ L3882:      LDV  bSH
             ld   hl,bSJ
             dec  (hl)
 L3883:      call ms_seti
-            TXT  "ОТМЕНА "
+            TXT  "ОТМЕНА ","UNDO "
             LDV  bCX
             add  a,65
             call ms_catc
@@ -550,11 +550,11 @@ L4002x:     LDV  bKM
             or   a
             jp   nz,L4002b
             call msg2i
-            TXT  "ВРАГ ПРОЧЕСЫВАЕТ МОРЕ ..."
+            TXT  "ВРАГ ПРОЧЕСЫВАЕТ МОРЕ ...","ENEMY PROBES OPEN SEA ..."
             SETV ai_left,AI_SHOW
             jp   L4070
 L4002b:     call msg2i
-            TXT  "ВРАГ ПОДБИРАЕТСЯ ..."
+            TXT  "ВРАГ ПОДБИРАЕТСЯ ...","ENEMY CLOSES IN ..."
             SETV ai_left,AI_SHOW
 L4003:      ZEROV bNA  ; NA, KL, T5 = сумма CC(K)*SZ(K) живых K<=ZT
             ld   hl,0
@@ -1244,29 +1244,29 @@ L4170:      ld   hl,bBL
             ret
 ; 9031: подписи панели SALVO PLUS (y, текст)
 panel_sp:   db   34
-            TXT  "АВН"
+            TXT  "АВН","CAR"
             db   42
-            TXT  "ЛИН"
+            TXT  "ЛИН","BAT"
             db   50
-            TXT  "КРС"
+            TXT  "КРС","CRU"
             db   58
-            TXT  "ПЛ"
+            TXT  "ПЛ","SUB"
             db   66
-            TXT  "ЭСМ"
+            TXT  "ЭСМ","DES"
             db   82
-            TXT  "БОТ"
+            TXT  "БОТ","BOT"
             db   105
-            TXT  "АВН"
+            TXT  "АВН","CAR"
             db   113
-            TXT  "ЛИН"
+            TXT  "ЛИН","BAT"
             db   121
-            TXT  "КРС"
+            TXT  "КРС","CRU"
             db   129
-            TXT  "ПЛ"
+            TXT  "ПЛ","SUB"
             db   137
-            TXT  "ЭСМ"
+            TXT  "ЭСМ","DES"
             db   153
-            TXT  "БОТ"
+            TXT  "БОТ","BOT"
 
 ; ---------------------------------------------------------------- 4300: разбор отчёта о прошлом залпе
 L4301:      LDV  bNS                ; T2=USR0(NS)
@@ -1478,6 +1478,6 @@ L4339:      pop  bc
             jp   c,L4338a
             ret
 
-s_hits:         TXT  "ПОПАЛИ:"
-s_press_space:  TXT  "ПРОБЕЛ - ДАЛЬШЕ ..."
-s_enemy_hits:   TXT  "ВРАГ ПОПАЛ:"
+s_hits:         TXT  "ПОПАЛИ:","HITS:"
+s_press_space:  TXT  "ПРОБЕЛ - ДАЛЬШЕ ...","Press SPACE to continue ..."
+s_enemy_hits:   TXT  "ВРАГ ПОПАЛ:","ENEMY HITS:"

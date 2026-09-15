@@ -34,7 +34,7 @@ sd1_1:      ZEROV bSD
 L2010:      ld   hl,0
             ld   (bAT),hl
             call msg1i
-            TXT  "РАССТАНОВКА ФЛОТА ..."
+            TXT  "РАССТАНОВКА ФЛОТА ...","PLACING FLEET ..."
             LDV  bRW
             or   a
             jp   z,L2020
@@ -43,7 +43,7 @@ L2010:      ld   hl,0
 L2020:      call at_inc
             jp   nc,L2030
             call ms_seti
-            TXT  "НЕТ МЕСТА"
+            TXT  "НЕТ МЕСТА","NO ROOM"
             jp   L1305
 L2030:      call L3440
 L2040:      call L1615
@@ -71,7 +71,7 @@ L2085:      jp   L2635                  ; COPY стр.1 -> стр.2: запис�
 L2108:      CPV  bSH,2
             jp   nc,L2110
             call ms_seti
-            TXT  "НЕЧЕГО УБИРАТЬ"
+            TXT  "НЕЧЕГО УБИРАТЬ","NOTHING TO UNDO"
             jp   L1305
 L2110:      ld   hl,bSH
             dec  (hl)
@@ -217,11 +217,11 @@ o_next:     call tiles_load
 
 ; ---------------------------------------------------------------- 2350: выход в меню
 L2350:      call msg1i
-            TXT  "ПРЕРВАТЬ ИГРУ? ЕЩЕ РАЗ М"
+            TXT  "ПРЕРВАТЬ ИГРУ? ЕЩЕ РАЗ М","TERMINATE GAME? Q AGAIN"
             ZEROV bAB
 L2352:      call getkey
             STV  bK_
-L2354:      cp   'M'                    ; клавиша М (было Q); UCASE не нужен — строчных кодов нет
+L2354:      cp   K_MENU                 ; клавиша М / Q (lang.asm); UCASE не нужен — строчных кодов нет
             jp   nz,L2356
             SETV bAB,1
 L2356:      call ms_clear
@@ -387,14 +387,14 @@ L3946:      jp   rd_cxcy
 ; 3960: MS$="PLACE "+N$(SH)+SPACE$(19-LEN(N$(SH)))+"?:HELP": ... подсказка клавиш
 ; (по-русски: "СТАВЬТЕ "+N$+SPACE$(15-LEN)+"?:ПОМОЩЬ" — те же 31 знак)
 L3960:      call ms_seti
-            TXT  "СТАВЬТЕ "
+            TXT  "СТАВЬТЕ ","PLACE "
             call n_sh
             push hl
             call ms_cat
             pop  hl
             call str_len
             ld   b,a
-            ld   a,15
+            ld   a,N_PLACE_PAD          ; 15 / 19 (lang.asm)
             sub  b
             ld   b,a
 L3960a:     ld   a,b
@@ -407,10 +407,10 @@ L3960a:     ld   a,b
             dec  b
             jp   L3960a
 L3960b:     call ms_cati
-            TXT  "?:ПОМОЩЬ"
+            TXT  "?:ПОМОЩЬ","?:HELP"
             call L1305
             call ms_seti
-            TXT  "ПРОБЕЛ:СТАВ Р:РАЗВ У:УБР А:АВТО"
+            TXT  "ПРОБЕЛ:СТАВ Р:РАЗВ У:УБР А:АВТО","SPC:DROP R:TURN U:UNDO Z:AUTO"
             jp   L1315
 
 ; ---------------------------------------------------------------- перерисовка страницы (порт)
@@ -460,6 +460,6 @@ rf_3:       call at_draw_vis
             jp   disp_on
 
 
-s_enemy_wins:   TXT  "ПОБЕДИЛ ВРАГ"
-s_you_win:      TXT  "ВЫ ПОБЕДИЛИ"
-s_press_key_back: TXT  "НАЖМИТЕ ЛЮБУЮ КЛАВИШУ"
+s_enemy_wins:   TXT  "ПОБЕДИЛ ВРАГ","ENEMY WINS"
+s_you_win:      TXT  "ВЫ ПОБЕДИЛИ","YOU WIN"
+s_press_key_back: TXT  "НАЖМИТЕ ЛЮБУЮ КЛАВИШУ","Press a key to go back"

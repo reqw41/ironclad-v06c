@@ -38,30 +38,40 @@
             ENDM
 
 ; ---------------------------------------------------------------- тексты
-; Строки в исходниках — UTF-8, заглавные русские буквы; U() переводит их во внутреннюю
-; кодировку шрифта (таблица ENC из build/data/dict.lua, см. tools/mkdata.py): 20h..40h — как
-; ASCII, А = 41h ... Я = 5Eh, Й = 5Fh (Ё = Е). Латиница и прочее — ошибка сборки.
-; TXT "строка" — строка, сжатая словарём (build/data/dict.lua, строит tools/mkdata.py):
-; байт >= 80h — слово словаря (dict в dict.inc), 0 — конец. Разбор — оптимальный (ДП).
-; TXR "строка" — те же знаки без словаря и без 0 (для кода, читающего байты подряд).
+; Язык выбирается при сборке: без флага — русский, -DLANG_EN — английский (tools/build_all.sh).
+; Каждая переводимая строка стоит в исходнике парой: TXT "РУССКАЯ","English" — в образ идёт
+; строка языка сборки. TXN "..." — строка без букв (цифры, знаки), одна на оба языка.
+; Числа и клавиши, зависящие от языка, — в src/lang.asm (LNG), шрифт и словарь — по языку сборки
+; (tools/mkdata.py: build/data/ — русские, build/data/en/ — английские).
+; Кодировка U(): русская сборка — внутренняя кодировка шрифта (таблица ENC из dict.lua): 20h..40h
+; как ASCII, А = 41h ... Я = 5Eh, Й = 5Fh (Ё = Е), латиница — ошибка сборки; английская — ASCII
+; 20h..7Fh (строчные — через lc_map шрифта), кириллица — ошибка сборки.
+; TXT — строка, сжатая словарём (build/data[/en]/dict.lua, строит tools/mkdata.py): байт >= 80h —
+; слово словаря (dict в dict.inc), 0 — конец. Разбор — оптимальный (ДП).
+; ABR "РУС","ENG" — сокращение имени корабля для cat3: 3 байта без словаря (короче — добито нулями).
             LUA PASS1
-            dofile("build/data/dict.lua")
+            LANG_EN = sj.get_define("LANG_EN") ~= nil
+            if LANG_EN then dofile("build/data/en/dict.lua") else dofile("build/data/dict.lua") end
             function U(s)
               s = s:match('^"(.*)"$') or s
               local o = {}
               for _, c in utf8.codes(s) do
-                local b = ENC[c]
-                if not b then
-                  if c >= 32 and c <= 64 then b = c
-                  else error("знак вне шрифта: " .. utf8.char(c) .. " в строке " .. s) end
+                local b
+                if LANG_EN then
+                  if c >= 32 and c < 128 then b = c end
+                else
+                  b = ENC[c]
+                  if not b and c >= 32 and c <= 64 then b = c end
                 end
+                if not b then error("знак вне шрифта: " .. utf8.char(c) .. " в строке " .. s) end
                 o[#o + 1] = string.char(b)
               end
               return table.concat(o)
             end
-            function R(s)
+            function A(s)
               s = U(s)
-              for i = 1, #s do _pc("db " .. s:byte(i)) end
+              assert(#s <= 3, "ABR длиннее 3 знаков: " .. s)
+              for i = 1, 3 do _pc("db " .. (s:byte(i) or 0)) end
             end
             function T(s)
               s = U(s)
@@ -86,16 +96,34 @@
               end
               _pc("db 0")
             end
+            -- строка языка сборки из пары
+            function P(ru, en) if LANG_EN then return en else return ru end end
             ENDLUA
-            MACRO TXT str
+            MACRO TXT ru, en
+            DEFINE+ _TXTA ru
+            DEFINE+ _TXTB en
+            LUA ALLPASS
+            T(P(sj.get_define("_TXTA"), sj.get_define("_TXTB")))
+            ENDLUA
+            ENDM
+            MACRO TXN str
             DEFINE+ _TXTA str
             LUA ALLPASS
             T(sj.get_define("_TXTA"))
             ENDLUA
             ENDM
-            MACRO TXR str
-            DEFINE+ _TXTA str
+            MACRO ABR ru, en
+            DEFINE+ _TXTA ru
+            DEFINE+ _TXTB en
             LUA ALLPASS
-            R(sj.get_define("_TXTA"))
+            A(P(sj.get_define("_TXTA"), sj.get_define("_TXTB")))
             ENDLUA
+            ENDM
+; LNG имя, русское, английское — константа языка сборки (для src/lang.asm)
+            MACRO LNG name, ru, en
+            IFDEF LANG_EN
+name        equ en
+            ELSE
+name        equ ru
+            ENDIF
             ENDM
