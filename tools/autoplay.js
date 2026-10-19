@@ -13,7 +13,7 @@
 // Экран: байт = 0x8000 + плоскость*0x2000 + (столбец<<8) + строка памяти; строка 255 = верх кадра.
 "use strict";
 const fs = require("fs"), vm = require("vm"), zlib = require("zlib"), path = require("path");
-const base = "/Users/boris/projects/vector06js";
+const base = process.env.V06JS || require("path").join(require("os").homedir(), "projects/vector06js");   // ядро эмулятора: github.com/svofski/vector06js
 const [ROM, RULES, MAXF, OUTDIR] = process.argv.slice(2);
 if (!ROM) { console.error("usage: vshot.js rom 'script'"); process.exit(2); }
 const SLD = ROM.replace(/\.rom$/, ".sld");

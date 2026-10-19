@@ -10,11 +10,15 @@
 //   m ADDR N       — напечатать N байт памяти
 //   until LABEL [N] — крутить до исполнения метки (не больше N кадров, по умолчанию 3000)
 //   border         — индекс бордюра в порту (io.BorderIndex) и его цвет из vec_pal_live
+//   jd BITS / ju BITS — джойстик «П» (порт 6): нажать / отпустить биты (б0 вправо, б1 влево,
+//                    б2 вверх, б3 вниз, б6 огонь 1, б7 огонь 2); jk BITS [N] — нажать на N кадров
+//                    (по умолчанию 3) и отпустить, потом 3 кадра паузы. Покой порта — FFh, нажатый
+//                    бит — 0, как у ядра MiSTer. JOYDEAD=1 — порт молчит (негативный контроль гейта).
 // Клавиши: space enter tab left right up down a..z 0..9 slash shift(удерживать вместе: d shift).
 // Экран: байт = 0x8000 + плоскость*0x2000 + (столбец<<8) + строка памяти; строка 255 = верх кадра.
 "use strict";
 const fs = require("fs"), vm = require("vm"), zlib = require("zlib"), path = require("path");
-const base = "/Users/boris/projects/vector06js";
+const base = process.env.V06JS || require("path").join(require("os").homedir(), "projects/vector06js");   // ядро эмулятора: github.com/svofski/vector06js
 const [ROM, SCRIPT] = process.argv.slice(2);
 if (!ROM) { console.error("usage: vshot.js rom 'script'"); process.exit(2); }
 const SLD = ROM.replace(/\.rom$/, ".sld");
@@ -57,6 +61,10 @@ function key(k, down) {
   const kb = KM[k]; if (!kb) throw new Error("нет клавиши " + k);
   if (down) keyboard.matrix[kb[0]] |= kb[1]; else keyboard.matrix[kb[0]] &= ~kb[1];
 }
+// ---- джойстик «П»: порт 6, покой FFh, нажатый бит = 0
+let joy = 0;
+const ioIn = io.input.bind(io);
+io.input = p => ((p & 0xff) === 6 ? (process.env.JOYDEAD === "1" ? 0xff : (~joy) & 0xff) : ioIn(p));
 // ---- прогон
 let frames = 0, frc = 0, tacc = 0, steps = 0, hit = null;
 function frame(n, stopAt) {
@@ -102,6 +110,9 @@ for (const cmd of (SCRIPT || "w100;s build/shot.png").split(";").map(s => s.trim
   switch (a[0]) {
     case "w": frame(+a[1]); break;
     case "k": key(a[1], true); frame(+(a[2] || 3)); key(a[1], false); frame(3); break;
+    case "jd": joy |= parseInt(a[1]); break;
+    case "ju": joy &= ~parseInt(a[1]); break;
+    case "jk": joy |= parseInt(a[1]); frame(+(a[2] || 3)); joy &= ~parseInt(a[1]); frame(3); break;
     case "d": key(a[1], true); break;
     case "u": key(a[1], false); break;
     case "s": shot(a[1]); break;

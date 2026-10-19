@@ -96,10 +96,10 @@ lz_1:       ld   (hl),0
             call memcpy
             ld   hl,rst_tab             ; векторы RST 1..6 -> частые подпрограммы
             ld   de,8
-rvs_1:       ld   a,(hl)
-            or   a
-            jp   z,rvs_2
-            ld   a,0C3h
+            ld   b,(rst_tab_end-rst_tab)/2  ; по счёту, а не до нулевого байта: адрес с младшим
+                                            ; байтом 0 (rst_zerov попадал на $0C00) обрывал таблицу,
+                                            ; и RST 28h/30h оставались пустыми
+rvs_1:       ld   a,0C3h
             ld   (de),a
             inc  de
             ld   a,(hl)
@@ -112,7 +112,8 @@ rvs_1:       ld   a,(hl)
             ld   a,e
             add  a,6
             ld   e,a
-            jp   rvs_1
+            dec  b
+            jp   nz,rvs_1
 rvs_2:       ld   hl,font_zx0            ; шрифт -> BSS
             ld   de,font_data
             call dzx0
@@ -131,7 +132,7 @@ rvs_2:       ld   hl,font_zx0            ; шрифт -> BSS
             ENDIF
 
 rst_tab:    dw rst_ldv, rst_cpv, rst_incv, rst_setv, rst_zerov, rst_stv
-            db 0
+rst_tab_end:
 ; RST 0: HL += A. Два nop в начале: байты $0000/$0001 = 0 (нулевой указатель на строку = "")
 rst0_code:  nop
             nop

@@ -70,5 +70,7 @@ rnd_seed:   ds 2
 rn_n:       ds 1
 rn_t:       ds 1
 sd_buf:     ds 6
+; joy
+joy_idle:   ds 1        ; джойстик «П» в покое (порт 6), замер в vec_init
 lowbss_end:
             ASSERT lowbss_end <= 100h

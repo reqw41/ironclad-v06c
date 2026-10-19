@@ -4,7 +4,8 @@
 #   build/ironclad_en.rom   — картридж, английский     (DEFS=-DLANG_EN ./build.sh)
 #   build/ironclad.fdd      — дискета, русская         (tools/build_disk.sh)
 #   build/ironclad_en.fdd   — дискета, английская      (DEFS=-DLANG_EN tools/build_disk.sh)
-# Русские образы сверяются с эталонами main 8dd8976 (md5 ниже): до языковой правки они были такими же.
+# Русские образы сверяются с эталонами (md5 ниже). Эталон обновлён 19.10.2026: джойстик «П» (vec.asm)
+# и установка векторов RST по счёту (main.asm); до этого — main 8dd8976.
 set -e
 cd "$(dirname "$0")/.."
 Q() { grep -E "error|ОШИБКА|Errors: [1-9]" || true; }
@@ -14,7 +15,7 @@ tools/build_disk.sh 2>&1 | Q
 DEFS=-DLANG_EN tools/build_disk.sh 2>&1 | Q
 python3 - <<'EOF'
 import hashlib
-REF = {'build/ironclad.rom': 'fc3daf48bbe8248da7d50fd12d13005c', 'build/ironclad.fdd': '258d44743f32bcb80db7f2e12cc71b44'}
+REF = {'build/ironclad.rom': '139a9255409991197edaca970c2f2f32', 'build/ironclad.fdd': 'ca8a2e83e4f09278e63574ed22af6cc3'}
 def labels(sld):
     L = {}
     for l in open(sld, encoding='latin1'):
