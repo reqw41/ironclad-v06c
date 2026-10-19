@@ -10,6 +10,7 @@ DEF="-DDISK ${DEFS:-}"
 DD=build/disk; EN=""
 case " $DEF " in *" -DLANG_EN "*) DD=build/disk_en; EN=--en;; esac
 mkdir -p build/disk $DD
+[ -f ref/ironclad-msx/IRONCLAD.SC5 ] || tools/fetch_ref.sh   # исходники MSX: картинки .SC5
 python3 tools/mkdata.py >/dev/null          # общие данные (шрифт, словарь, тайлы картриджа, заставка)
 python3 tools/mkdisk.py >/dev/null          # картинки, палитры, тайлы 16 цветов
 python3 tools/build_fdd.py --layout $EN     # позиции на дискете -> $DD/layout.inc

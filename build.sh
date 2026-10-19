@@ -7,6 +7,7 @@
 set -e
 cd "$(dirname "$0")"
 mkdir -p build
+[ -f ref/ironclad-msx/IRONCLAD.SC5 ] || tools/fetch_ref.sh   # исходники MSX: картинки .SC5
 python3 tools/mkdata.py >/dev/null
 DEF="${DEFS:-}"
 [ "$1" = "libtest" ] && DEF="-DLIBTEST"
